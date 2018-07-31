@@ -2,6 +2,7 @@ import numpy as np
 import scipy.sparse as sp
 
 from FDFD.Fdfd import Fdfd
+from FDFD.linalg import solver_direct
 
 
 def born_solve(simulation, eps_r, b, nonlinear_fn, nl_region, conv_threshold=1e-8, max_num_iter=10):
@@ -75,7 +76,7 @@ def newton_solve(simulation, eps_r, b, nonlinear_fn, nonlinear_de, nl_region, co
 		# Namely, J*(x_n - x_{n-1}) = -f(x_{n-1}), where J = df/dx(x_{n-1})
 		fx_full = np.vstack([fx, np.conj(fx)])
 		Jac_full = sp.vstack((sp.hstack((Jac11, Jac12)), np.conj(sp.hstack((Jac12, Jac11)))))
-		Ediff = sp.linalg.spsolve(Jac_full, fx_full)
+		Ediff = solver_direct(Jac_full, fx_full)
 		Ez = Eprev - Ediff[(range(Nbig))]
 
 		# get convergence and break
