@@ -10,7 +10,6 @@ def born_solve(simulation, eps_r, b, nonlinear_fn, nl_region, conv_threshold=1e-
 	# eps_r is the linear permittivity
 
 	# Solve the linear problem to start
-	simulation = Fdfd(simulation.omega, eps_r, simulation.dl, simulation.NPML, simulation.pol)
 	(Hx,Hy,Ez) = simulation.solve_fields(b)
 
 	# Stores convergence parameters
@@ -44,10 +43,10 @@ def newton_solve(simulation, eps_r, b, nonlinear_fn, nonlinear_de, nl_region, co
 	# NOTE: DOES NOT WORK YET!
 
 	# Solve the linear problem to start
-	simulation = Fdfd(simulation.omega, eps_r, simulation.dl, simulation.NPML, simulation.pol)
 	(Hx,Hy,Ez) = simulation.solve_fields(b)
 	Ez = Ez.ravel(order='F')
 	nl_region = nl_region.ravel(order='F')
+	Al = simulation.A
 
 	# Stores convergence parameters
 	conv_array = np.zeros((max_num_iter, 1))
@@ -72,12 +71,22 @@ def newton_solve(simulation, eps_r, b, nonlinear_fn, nonlinear_de, nl_region, co
 		Jac11 = Anl + sp.spdiags((nonlinear_de(Eprev)*Eprev*nl_region), 0, Nbig, Nbig, format='csc')
 		Jac12 = sp.spdiags((np.conj(nonlinear_de(Eprev))*Eprev*nl_region), 0, Nbig, Nbig, format='csc')
 
+		n2 = 10;
+		# fx1 = (Al + sp.spdiags(n2*Eprev*np.conj(Eprev)*nl_region, 0, Nbig, Nbig, format='csc')).dot(Eprev) - b.ravel(order = 'F')
+		# Jac111 = Al + sp.spdiags(2*n2*Eprev*np.conj(Eprev)*nl_region, 0, Nbig, Nbig, format='csc')
+		# Jac121 = sp.spdiags(n2*Eprev*Eprev*nl_region, 0, Nbig, Nbig, format='csc')
+
+		# These should be two equivalent ways to make the nonlinear matrix and the norm should be zero but it's not!!
+		Anl1 = Al + sp.spdiags(n2*np.square(np.abs(Eprev))*nl_region, 0, Nbig, Nbig, format='csc')
+		print(sp.linalg.norm(Anl1 - Anl))	
+
 		# Note: I'm phrasing Newton's method as a linear problem to avoid inverting the Jacobian
 		# Namely, J*(x_n - x_{n-1}) = -f(x_{n-1}), where J = df/dx(x_{n-1})
-		fx_full = np.vstack([fx, np.conj(fx)])
+		fx_full = np.vstack((fx, np.conj(fx)))
 		Jac_full = sp.vstack((sp.hstack((Jac11, Jac12)), np.conj(sp.hstack((Jac12, Jac11)))))
 		Ediff = solver_direct(Jac_full, fx_full)
-		Ez = Eprev - Ediff[(range(Nbig))]
+		# Ediff = solver_direct(Jac11, fx)
+		Ez = Eprev - Ediff[range(Nbig)]
 
 		# get convergence and break
 		convergence = np.linalg.norm(Ez - Eprev)/np.linalg.norm(Ez)
