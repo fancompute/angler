@@ -64,14 +64,14 @@ def newton_solve(simulation, eps_r, b, nonlinear_fn, nonlinear_de, nl_region, co
 		Eprev = Ez
 
 		# set new permittivity
-		eps_nl = eps_r + (nonlinear_fn(Eprev)*nl_region).reshape(simulation.Nx, simulation.Ny, order = 'F')
+		eps_nl = eps_r + (nonlinear_fn(Eprev)*nl_region).reshape(simulation.Nx, simulation.Ny)
 
 		# reset simulation for matrix A (note: you don't need to solve for the fields!) 
 		simulation.reset_eps(eps_nl)
 
 		# perform newtons method to get new fields
 		Anl = simulation.A 
-		fx = (Anl.dot(Eprev) - b.ravel(order='F')).reshape(Nbig, 1, order = 'F')
+		fx = (Anl.dot(Eprev) - b.ravel(order='F')).reshape(Nbig, 1)
 		Jac11 = Anl + sp.spdiags((nonlinear_de(Eprev)*Eprev*nl_region), 0, Nbig, Nbig, format='csc')
 		Jac12 = sp.spdiags((np.conj(nonlinear_de(Eprev))*Eprev*nl_region), 0, Nbig, Nbig, format='csc')
 
@@ -100,7 +100,7 @@ def newton_solve(simulation, eps_r, b, nonlinear_fn, nonlinear_de, nl_region, co
 		if convergence < conv_threshold:
 			break
 
-	Ez = Ez.reshape(simulation.Nx, simulation.Ny, order = 'F')
+	Ez = Ez.reshape(simulation.Nx, simulation.Ny)
 
 
 	if istep == max_num_iter-1:
