@@ -35,12 +35,16 @@ def born_solve(simulation, eps_r, b, nonlinear_fn, nl_region, conv_threshold=1e-
 		if convergence < conv_threshold:
 			break
 
+	if istep == max_num_iter-1:
+		raise Warning("the simulation never converged, reached {}".format(convergence))
+
 	return (Ez, conv_array)
 
 
 def newton_solve(simulation, eps_r, b, nonlinear_fn, nonlinear_de, nl_region, conv_threshold=1e-18, max_num_iter=5):
 	# solves for the nonlinear fields using Newton's method
 	# NOTE: DOES NOT WORK YET!
+	# Can we break this up into a few functions? -T
 
 	# Solve the linear problem to start
 	(Hx,Hy,Ez) = simulation.solve_fields(b)
@@ -98,4 +102,8 @@ def newton_solve(simulation, eps_r, b, nonlinear_fn, nonlinear_de, nl_region, co
 
 	Ez = Ez.reshape(simulation.Nx, simulation.Ny, order = 'F')
 
+
+	if istep == max_num_iter-1:
+		raise Warning("the simulation never converged, reached {}".format(convergence))
+		
 	return (Ez, conv_array)
