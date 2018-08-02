@@ -35,8 +35,8 @@ def born_solve(simulation, eps_r, b, nonlinear_fn, nl_region, conv_threshold=1e-
 		if convergence < conv_threshold:
 			break
 
-	if istep == max_num_iter-1:
-		raise Warning("the simulation never converged, reached {}".format(convergence))
+	if convergence > conv_threshold:
+		print("the simulation did not converge, reached {}".format(convergence))
 
 	return (Ez, conv_array)
 
@@ -48,9 +48,8 @@ def newton_solve(simulation, eps_r, b, nonlinear_fn, nonlinear_de, nl_region, co
 
 	# Solve the linear problem to start
 	(Hx,Hy,Ez) = simulation.solve_fields(b)
-	Ez = Ez.ravel(order='F')
-	nl_region = nl_region.ravel(order='F')
-	Al = simulation.A
+	Ez = Ez.reshape(-1,)
+	nl_region = nl_region.reshape(-1,)
 
 	# Stores convergence parameters
 	conv_array = np.zeros((max_num_iter, 1))
@@ -64,25 +63,16 @@ def newton_solve(simulation, eps_r, b, nonlinear_fn, nonlinear_de, nl_region, co
 		Eprev = Ez
 
 		# set new permittivity
-		eps_nl = eps_r + (nonlinear_fn(Eprev)*nl_region).reshape(simulation.Nx, simulation.Ny, order = 'F')
+		eps_nl = eps_r + (nonlinear_fn(Eprev)*nl_region).reshape(simulation.Nx, simulation.Ny)
 
 		# reset simulation for matrix A (note: you don't need to solve for the fields!) 
 		simulation.reset_eps(eps_nl)
 
 		# perform newtons method to get new fields
 		Anl = simulation.A 
-		fx = (Anl.dot(Eprev) - b.ravel(order='F')).reshape(Nbig, 1, order = 'F')
+		fx = (Anl.dot(Eprev) - b.reshape(-1,)).reshape(Nbig, 1)
 		Jac11 = Anl + sp.spdiags((nonlinear_de(Eprev)*Eprev*nl_region), 0, Nbig, Nbig, format='csc')
 		Jac12 = sp.spdiags((np.conj(nonlinear_de(Eprev))*Eprev*nl_region), 0, Nbig, Nbig, format='csc')
-
-		n2 = 10;
-		# fx1 = (Al + sp.spdiags(n2*Eprev*np.conj(Eprev)*nl_region, 0, Nbig, Nbig, format='csc')).dot(Eprev) - b.ravel(order = 'F')
-		# Jac111 = Al + sp.spdiags(2*n2*Eprev*np.conj(Eprev)*nl_region, 0, Nbig, Nbig, format='csc')
-		# Jac121 = sp.spdiags(n2*Eprev*Eprev*nl_region, 0, Nbig, Nbig, format='csc')
-
-		# These should be two equivalent ways to make the nonlinear matrix and the norm should be zero but it's not!!
-		Anl1 = Al + sp.spdiags(n2*np.square(np.abs(Eprev))*nl_region, 0, Nbig, Nbig, format='csc')
-		print(sp.linalg.norm(Anl1 - Anl))	
 
 		# Note: I'm phrasing Newton's method as a linear problem to avoid inverting the Jacobian
 		# Namely, J*(x_n - x_{n-1}) = -f(x_{n-1}), where J = df/dx(x_{n-1})
@@ -100,10 +90,10 @@ def newton_solve(simulation, eps_r, b, nonlinear_fn, nonlinear_de, nl_region, co
 		if convergence < conv_threshold:
 			break
 
-	Ez = Ez.reshape(simulation.Nx, simulation.Ny, order = 'F')
+	Ez = Ez.reshape(simulation.Nx, simulation.Ny)
 
 
-	if istep == max_num_iter-1:
-		raise Warning("the simulation never converged, reached {}".format(convergence))
+	if convergence > conv_threshold:
+		print("the simulation did not converge, reached {}".format(convergence))
 		
 	return (Ez, conv_array)
