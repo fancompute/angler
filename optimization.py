@@ -11,7 +11,7 @@ def _solve_nl(simulation, b, nonlinear_fn=None, nl_region=None, solver='born'):
 
 	if nonlinear_fn is None or nl_region is None:
 		raise ValueError("'nonlinear_fn' and 'nl_region' must be supplied")
-		
+
 	if solver == 'born':
 		(Ez_nl, convergence_array) = born_solve(simulation, simulation.eps_r, b, nonlinear_fn, nl_region,
 												conv_threshold=1e-10,
@@ -49,6 +49,9 @@ def check_J_state(J, dJdE):
 	# does error checking on the objective function dictionaries and complains if they are wrong
 	# sets a flag for the run_optimization function
 
+	if 'total' not in J or J['total'] is None or 'total' not in dJdE or dJdE['total'] is None:
+		raise ValueError("must supply functions in J['total'] and dJdE['total']")
+
 	keys = ['linear', 'nonlinear', 'total']
 
 	# first, set any unspecified values = None
@@ -85,7 +88,6 @@ def compute_objectivefn(Ez, Ez_nl, J, state):
 		return J['total'](J_lin(Ez), J_nonlin(Ez_nl))
 
 
-
 def run_optimization(simulation, b, J, dJdE, design_region, Nsteps, eps_max, solver='born', step_size=0.1):
 	# performs an optimization with gradient descent
 	# NOTE:  will add adam or other methods later -T
@@ -106,7 +108,7 @@ def run_optimization(simulation, b, J, dJdE, design_region, Nsteps, eps_max, sol
 		bar.update(i+1)
 
 		# solve for the gradient of the linear objective function (if supplied)
-		if 'linear' in J and J['linear'] is not None:
+		if state == 'linear':
 			(Hx,Hy,Ez) = simulation.solve_fields(b)
 			grad_lin = dJdeps_linear(simulation, design_region, J['linear'], dJdE['linear'], averaging=False)
 		else:
@@ -114,7 +116,7 @@ def run_optimization(simulation, b, J, dJdE, design_region, Nsteps, eps_max, sol
 			grad_lin = np.zeros(simulation.eps_r.shape)
 
 		# solve for the gradient of the linear objective function (if supplied)
-		if 'nonlinear' in J and J['nonlinear'] is not None:
+		if state == 'nonlinear':
 			(Ez_nl, convergence_array) = _solve_nl(simulation, b, nonlinear_fn=None, nl_region=None, solver='born')
 			grad_nonlin = dJdeps_nonlinear(simulation, design_region, J['linear'], dJdE['linear'],  nonlinear_fn, nl_region, averaging=False)
 		else:
@@ -122,10 +124,7 @@ def run_optimization(simulation, b, J, dJdE, design_region, Nsteps, eps_max, sol
 			grad_nonlin = np.zeros(simulation.eps_r.shape)
 
 		# add the gradients together depending on problem
-		if 'total' in J and 'total' in dJdE and J['total'] is not None and dJdE['total'] is not None:
-			grad = dJdE['total'](grad_lin, grad_nonlin)
-		else:
-			raise ValueError("J['total'] and dJdE['total'] must be supplied")
+		grad = dJdE['total'](grad_lin, grad_nonlin)
 
 		# update permittivity based on gradient
 		new_eps = _update_permittivity(simulation, grad, design_region, step_size, eps_max)
