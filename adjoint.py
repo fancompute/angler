@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.sparse as sp
-from FDFD.linalg import solver_direct, unpack_derivs
+from FDFD.linalg import solver_direct, unpack_derivs, grid_average
 from FDFD.constants import *
 
 
@@ -15,7 +15,7 @@ def dJdeps(simulation, Ez_nl, nonlinear_fn, nl_region):
 
 # ADJOINT FUNCTIONS BELOW! VVVVV (or above if you want)
 
-def dJdeps_linear(simulation, deps_region, J, dJdfield):
+def dJdeps_linear(simulation, deps_region, J, dJdfield, averaging=False,):
 	# dJdfield is either dJdez or dJdhz
 	# Note: we are assuming that the partial derivative of J w.r.t. e* is just (dJde)* and same for h
 
@@ -40,9 +40,18 @@ def dJdeps_linear(simulation, deps_region, J, dJdfield):
 
 		b_aj = -dJdfield(Hz)
 
-		(Ex_aj, Ey_aj) = adjoint_linear(simulation, b_aj)	
+		if averaging:	
+			(Ex_aj, Ey_aj) = adjoint_linear(simulation, b_aj, averaging=True)	
 
-		dJdeps = 2*np.real(Ex_aj*dAdeps*Ex) + 2*np.real(Ey_aj*dAdeps*Ey)
+			deps_region_x = grid_average(deps_region, 'x')
+			dAdeps_x = deps_region_x*omega**2*EPSILON_0_			
+			deps_region_y = grid_average(deps_region, 'y')
+			dAdeps_y = deps_region_y*omega**2*EPSILON_0_
+			dJdeps = 2*np.real(Ex_aj*dAdeps_x*Ex) + 2*np.real(Ey_aj*dAdeps_y*Ey)
+
+		else:
+			(Ex_aj, Ey_aj) = adjoint_linear(simulation, b_aj, averaging=False)				
+			dJdeps = 2*np.real(Ex_aj*dAdeps*Ex) + 2*np.real(Ey_aj*dAdeps*Ey)
 
 	else:
 		raise ValueError('Invalid polarization: {}'.format(str(self.pol)))
