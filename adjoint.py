@@ -104,3 +104,11 @@ def adjoint_linear(simulation, b_aj, averaging=False, solver=DEFAULT_SOLVER, mat
 		raise ValueError('Invalid polarization: {}'.format(str(self.pol)))
 
 
+# TO DO:
+
+def dJdeps_nonlinear(simulation, design_region, J['linear'], dJdE['linear'],  nonlinear_fn, nl_region, averaging=False):
+	pass
+
+
+def adjoint_nonlinear(simulation, b_aj, averaging=False, solver=DEFAULT_SOLVER, matrix_format=DEFAULT_MATRIX_FORMAT):
+	pass
