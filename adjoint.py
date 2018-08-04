@@ -15,7 +15,7 @@ def dJdeps(simulation, Ez_nl, nonlinear_fn, nl_region):
 
 # ADJOINT FUNCTIONS BELOW! VVVVV (or above if you want)
 
-def dJdeps_linear(simulation, deps_region, J, dJdfield, averaging=False,):
+def dJdeps_linear(simulation, deps_region, J, dJdfield, averaging=False):
 	# dJdfield is either dJdez or dJdhz
 	# Note: we are assuming that the partial derivative of J w.r.t. e* is just (dJde)* and same for h
 

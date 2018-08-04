@@ -1,4 +1,4 @@
-from adjoint import dJdeps
+from adjoint import dJdeps_linear
 from nonlinear_solvers import born_solve, newton_solve
 
 import numpy as np
@@ -42,7 +42,7 @@ def _update_permittivity(simulation, grad, design_region, step_size, eps_max):
 	# Thats IT!
 
 
-def run_optimization(simulation, b, nonlinear_fn, obj_fn, nl_region, design_region, Nsteps, eps_max, solver='born', step_size=0.2):
+def run_optimization(simulation, b, J, dJdE, design_region, Nsteps, eps_max, solver='born', step_size=0.1):
 	# performs an optimization with gradient descent
 	# NOTE:  will add adam or other methods later -T
 	# NOTE2: this only works for objective functions of the nonlinear field for now
@@ -58,14 +58,20 @@ def run_optimization(simulation, b, nonlinear_fn, obj_fn, nl_region, design_regi
 		# display progressbar	
 		bar.update(i)
 
-		# solve for nonlinear fields
-		(Ez_nl, convergence_array) = _solve_nl(simulation, b, nonlinear_fn, nl_region, solver='born')
-
+		# solve for nonlinear fields (do linear for now)
+		# (Ez_nl, convergence_array) = _solve_nl(simulation, b, nonlinear_fn, nl_region, solver='born')
 		# compute the gradient
-		grad = dJdeps(simulation, Ez_nl, nonlinear_fn, nl_region)
+		# grad = dJdeps(simulation, Ez_nl, nonlinear_fn, nl_region)
+
+		(Hx,Hy,Ez) = simulation.solve_fields(b)
+		grad = dJdeps_linear(simulation, design_region, J, dJdE, averaging=False)
 
 		# update permittivity based on gradient
 		new_eps = _update_permittivity(simulation, grad, design_region, step_size, eps_max)
+
+		obj_fns[i] = J(Ez)
+
+		# want some way to print the obj function in the progressbar without adding new lines
 
 	return obj_fns
 
