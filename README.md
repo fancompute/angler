@@ -7,4 +7,4 @@ inverse design of a nonlinear optical device using AVM
 - [ ] Write an adjoint gradient computation for a nonlinear system
 - [ ] Write a gradient computation using the RNN-like approach
 - [ ] Test a nonlinear optimization
-- [ ] Handle cases where objective function is a function of the linear field and nonlinear field (for example, supply a `J` dictionary with keys `J_lin` and `J_nonlin` each containing functions for these parts.
+- [x] Handle cases where objective function is a function of the linear field and nonlinear field (for example, supply a `J` dictionary with keys `J_lin` and `J_nonlin` each containing functions for these parts.
