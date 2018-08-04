@@ -106,8 +106,8 @@ def adjoint_linear(simulation, b_aj, averaging=False, solver=DEFAULT_SOLVER, mat
 
 # TO DO:
 
-def dJdeps_nonlinear(simulation, design_region, J['linear'], dJdE['linear'],  nonlinear_fn, nl_region, averaging=False):
-	pass
+def dJdeps_nonlinear(simulation, design_region, J, dJdE,  nonlinear_fn, nl_region, averaging=False):
+	return np.zeros(simulation.eps_r.shape)
 
 
 def adjoint_nonlinear(simulation, b_aj, averaging=False, solver=DEFAULT_SOLVER, matrix_format=DEFAULT_MATRIX_FORMAT):

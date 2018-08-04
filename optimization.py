@@ -96,7 +96,7 @@ def run_optimization(simulation, b, J, dJdE, design_region, Nsteps, eps_max, sol
 	# stores objective functions
 	obj_fns = np.zeros((Nsteps,1))
 
-	# determine problem state from J and dJdE dictionaries
+	# determine problem state ('linear', 'nonlinear', or 'both') from J and dJdE dictionaries
 	state = check_J_state(J, dJdE)
 
 	# make progressbar
