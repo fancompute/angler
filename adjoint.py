@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.sparse as sp
-from FDFD.linalg import solver_direct, unpack_derivs, grid_average
-from FDFD.constants import *
+from fdfdpy.linalg import solver_direct, unpack_derivs, grid_average
+from fdfdpy.constants import *
 
 
 def dJdeps(simulation, Ez_nl, nonlinear_fn, nl_region):

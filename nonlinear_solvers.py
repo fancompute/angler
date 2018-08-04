@@ -1,8 +1,8 @@
 import numpy as np
 import scipy.sparse as sp
 
-from FDFD.Fdfd import Fdfd
-from FDFD.linalg import solver_direct
+from fdfdpy.Fdfd import Fdfd
+from fdfdpy.linalg import solver_direct
 
 
 def born_solve(simulation, eps_r, b, nonlinear_fn, nl_region, conv_threshold=1e-8, max_num_iter=10):
