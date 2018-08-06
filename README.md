@@ -1,6 +1,15 @@
 # nonlinear_avm
 inverse design of a nonlinear optical device using AVM
 
+
+## Requirements
+- [Fdfdpy](https://github.com/fancompute/fdfdpy) package.
+- numpy
+- matplotlib
+- [pypardiso](https://github.com/haasad/PyPardisoProject)
+- scipy
+- progressbar
+
 ## To Do
 - [ ] Clean up code a bit
 - [ ] Make Fdfd a submodule of this package
