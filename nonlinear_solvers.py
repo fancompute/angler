@@ -76,8 +76,9 @@ def newton_solve(simulation, eps_r, b, nonlinear_fn, nonlinear_de, nl_region, co
 		# perform newtons method to get new fields
 		Anl = simulation.A 
 		fx = (Anl.dot(Eprev) - b.reshape(-1,)*1j*omega).reshape(Nbig, 1)
-		Jac11 = Anl + sp.spdiags((nonlinear_de(Eprev)*Eprev*nl_region), 0, Nbig, Nbig, format='csc')*omega**2*EPSILON_0_ 
-		Jac12 = sp.spdiags((np.conj(nonlinear_de(Eprev))*Eprev*nl_region), 0, Nbig, Nbig, format='csc')*omega**2*EPSILON_0_ 
+		dAdeps_nl = (nonlinear_de(Eprev)*nl_region)*omega**2*EPSILON_0_ 
+		Jac11 = Anl + sp.spdiags(dAdeps_nl*(Eprev), 0, Nbig, Nbig, format='csc')
+		Jac12 = sp.spdiags(np.conj(dAdeps_nl)*(Eprev), 0, Nbig, Nbig, format='csc')
 
 		# Note: I'm phrasing Newton's method as a linear problem to avoid inverting the Jacobian
 		# Namely, J*(x_n - x_{n-1}) = -f(x_{n-1}), where J = df/dx(x_{n-1})
