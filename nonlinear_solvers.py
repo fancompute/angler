@@ -6,12 +6,15 @@ from fdfdpy.linalg import solver_direct
 from fdfdpy.constants import *
 
 
-def born_solve(simulation, eps_r, b, nonlinear_fn, nl_region, conv_threshold=1e-8, max_num_iter=10):
+def born_solve(simulation, eps_r, b, nonlinear_fn, nl_region, Estart=None, conv_threshold=1e-8, max_num_iter=10):
 	# solves for the nonlinear fields using direct substitution / Born approximation / Picard / whatever you want to call it
 	# eps_r is the linear permittivity
 
-	# Solve the linear problem to start
-	(Hx,Hy,Ez) = simulation.solve_fields(b)
+	# Defne the starting field for the simulation
+	if Estart is None:
+		(Hx,Hy,Ez) = simulation.solve_fields(b)
+	else: 
+		Ez = Estart
 
 	# Stores convergence parameters
 	conv_array = np.zeros((max_num_iter, 1))
@@ -42,12 +45,16 @@ def born_solve(simulation, eps_r, b, nonlinear_fn, nl_region, conv_threshold=1e-
 	return (Ez, conv_array)
 
 
-def newton_solve(simulation, eps_r, b, nonlinear_fn, nonlinear_de, nl_region, conv_threshold=1e-18, max_num_iter=5):
+def newton_solve(simulation, eps_r, b, nonlinear_fn, nonlinear_de, nl_region, Estart=None, conv_threshold=1e-18, max_num_iter=5):
 	# solves for the nonlinear fields using Newton's method
 	# Can we break this up into a few functions? -T
 
-	# Solve the linear problem to start
-	(Hx,Hy,Ez) = simulation.solve_fields(b)
+	# Defne the starting field for the simulation
+	if Estart is None:
+		(Hx,Hy,Ez) = simulation.solve_fields(b)
+	else: 
+		Ez = Estart
+
 	Ez = Ez.reshape(-1,)
 	nl_region = nl_region.reshape(-1,)
 
