@@ -1,4 +1,4 @@
-from adjoint import dJdeps_linear
+from adjoint import dJdeps_linear, dJdeps_nonlinear
 from nonlinear_solvers import born_solve, newton_solve
 
 import numpy as np
@@ -123,16 +123,16 @@ def run_optimization(simulation, b, J, dJdE, design_region, Nsteps, eps_max,
 			eps_lin = simulation.eps_r
 			if field_start=='linear' or i==0:
 				# Start nonlinear solvers using linear solution (default setting)
-				(Ez_nl, convergence_array) = _solve_nl(simulation, b, nonlinear_fn, nl_region, solver='born')
+				convergence_array = _solve_nl(simulation, b, nonlinear_fn, nl_region, nl_de, solver=solver)
 			elif field_start=='previous':
 				# Use the solution of the nonlinear problem at the previous optimization step
-				(Ez_nl_new, convergence_array) = _solve_nl(simulation, b, nonlinear_fn, nl_region, Ez_nl, solver='born')
-				Ez_nl = Ez_nl_new
+				convergence_array = _solve_nl(simulation, b, nonlinear_fn, nl_region, nl_de, Ez_nl, solver=solver)				
 			else:
 				raise AssertionError("field_start must be one of {'linear', 'previous'}")
 
-			grad_nonlin = dJdeps_nonlinear(simulation, design_region, J['nonlinear'], dJdE['nonlinear'], nonlinear_fn, nl_region, nl_de, averaging=False)
-			# grad_nonlin = dJdeps_linear(simulation, design_region, J['nonlinear'], dJdE['nonlinear'], averaging=False)
+			Ez_nl = simulation.fields['Ez']
+			grad_nonlin = dJdeps_nonlinear(simulation, design_region, J['nonlinear'], dJdE['nonlinear'],
+										 nonlinear_fn, nl_region, nl_de, averaging=False)
 
 			# Restore just the linear permittivity
 			simulation.reset_eps(eps_lin)
