@@ -6,24 +6,24 @@ import copy
 import progressbar
 
 
-def _solve_nl(simulation, b, nonlinear_fn=None, nl_region=None, Estart=None, solver='born'):
+def _solve_nl(simulation, b, nonlinear_fn=None, nl_region=None, nl_de=None, Estart=None, solver='born'):
 	# convenience function for running solver
 
 	if nonlinear_fn is None or nl_region is None:
 		raise ValueError("'nonlinear_fn' and 'nl_region' must be supplied")
 
 	if solver == 'born':
-		(Ez_nl, convergence_array) = born_solve(simulation, simulation.eps_r, b, nonlinear_fn, nl_region, Estart,
+		(convergence_array) = born_solve(simulation, b, nonlinear_fn, nl_region, Estart,
 												conv_threshold=1e-10,
 												max_num_iter=50)
 	elif solver == 'newton':
-		(Ez_nl, convergence_array) = newton_solve(simulation, simulation.eps_r, b, nonlinear_fn, kerr_nl_de, nl_region, Estart,
+		(convergence_array) = newton_solve(simulation, b, nonlinear_fn, nl_region, nl_de, Estart,
 												conv_threshold=1e-10,
 												max_num_iter=50)
 	else:
 		raise AssertionError("solver must be one of {'born', 'newton'}")
 
-	return (Ez_nl, convergence_array)
+	return (convergence_array)
 
 
 def _update_permittivity(simulation, grad, design_region, step_size, eps_max):

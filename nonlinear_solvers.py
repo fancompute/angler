@@ -5,16 +5,18 @@ from fdfdpy.Fdfd import Fdfd
 from fdfdpy.linalg import solver_direct
 from fdfdpy.constants import *
 
+# Note: for both solvers, the simulation object must have been initialized with the linear permittivity eps_r
 
-def born_solve(simulation, eps_r, b, nonlinear_fn, nl_region, Estart=None, conv_threshold=1e-8, max_num_iter=10):
+def born_solve(simulation, b, nonlinear_fn, nl_region, Estart=None, conv_threshold=1e-8, max_num_iter=10):
 	# solves for the nonlinear fields using direct substitution / Born approximation / Picard / whatever you want to call it
-	# eps_r is the linear permittivity
 
 	# Defne the starting field for the simulation
 	if Estart is None:
 		(Hx,Hy,Ez) = simulation.solve_fields(b)
 	else: 
 		Ez = Estart
+
+	eps_r = simulation.eps_r
 
 	# Stores convergence parameters
 	conv_array = np.zeros((max_num_iter, 1))
@@ -42,10 +44,12 @@ def born_solve(simulation, eps_r, b, nonlinear_fn, nl_region, Estart=None, conv_
 	if convergence > conv_threshold:
 		print("the simulation did not converge, reached {}".format(convergence))
 
-	return (Ez, conv_array)
+	return (conv_array)
 
 
-def newton_solve(simulation, eps_r, b, nonlinear_fn, nonlinear_de, nl_region, Estart=None, conv_threshold=1e-18, max_num_iter=5):
+def newton_solve(simulation, b, nonlinear_fn, nl_region, nonlinear_de, 
+				Estart=None, conv_threshold=1e-18, max_num_iter=5,
+				solver=DEFAULT_SOLVER, matrix_format=DEFAULT_MATRIX_FORMAT):
 	# solves for the nonlinear fields using Newton's method
 	# Can we break this up into a few functions? -T
 
@@ -55,6 +59,7 @@ def newton_solve(simulation, eps_r, b, nonlinear_fn, nonlinear_de, nl_region, Es
 	else: 
 		Ez = Estart
 
+	eps_r = simulation.eps_r
 	Ez = Ez.reshape(-1,)
 	nl_region = nl_region.reshape(-1,)
 
@@ -83,15 +88,15 @@ def newton_solve(simulation, eps_r, b, nonlinear_fn, nonlinear_de, nl_region, Es
 		# perform newtons method to get new fields
 		Anl = simulation.A 
 		fx = (Anl.dot(Eprev) - b.reshape(-1,)*1j*omega).reshape(Nbig, 1)
-		dAdeps_nl = (nonlinear_de(Eprev)*nl_region)*omega**2*EPSILON_0_ 
-		Jac11 = Anl + sp.spdiags(dAdeps_nl*(Eprev), 0, Nbig, Nbig, format='csc')
-		Jac12 = sp.spdiags(np.conj(dAdeps_nl)*(Eprev), 0, Nbig, Nbig, format='csc')
+		dAde = (nonlinear_de(Eprev)*nl_region)*omega**2*EPSILON_0_ 
+		Jac11 = Anl + sp.spdiags(dAde*(Eprev), 0, Nbig, Nbig, format=matrix_format)
+		Jac12 = sp.spdiags(np.conj(dAde)*(Eprev), 0, Nbig, Nbig, format=matrix_format)
 
 		# Note: I'm phrasing Newton's method as a linear problem to avoid inverting the Jacobian
 		# Namely, J*(x_n - x_{n-1}) = -f(x_{n-1}), where J = df/dx(x_{n-1})
 		fx_full = np.vstack((fx, np.conj(fx)))
 		Jac_full = sp.vstack((sp.hstack((Jac11, Jac12)), np.conj(sp.hstack((Jac12, Jac11)))))
-		Ediff = solver_direct(Jac_full, fx_full)
+		Ediff = solver_direct(Jac_full, fx_full, solver=solver)
 		Ez = Eprev - Ediff[range(Nbig)]
 
 		# get convergence and break
@@ -103,9 +108,10 @@ def newton_solve(simulation, eps_r, b, nonlinear_fn, nonlinear_de, nl_region, Es
 			break
 
 	Ez = Ez.reshape(simulation.Nx, simulation.Ny)
-
+	# Solve the fdfd problem with the last defined eps_nl
+	simulation.solve_fields(b)
 
 	if convergence > conv_threshold:
 		print("the simulation did not converge, reached {}".format(convergence))
 		
-	return (Ez, conv_array)
+	return (conv_array)
