@@ -15,7 +15,7 @@ def dJdeps(simulation, Ez_nl, nonlinear_fn, nl_region):
 
 # ADJOINT FUNCTIONS BELOW! VVVVV (or above if you want)
 
-def dJdeps_linear(simulation, deps_region, J, dJdfield, averaging=False):
+def dJdeps_linear(simulation, design_region, J, dJdfield, averaging=False):
 	# dJdfield is either dJdez or dJdhz
 	# Note: we are assuming that the partial derivative of J w.r.t. e* is just (dJde)* and same for h
 
@@ -25,7 +25,7 @@ def dJdeps_linear(simulation, deps_region, J, dJdfield, averaging=False):
 	(Nx,Ny) = (simulation.Nx, simulation.Ny)
 
 	if simulation.pol == 'Ez':
-		dAdeps = deps_region*omega**2*EPSILON_0_    # Note: physical constants go here if need be!
+		dAdeps = design_region*omega**2*EPSILON_0_    # Note: physical constants go here if need be!
 		Ez = simulation.fields['Ez']
 		b_aj = -dJdfield(Ez)
 		Ez_aj = adjoint_linear(simulation, b_aj)		 
@@ -33,7 +33,7 @@ def dJdeps_linear(simulation, deps_region, J, dJdfield, averaging=False):
 		dJdeps = 2*np.real(Ez_aj*dAdeps*Ez)
 
 	elif simulation.pol == 'Hz':
-		dAdeps = deps_region*omega**2*EPSILON_0_    # Note: physical constants go here if need be!
+		dAdeps = design_region*omega**2*EPSILON_0_    # Note: physical constants go here if need be!
 		Hz = simulation.fields['Hz']
 		Ex = simulation.fields['Ex']
 		Ey = simulation.fields['Ey']
@@ -43,10 +43,10 @@ def dJdeps_linear(simulation, deps_region, J, dJdfield, averaging=False):
 		if averaging:	
 			(Ex_aj, Ey_aj) = adjoint_linear(simulation, b_aj, averaging=True)	
 
-			deps_region_x = grid_average(deps_region, 'x')
-			dAdeps_x = deps_region_x*omega**2*EPSILON_0_			
-			deps_region_y = grid_average(deps_region, 'y')
-			dAdeps_y = deps_region_y*omega**2*EPSILON_0_
+			design_region_x = grid_average(design_region, 'x')
+			dAdeps_x = design_region_x*omega**2*EPSILON_0_			
+			design_region_y = grid_average(design_region, 'y')
+			dAdeps_y = design_region_y*omega**2*EPSILON_0_
 			dJdeps = 2*np.real(Ex_aj*dAdeps_x*Ex) + 2*np.real(Ey_aj*dAdeps_y*Ey)
 
 		else:
@@ -106,9 +106,58 @@ def adjoint_linear(simulation, b_aj, averaging=False, solver=DEFAULT_SOLVER, mat
 
 # TO DO:
 
-def dJdeps_nonlinear(simulation, design_region, J, dJdE,  nonlinear_fn, nl_region, averaging=False):
-	return np.zeros(simulation.eps_r.shape)
+def dJdeps_nonlinear(simulation, design_region, J, dJdfield, nonlinear_fn, nl_region, nl_de, averaging=False):
+	# Note: written only for Ez!
+	# Note: we are assuming that the partial derivative of J w.r.t. e* is just (dJde)* 
+
+	EPSILON_0_ = EPSILON_0*simulation.L0
+	MU_0_ = MU_0*simulation.L0
+	omega = simulation.omega
+	(Nx,Ny) = (simulation.Nx, simulation.Ny)
+
+	if simulation.pol == 'Ez':
+		dAdeps = design_region*omega**2*EPSILON_0_    # Note: physical constants go here if need be!
+		Ez = simulation.fields['Ez']
+		b_aj = -dJdfield(Ez)
+		Ez_aj = adjoint_nonlinear(simulation, b_aj, nonlinear_fn, nl_region, nl_de)		 
+
+		dJdeps = 2*np.real(Ez_aj*dAdeps*Ez)
+
+		return dJdeps
+	else:
+		raise ValueError("Nonlinear adjoint works only for Ez polarization")
 
 
-def adjoint_nonlinear(simulation, b_aj, averaging=False, solver=DEFAULT_SOLVER, matrix_format=DEFAULT_MATRIX_FORMAT):
-	pass
+def adjoint_nonlinear(simulation, b_aj, nonlinear_fn, nl_region, nl_de,
+					 averaging=False, solver=DEFAULT_SOLVER, matrix_format=DEFAULT_MATRIX_FORMAT):
+	# Compute the adjoint field for a nonlinear problem
+	# Note: written only for Ez!
+
+	EPSILON_0_ = EPSILON_0*simulation.L0
+	MU_0_ = MU_0*simulation.L0
+	omega = simulation.omega
+
+	(Nx,Ny) = (simulation.Nx, simulation.Ny)
+	M = Nx*Ny
+
+	if simulation.pol == 'Ez':
+		Ez = simulation.fields['Ez']
+		Anl = simulation.A
+		dAde = omega**2*EPSILON_0_*nl_de(Ez*nl_region)
+
+		C11 = Anl + sp.spdiags((dAde*Ez).reshape((-1,)), 0, M, M, format=matrix_format)
+		C12 = sp.spdiags((np.conj(dAde)*Ez).reshape((-1)), 0, M, M, format=matrix_format)
+		C_full = sp.vstack((sp.hstack((C11, C12)), np.conj(sp.hstack((C12, C11)))))
+		b_aj = b_aj.reshape((-1,))
+
+		ez = solver_direct(C_full.T, np.vstack((b_aj, np.conj(b_aj))), solver=solver)
+
+		if np.linalg.norm(ez[range(M)] - np.conj(ez[range(M, 2*M)])) > 1e-8:
+			print('Adjoint field and conjugate do not match; something might be wrong')
+
+		Ez = ez[range(M)].reshape((Nx, Ny))
+
+		return Ez
+
+	else:
+		raise ValueError("Nonlinear adjoint works only for Ez polarization")
