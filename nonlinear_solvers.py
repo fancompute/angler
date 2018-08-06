@@ -3,6 +3,7 @@ import scipy.sparse as sp
 
 from fdfdpy.Fdfd import Fdfd
 from fdfdpy.linalg import solver_direct
+from fdfdpy.constants import *
 
 
 def born_solve(simulation, eps_r, b, nonlinear_fn, nl_region, conv_threshold=1e-8, max_num_iter=10):
@@ -43,7 +44,6 @@ def born_solve(simulation, eps_r, b, nonlinear_fn, nl_region, conv_threshold=1e-
 
 def newton_solve(simulation, eps_r, b, nonlinear_fn, nonlinear_de, nl_region, conv_threshold=1e-18, max_num_iter=5):
 	# solves for the nonlinear fields using Newton's method
-	# NOTE: DOES NOT WORK YET!
 	# Can we break this up into a few functions? -T
 
 	# Solve the linear problem to start
@@ -56,6 +56,11 @@ def newton_solve(simulation, eps_r, b, nonlinear_fn, nonlinear_de, nl_region, co
 
 	# num. columns and rows of A
 	Nbig = simulation.Nx*simulation.Ny
+
+	# Physical constants
+	omega = simulation.omega
+	EPSILON_0_ = EPSILON_0*simulation.L0
+	MU_0_ = MU_0*simulation.L0
 
 	# Solve iteratively
 	for istep in range(max_num_iter):
@@ -70,16 +75,15 @@ def newton_solve(simulation, eps_r, b, nonlinear_fn, nonlinear_de, nl_region, co
 
 		# perform newtons method to get new fields
 		Anl = simulation.A 
-		fx = (Anl.dot(Eprev) - b.reshape(-1,)).reshape(Nbig, 1)
-		Jac11 = Anl + sp.spdiags((nonlinear_de(Eprev)*Eprev*nl_region), 0, Nbig, Nbig, format='csc')
-		Jac12 = sp.spdiags((np.conj(nonlinear_de(Eprev))*Eprev*nl_region), 0, Nbig, Nbig, format='csc')
+		fx = (Anl.dot(Eprev) - b.reshape(-1,)*1j*omega).reshape(Nbig, 1)
+		Jac11 = Anl + sp.spdiags((nonlinear_de(Eprev)*Eprev*nl_region), 0, Nbig, Nbig, format='csc')*omega**2*EPSILON_0_ 
+		Jac12 = sp.spdiags((np.conj(nonlinear_de(Eprev))*Eprev*nl_region), 0, Nbig, Nbig, format='csc')*omega**2*EPSILON_0_ 
 
 		# Note: I'm phrasing Newton's method as a linear problem to avoid inverting the Jacobian
 		# Namely, J*(x_n - x_{n-1}) = -f(x_{n-1}), where J = df/dx(x_{n-1})
 		fx_full = np.vstack((fx, np.conj(fx)))
 		Jac_full = sp.vstack((sp.hstack((Jac11, Jac12)), np.conj(sp.hstack((Jac12, Jac11)))))
 		Ediff = solver_direct(Jac_full, fx_full)
-		# Ediff = solver_direct(Jac11, fx)
 		Ez = Eprev - Ediff[range(Nbig)]
 
 		# get convergence and break

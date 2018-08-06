@@ -1,0 +1,3 @@
+[submodule "pyMKL"]
+	path = pyMKL
+	url = https://github.com/dwfmarchant/pyMKL.git
