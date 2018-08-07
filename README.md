@@ -81,8 +81,8 @@ Input:
 - (optional) step_size: defines the step size in the gradient descent; default is 0.1
           
 Output:
-obj_fns: the values of J['total'] at every step of the gradient descent
-simulation: the object is updated such that simulation.eps_r contains the *linear* permittivity at the final step of the gradient descent; the simulation is *not* solved
+- obj_fns: the values of J['total'] at every step of the gradient descent
+- simulation: the object is updated such that simulation.eps_r contains the *linear* permittivity at the final step of the gradient descent; the simulation is *not* solved
 
 ## Requirements
 - [Fdfdpy](https://github.com/fancompute/fdfdpy) package.
