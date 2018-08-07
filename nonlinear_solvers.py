@@ -48,7 +48,7 @@ def born_solve(simulation, b, nonlinear_fn, nl_region, Estart=None, conv_thresho
 
 
 def newton_solve(simulation, b, nonlinear_fn, nl_region, nonlinear_de, 
-				Estart=None, conv_threshold=1e-18, max_num_iter=5,
+				Estart=None, conv_threshold=1e-8, max_num_iter=10,
 				solver=DEFAULT_SOLVER, matrix_format=DEFAULT_MATRIX_FORMAT):
 	# solves for the nonlinear fields using Newton's method
 	# Can we break this up into a few functions? -T
@@ -107,8 +107,9 @@ def newton_solve(simulation, b, nonlinear_fn, nl_region, nonlinear_de,
 		if convergence < conv_threshold:
 			break
 
-	Ez = Ez.reshape(simulation.Nx, simulation.Ny)
-	# Solve the fdfd problem with the last defined eps_nl
+	# Solve the fdfd problem with the final eps_nl
+	eps_nl = eps_r + (nonlinear_fn(Ez)*nl_region).reshape(simulation.Nx, simulation.Ny)
+	simulation.reset_eps(eps_nl)
 	simulation.solve_fields(b)
 
 	if convergence > conv_threshold:
