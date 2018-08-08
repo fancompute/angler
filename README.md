@@ -93,13 +93,14 @@ Output:
 - progressbar
 
 ## To Do
+- [ ] Update readme with new run_optimization call and dictionaries
 - [ ] Fix relative package imports (move notebooks back to top directory? make this a module?)
-- [ ] Test senstitvity of 'both' objective functions (linear and nonlinear)
 - [ ] Do Hz polarization sensitivity.
 - [ ] Setup 2 port demo problem.  (define function or class to create `eps_r`, `des_region`, `nl_region`, etc. arrays from fundamental parameters of the problem).
-- [ ] Run a pixel-wise optimization of a nonlinear optimization. (ensure `J` increases / no divergence).
 - [ ] Make Fdfd a submodule of this package
 - [ ] Write a gradient computation using the RNN-like approach. (necessary?)
+- [x] Run a pixel-wise optimization of a nonlinear optimization. (ensure `J` increases / no divergence).
+- [x] Test senstitvity of 'both' objective functions (linear and nonlinear)
 - [x] Write an adjoint gradient computation for a nonlinear system
 - [x] Test a nonlinear optimization
 - [x] Handle cases where objective function is a function of the linear field and nonlinear field (for example, supply a `J` dictionary with keys `J_lin` and `J_nonlin` each containing functions for these parts.
