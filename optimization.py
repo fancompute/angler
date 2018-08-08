@@ -49,9 +49,6 @@ def check_J_state(J, dJdE):
 	# does error checking on the objective function dictionaries and complains if they are wrong
 	# sets a flag for the run_optimization function
 
-	if 'total' not in J or J['total'] is None or 'total' not in dJdE or dJdE['total'] is None:
-		raise ValueError("must supply functions in J['total'] and dJdE['total']")
-
 	keys = ['linear', 'nonlinear', 'total']
 
 	# first, set any unspecified values = None
@@ -68,7 +65,19 @@ def check_J_state(J, dJdE):
 	if J['nonlinear'] is not None and dJdE['nonlinear'] is not None:
 		state = 'nonlinear'	if state == 'NA' else 'both'
 
-	if state == 'NA':
+	if state == 'both':
+		if 'total' not in J or J['total'] is None or 'total' not in dJdE or dJdE['total'] is None:
+			raise ValueError("must supply functions in J['total'] and dJdE['total']")
+
+	elif state == 'linear':
+		J['total']    = lambda J_lin, J_nonlin: J_lin
+		dJdE['total'] = lambda dJdE_lin, dJdE_nonlin: dJdE_lin
+
+	elif state == 'nonlinear':
+		J['total']    = lambda J_lin, J_nonlin: J_nonlin
+		dJdE['total'] = lambda dJdE_lin, dJdE_nonlin: dJdE_nonlin
+
+	elif state == 'NA':
 		raise ValueError("must supply both J and dJdE with functions for 'linear', 'nonlinear' or both")
 
 	return state
@@ -86,7 +95,7 @@ def compute_objectivefn(Ez, Ez_nl, J, state):
 		return J['total'](0, J['nonlinear'](Ez_nl))
 	elif state == 'both':
 		return J['total'](J['linear'](Ez), J['nonlinear'](Ez_nl))
-		
+
 
 def unpack_dicts(state, regions, nonlin_fns):
 	# does error checking on the regions and nonlin_fns dictionary and returns results.
@@ -114,8 +123,7 @@ def unpack_dicts(state, regions, nonlin_fns):
 	return (design_region, nonlin_region, deps_de, dnl_de)
 
 
-def run_optimization(simulation, b, J, dJdE, regions, nonlin_fns, Nsteps, eps_max, 
-					 field_start='linear', solver='born', step_size=0.1):
+def run_optimization(simulation, b, J, dJdE, Nsteps, eps_max, regions={}, nonlin_fns={}, field_start='linear', solver='born', step_size=0.1):
 	# performs an optimization with gradient descent
 	# NOTE:  will add adam or other methods later -T
 	# NOTE2: this only works for objective functions of the nonlinear field for now
