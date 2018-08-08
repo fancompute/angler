@@ -85,12 +85,37 @@ def compute_objectivefn(Ez, Ez_nl, J, state):
 	elif state == 'nonlinear':
 		return J['total'](0, J['nonlinear'](Ez_nl))
 	elif state == 'both':
-		return J['total'](J_lin(Ez), J_nonlin(Ez_nl))
+		return J['total'](J['linear'](Ez), J['nonlinear'](Ez_nl))
+		
+
+def unpack_dicts(state, regions, nonlin_fns):
+	# does error checking on the regions and nonlin_fns dictionary and returns results.
+
+	# unpack regions
+	if 'design' not in regions:
+		raise ValueError("must supply a 'design' region to regions dictionary")
+	design_region = regions['design']
+
+	if state == 'nonlinear' or state == 'both':
+		if 'nonlin' not in regions:
+			raise ValueError("must supply a 'nonlin' region to regions dictionary")
+		nonlin_region = regions['nonlin']
+
+		# unpack nonlinear functions (if state is 'nonlinear' or 'both')
+		if 'deps_de' not in nonlin_fns or 'dnl_de' not in nonlin_fns:
+			raise ValueError("must supply 'deps_de' and 'dnl_de' functions to nonlin_fns dictionary")
+		deps_de = nonlin_fns['deps_de']
+		dnl_de  = nonlin_fns['dnl_de']
+		if deps_de is None or dnl_de is None:
+			raise ValueError("must supply 'deps_de' and 'dnl_de' functions to nonlin_fns dictionary")
+	else:
+		nonlin_region = deps_de = dnl_de = None
+
+	return (design_region, nonlin_region, deps_de, dnl_de)
 
 
-def run_optimization(simulation, b, J, dJdE, design_region, Nsteps, eps_max, 
-					nonlinear_fn=None, nl_region=None, nl_de=None,
-					field_start='linear', solver='born', step_size=0.1):
+def run_optimization(simulation, b, J, dJdE, regions, nonlin_fns, Nsteps, eps_max, 
+					 field_start='linear', solver='born', step_size=0.1):
 	# performs an optimization with gradient descent
 	# NOTE:  will add adam or other methods later -T
 	# NOTE2: this only works for objective functions of the nonlinear field for now
@@ -100,6 +125,9 @@ def run_optimization(simulation, b, J, dJdE, design_region, Nsteps, eps_max,
 
 	# determine problem state ('linear', 'nonlinear', or 'both') from J and dJdE dictionaries
 	state = check_J_state(J, dJdE)
+
+	# unpack design and nonlinear function dictionaries
+	(design_region, nl_region, nonlinear_fn, nl_de) = unpack_dicts(state, regions, nonlin_fns)
 
 	# make progressbar
 	bar = progressbar.ProgressBar(max_value=Nsteps)
