@@ -1,30 +1,8 @@
 from adjoint import dJdeps_linear, dJdeps_nonlinear
-from nonlinear_solvers import born_solve, newton_solve
 
 import numpy as np
 import copy
 import progressbar
-
-
-def _solve_nl(simulation, b, nonlinear_fn=None, nl_region=None, nl_de=None, Estart=None, solver='born'):
-	# convenience function for running solver
-
-	if nonlinear_fn is None or nl_region is None:
-		raise ValueError("'nonlinear_fn' and 'nl_region' must be supplied")
-
-	if solver == 'born':
-		(convergence_array) = born_solve(simulation, b, nonlinear_fn, nl_region, Estart,
-												conv_threshold=1e-10,
-												max_num_iter=50)
-	elif solver == 'newton':
-		(convergence_array) = newton_solve(simulation, b, nonlinear_fn, nl_region, nl_de, Estart,
-												conv_threshold=1e-10,
-												max_num_iter=50)
-	else:
-		raise AssertionError("solver must be one of {'born', 'newton'}")
-
-	return (convergence_array)
-
 
 def _update_permittivity(simulation, grad, design_region, step_size, eps_max):
 	# updates the permittivity with the gradient info
@@ -41,8 +19,6 @@ def _update_permittivity(simulation, grad, design_region, step_size, eps_max):
 
 	# reset the epsilon of the simulation
 	simulation.reset_eps(eps_new)
-
-	# Thats IT!
 
 
 def check_J_state(J, dJdE):
@@ -135,7 +111,7 @@ def run_optimization(simulation, b, J, dJdE, Nsteps, eps_max, regions={}, nonlin
 	state = check_J_state(J, dJdE)
 
 	# unpack design and nonlinear function dictionaries
-	(design_region, nl_region, nonlinear_fn, nl_de) = unpack_dicts(state, regions, nonlin_fns)
+	(design_region, nl_region, nonlinear_fn, dnl_de) = unpack_dicts(state, regions, nonlin_fns)
 
 	# make progressbar
 	bar = progressbar.ProgressBar(max_value=Nsteps)
@@ -145,34 +121,52 @@ def run_optimization(simulation, b, J, dJdE, Nsteps, eps_max, regions={}, nonlin
 		# display progressbar	
 		bar.update(i+1)
 
-		# solve for the gradient of the linear objective function (if supplied)
+		# if the problem has a linear component
 		if state == 'linear' or state == 'both':
+
+			# solve for the linear fields and gradient of the linear objective function
 			(Hx,Hy,Ez) = simulation.solve_fields(b)
 			grad_lin = dJdeps_linear(simulation, design_region, J['linear'], dJdE['linear'], averaging=False)
+
+		# if the problem is purely nonlinear
 		else:
+
+			# just set the fields and gradients to zeros so they don't affect the nonlinear part
 			Ez = np.zeros(simulation.eps_r.shape)
 			grad_lin = np.zeros(simulation.eps_r.shape)
 
-		# solve for the gradient of the linear objective function (if supplied)
+
+		# if the problem has a nonlinear component
 		if state == 'nonlinear' or state == 'both':
+
 			# Store the starting linear permittivity (it will be changed by the nonlinear solvers...)
 			eps_lin = simulation.eps_r
-			if field_start=='linear' or i==0:
-				# Start nonlinear solvers using linear solution (default setting)
-				convergence_array = _solve_nl(simulation, b, nonlinear_fn, nl_region, nl_de, solver=solver)
-			elif field_start=='previous':
-				# Use the solution of the nonlinear problem at the previous optimization step
-				convergence_array = _solve_nl(simulation, b, nonlinear_fn, nl_region, nl_de, Ez_nl, solver=solver)				
-			else:
+
+			# error checking on the field_start parameter
+			if field_start not in ['linear','previous']:
 				raise AssertionError("field_start must be one of {'linear', 'previous'}")
 
-			Ez_nl = simulation.fields['Ez']
+			# construct the starting field for the linear solver based on field_start and the iteration
+			Estart = None if field_start =='linear' or i==0 else Ez
+
+			# solve for the nonlinear fields
+			(Hx_nl, Hy_nl, Ez_nl, _) = simulation.solve_fields_nl(b, nonlinear_fn, nl_region, 
+										   dnl_de=dnl_de, timing=False, 
+										   averaging=False, Estart=None, 
+										   solver_nl=solver, conv_threshold=1e-10,
+										   max_num_iter=50)
+			
+			# compute the gradient of the nonlinear objective function
 			grad_nonlin = dJdeps_nonlinear(simulation, design_region, J['nonlinear'], dJdE['nonlinear'],
-										 nonlinear_fn, nl_region, nl_de, averaging=False)
+										 nonlinear_fn, nl_region, dnl_de, averaging=False)
 
 			# Restore just the linear permittivity
 			simulation.reset_eps(eps_lin)
+
+		# if the problem is purely linear
 		else:
+
+			# just set the fields and gradients to zero so they don't affect linear part.
 			Ez_nl = np.zeros(simulation.eps_r.shape)
 			grad_nonlin = np.zeros(simulation.eps_r.shape)
 
@@ -186,9 +180,9 @@ def run_optimization(simulation, b, J, dJdE, Nsteps, eps_max, regions={}, nonlin
 		obj_fn = compute_objectivefn(Ez, Ez_nl, J, state)
 		obj_fns[i] = obj_fn
 
-		# want some way to print the obj function in the progressbar without adding new lines
+		# want: some way to print the obj function in the progressbar without adding new lines
 
-	return obj_fns
+	return (new_eps, obj_fns)
 
 
 
