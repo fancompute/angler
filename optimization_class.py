@@ -8,27 +8,27 @@ import progressbar
 class Optimization():
 
 
-	def __init__(self, Nsteps=100, eps_max=5, step_size=None, regions={}, nonlin_fns={}, field_start='linear', solver='born'):
+	def __init__(self, Nsteps=100, eps_max=5, step_size=None, J={}, dJdE={}, field_start='linear', solver='born'):
 
 		# store all of the parameters associated with the optimization
 
 		self.Nsteps 	 = Nsteps
 		self.eps_max	 = eps_max
 		self.step_size   = step_size
-		self.regions     = regions
-		self.nonlin_fns  = nonlin_fns
 		self.field_start = field_start					
 		self.solver      = solver
+		self.J    		 = J
+		self.dJdE 		 = dJdE		
 
 
-	def run(self, simulation, b, J, dJdE):
+	def run(self, simulation, b, regions={}, nonlin_fns={}):
 		
-		# store the parameters specific to this simulation and obj_fn
+		# store the parameters specific to this simulation
 
 		self.simulation  = simulation
 		self.b           = b
-		self.J    		 = J
-		self.dJdE 		 = dJdE
+		self.regions     = regions
+		self.nonlin_fns  = nonlin_fns
 
 
 		# stores objective functions
