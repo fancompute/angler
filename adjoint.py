@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.sparse as sp
-from fdfdpy.linalg import solver_direct, unpack_derivs, grid_average
+from fdfdpy.linalg import solver_direct, grid_average
+from fdfdpy.derivatives import unpack_derivs
 from fdfdpy.constants import *
 
 
@@ -28,7 +29,7 @@ def dJdeps_linear(simulation, design_region, J, dJdfield, averaging=False):
 		dAdeps = design_region*omega**2*EPSILON_0_    # Note: physical constants go here if need be!
 		Ez = simulation.fields['Ez']
 		b_aj = -dJdfield(Ez)
-		Ez_aj = adjoint_linear(simulation, b_aj)		 
+		Ez_aj = adjoint_linear(simulation, b_aj)
 
 		dJdeps = 2*np.real(Ez_aj*dAdeps*Ez)
 
@@ -40,17 +41,17 @@ def dJdeps_linear(simulation, design_region, J, dJdfield, averaging=False):
 
 		b_aj = -dJdfield(Hz)
 
-		if averaging:	
-			(Ex_aj, Ey_aj) = adjoint_linear(simulation, b_aj, averaging=True)	
+		if averaging:
+			(Ex_aj, Ey_aj) = adjoint_linear(simulation, b_aj, averaging=True)
 
 			design_region_x = grid_average(design_region, 'x')
-			dAdeps_x = design_region_x*omega**2*EPSILON_0_			
+			dAdeps_x = design_region_x*omega**2*EPSILON_0_
 			design_region_y = grid_average(design_region, 'y')
 			dAdeps_y = design_region_y*omega**2*EPSILON_0_
 			dJdeps = 2*np.real(Ex_aj*dAdeps_x*Ex) + 2*np.real(Ey_aj*dAdeps_y*Ey)
 
 		else:
-			(Ex_aj, Ey_aj) = adjoint_linear(simulation, b_aj, averaging=False)				
+			(Ex_aj, Ey_aj) = adjoint_linear(simulation, b_aj, averaging=False)
 			dJdeps = 2*np.real(Ex_aj*dAdeps*Ex) + 2*np.real(Ey_aj*dAdeps*Ey)
 
 	else:
@@ -78,7 +79,7 @@ def adjoint_linear(simulation, b_aj, averaging=False, solver=DEFAULT_SOLVER, mat
 
 	elif simulation.pol == 'Hz':
 		hz = solver_direct(A.T, b_aj, solver=solver)
-		(Dyb, Dxb, Dxf, Dyf) = unpack_derivs(simulation.derivs)	
+		(Dyb, Dxb, Dxf, Dyf) = unpack_derivs(simulation.derivs)
 		(Dyb, Dxb, Dxf, Dyf) = (Dyb.T, Dxb.T, Dxf.T, Dyf.T)
 
 		if averaging:
@@ -90,8 +91,8 @@ def adjoint_linear(simulation, b_aj, averaging=False, solver=DEFAULT_SOLVER, mat
 
 		T_eps_x_inv = sp.spdiags(1/vector_eps_x, 0, M, M, format=matrix_format)
 		T_eps_y_inv = sp.spdiags(1/vector_eps_y, 0, M, M, format=matrix_format)
-		
-		# Note: to get the correct gradient in the end, we must use Dxf, Dyf here 	
+
+		# Note: to get the correct gradient in the end, we must use Dxf, Dyf here
 		ex = -1/1j/omega * T_eps_x_inv.dot(Dyf).dot(hz)
 		ey =  1/1j/omega * T_eps_y_inv.dot(Dxf).dot(hz)
 
@@ -108,7 +109,7 @@ def adjoint_linear(simulation, b_aj, averaging=False, solver=DEFAULT_SOLVER, mat
 
 def dJdeps_nonlinear(simulation, design_region, J, dJdfield, nonlinear_fn, nl_region, nl_de, averaging=False):
 	# Note: written only for Ez!
-	# Note: we are assuming that the partial derivative of J w.r.t. e* is just (dJde)* 
+	# Note: we are assuming that the partial derivative of J w.r.t. e* is just (dJde)*
 
 	EPSILON_0_ = EPSILON_0*simulation.L0
 	MU_0_ = MU_0*simulation.L0
@@ -119,7 +120,7 @@ def dJdeps_nonlinear(simulation, design_region, J, dJdfield, nonlinear_fn, nl_re
 		dAdeps = design_region*omega**2*EPSILON_0_    # Note: physical constants go here if need be!
 		Ez = simulation.fields['Ez']
 		b_aj = -dJdfield(Ez)
-		Ez_aj = adjoint_nonlinear(simulation, b_aj, nonlinear_fn, nl_region, nl_de)		 
+		Ez_aj = adjoint_nonlinear(simulation, b_aj, nonlinear_fn, nl_region, nl_de)
 
 		dJdeps = 2*np.real(Ez_aj*dAdeps*Ez)
 
