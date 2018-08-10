@@ -99,7 +99,7 @@ def unpack_dicts(state, regions, nonlin_fns):
 	return (design_region, nonlin_region, deps_de, dnl_de)
 
 
-def run_optimization(simulation, b, J, dJdE, Nsteps, eps_max, regions={}, nonlin_fns={}, field_start='linear', solver='born', step_size=0.1):
+def run_optimization(simulation, J, dJdE, Nsteps, eps_max, regions={}, nonlin_fns={}, field_start='linear', solver='born', step_size=0.1):
 	# performs an optimization with gradient descent
 	# NOTE:  will add adam or other methods later -T
 	# NOTE2: this only works for objective functions of the nonlinear field for now
@@ -125,7 +125,7 @@ def run_optimization(simulation, b, J, dJdE, Nsteps, eps_max, regions={}, nonlin
 		if state == 'linear' or state == 'both':
 
 			# solve for the linear fields and gradient of the linear objective function
-			(Hx,Hy,Ez) = simulation.solve_fields(b)
+			(Hx,Hy,Ez) = simulation.solve_fields()
 			grad_lin = dJdeps_linear(simulation, design_region, J['linear'], dJdE['linear'], averaging=False)
 
 		# if the problem is purely nonlinear
@@ -150,7 +150,7 @@ def run_optimization(simulation, b, J, dJdE, Nsteps, eps_max, regions={}, nonlin
 			Estart = None if field_start =='linear' or i==0 else Ez
 
 			# solve for the nonlinear fields
-			(Hx_nl, Hy_nl, Ez_nl, _) = simulation.solve_fields_nl(b, nonlinear_fn, nl_region, 
+			(Hx_nl, Hy_nl, Ez_nl, _) = simulation.solve_fields_nl(nonlinear_fn, nl_region, 
 										   dnl_de=dnl_de, timing=False, 
 										   averaging=False, Estart=None, 
 										   solver_nl=solver, conv_threshold=1e-10,

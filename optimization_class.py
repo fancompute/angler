@@ -21,12 +21,11 @@ class Optimization():
 		self.dJdE 		 = dJdE		
 
 
-	def run(self, simulation, b, regions={}, nonlin_fns={}):
+	def run(self, simulation, regions={}, nonlin_fns={}):
 		
 		# store the parameters specific to this simulation
 
 		self.simulation  = simulation
-		self.b           = b
 		self.regions     = regions
 		self.nonlin_fns  = nonlin_fns
 
@@ -52,7 +51,7 @@ class Optimization():
 			if self.state == 'linear' or self.state == 'both':
 
 				# solve for the linear fields and gradient of the linear objective function
-				(Hx,Hy,Ez) = self.simulation.solve_fields(b)
+				(Hx,Hy,Ez) = self.simulation.solve_fields()
 				grad_lin = dJdeps_linear(self.simulation, design_region, self.J['linear'], self.dJdE['linear'], averaging=False)
 
 			# if the problem is purely nonlinear
@@ -77,7 +76,7 @@ class Optimization():
 				Estart = None if self.field_start =='linear' or i==0 else Ez
 
 				# solve for the nonlinear fields
-				(Hx_nl, Hy_nl, Ez_nl, _) = self.simulation.solve_fields_nl(self.b, nonlinear_fn, nl_region, 
+				(Hx_nl, Hy_nl, Ez_nl, _) = self.simulation.solve_fields_nl(nonlinear_fn, nl_region, 
 											   dnl_de=dnl_de, timing=False, 
 											   averaging=False, Estart=None, 
 											   solver_nl=self.solver, conv_threshold=1e-10,
