@@ -11,7 +11,7 @@ def get_grid(shape, dl):
 	y_coord = np.linspace(-Ny/2*dl, Ny/2*dl, Ny)
 
 	# x and y coordinate arrays
-	xs, ys = np.meshgrid(x_coord, y_coord)
+	xs, ys = np.meshgrid(x_coord, y_coord, indexing='ij')
 	return (xs, ys)
 
 
