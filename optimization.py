@@ -114,7 +114,14 @@ def run_optimization(simulation, J, dJdE, Nsteps, eps_max, regions={}, nonlin_fn
 	(design_region, nl_region, nonlinear_fn, dnl_de) = unpack_dicts(state, regions, nonlin_fns)
 
 	# make progressbar
-	bar = progressbar.ProgressBar(max_value=Nsteps)
+	obj_fn = 0
+	widgets=[
+	    ' [', progressbar.Timer(), '] ',
+	    progressbar.Bar(),
+	    ' (', progressbar.ETA(), ') ',
+	    'obj_fn = ', str(obj_fn)
+	]
+	bar = progressbar.ProgressBar(max_value=Nsteps, widgets=widgets)
 
 	for i in range(Nsteps):
 
