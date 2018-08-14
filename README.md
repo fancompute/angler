@@ -95,8 +95,8 @@ Output:
 ## To Do
 - [ ] Update readme with new run_optimization call and dictionaries
 - [ ] Fix relative package imports (move notebooks back to top directory? make this a module?)
-- [ ] Do Hz polarization sensitivity.
-- [ ] Setup 2 port demo problem.  (define function or class to create `eps_r`, `des_region`, `nl_region`, etc. arrays from fundamental parameters of the problem).
+- [ ] Do Hz polarization sensitivity. (necessary?)
+- [x] Setup 2 port demo problem.  (define function or class to create `eps_r`, `des_region`, `nl_region`, etc. arrays from fundamental parameters of the problem).
 - [ ] Make Fdfd a submodule of this package
 - [ ] Write a gradient computation using the RNN-like approach. (necessary?)
 - [x] Run a pixel-wise optimization of a nonlinear optimization. (ensure `J` increases / no divergence).
