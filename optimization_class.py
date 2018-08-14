@@ -8,7 +8,7 @@ import progressbar
 class Optimization():
 
 
-	def __init__(self, Nsteps=100, eps_max=5, step_size=None, J={}, dJdE={}, field_start='linear', solver='born'):
+	def __init__(self, Nsteps=100, eps_max=5, step_size=None, J={}, dJdE={}, field_start='linear', solver='born', opt_method='adam'):
 
 		# store all of the parameters associated with the optimization
 
@@ -17,6 +17,7 @@ class Optimization():
 		self.step_size   = step_size
 		self.field_start = field_start					
 		self.solver      = solver
+		self.opt_method  = opt_method
 		self.J    		 = J
 		self.dJdE 		 = dJdE		
 
@@ -100,7 +101,18 @@ class Optimization():
 			grad = self.dJdE['total'](grad_lin, grad_nonlin)
 
 			# update permittivity based on gradient
-			new_eps = self._update_permittivity(grad, design_region)
+			if self.opt_method == 'descent':
+				new_eps = self._update_permittivity(grad, design_region)
+
+			elif self.opt_method == 'adam':
+				if i == 0:
+					mopt = np.zeros((grad.shape))
+					vopt = np.zeros((grad.shape))
+
+				(grad_adam, mopt, vopt) = step_adam(grad, mopt, vopt, i, epsilon=1e-8, beta1=0.9, beta2=0.999) 
+				new_eps = self._update_permittivity(grad_adam, design_region)
+			else:
+				raise AssertionError("opt_method must be one of {'descent', 'adam'}")
 
 			# compute the objective function depending on what was supplied
 			obj_fn = self._compute_objectivefn(Ez, Ez_nl)
@@ -206,3 +218,13 @@ class Optimization():
 			nonlin_region = deps_de = dnl_de = None
 
 		return (design_region, nonlin_region, deps_de, dnl_de)
+
+
+def step_adam(grad, mopt_old, vopt_old, iteration_index, epsilon=1e-8, beta1=0.9, beta2=0.999):
+	mopt = beta1*mopt_old + (1-beta1)*grad;
+	mopt_t = mopt/(1 - beta1**(iteration_index+1));
+	vopt = beta2*vopt_old + (1 - beta2)*(np.square(grad));
+	vopt_t = vopt/(1 - beta2**(iteration_index+1));
+	grad_adam = mopt_t/(np.sqrt(vopt_t) + epsilon);
+
+	return (grad_adam, mopt, vopt)
