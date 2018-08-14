@@ -97,6 +97,7 @@ Output:
 - [ ] Fix relative package imports (move notebooks back to top directory? make this a module?)
 - [ ] Do Hz polarization sensitivity. (necessary?)
 - [x] Setup 2 port demo problem.  (define function or class to create `eps_r`, `des_region`, `nl_region`, etc. arrays from fundamental parameters of the problem).
+- [ ] Explore parameters to make a publishable 2-port demo.
 - [ ] Make Fdfd a submodule of this package
 - [ ] Write a gradient computation using the RNN-like approach. (necessary?)
 - [x] Run a pixel-wise optimization of a nonlinear optimization. (ensure `J` increases / no divergence).
