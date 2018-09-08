@@ -11,11 +11,11 @@ Right now, only the `three_port` system is included, which is a dielectric box w
 	L     		# length of box (L0)
 	H     		# height of box (L0)
 	w     		# width of waveguides (L0)
-	d 	  		# distance between waveguides (L0)
+	d 	  	# distance between waveguides (L0)
 	l     		# length of waveguide from PML to box (L0)
 	spc   		# space between box and PML (L0)
 	NPML  		# [num PML grids in x, num PML grids in y]
-	eps_start   #starting relative permittivity of device
+	eps_start       # starting relative permittivity of device
 
 and then `structures.three_port` can be called to give a permittvity array for this device, which can be used in simulations.
 
@@ -56,7 +56,7 @@ The spatial regions defined for the optimization:
 
 	regions = {
 		'design':    np.array(),        # numpy array with 1 where permittivity is changed and 0 elsewhere
-		'nonlin':	 np.array()		    # numpy array with 1 where nonlinear effects are present and 0 elsewhere
+		'nonlin':    np.array()	        # numpy array with 1 where nonlinear effects are present and 0 elsewhere
 	}
 
 `regions['nonlin']` is only needed if the objective function has a nonlinear component.
@@ -74,8 +74,8 @@ With these dictionaries defined, the a new optimization object may be initialilz
 
 Where the additional parameters are:
 
-	Nsteps           # how many iterations to run. default = 100
-	eps_max          # the maximum allowed relative permittivity (set to your material of interest). default = 0.5
+    Nsteps           # how many iterations to run. default = 100
+    eps_max          # the maximum allowed relative permittivity (set to your material of interest). default = 0.5
     step_size        # step size for gradient updates. default = 0.01
     field_start      # what field to use to start nonlinear solver ('linear', 'previous').  default = 'linear'
     solver           # nonlinear equation solver (either 'born' or 'newton') default = 'born'
