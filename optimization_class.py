@@ -3,228 +3,271 @@ from adjoint import dJdeps_linear, dJdeps_nonlinear
 import numpy as np
 import copy
 import progressbar
+import matplotlib.pylab as plt
 
 
 class Optimization():
 
+    def __init__(self, Nsteps=100, eps_max=5, step_size=None, J={}, dJdE={}, field_start='linear', solver='born', opt_method='adam'):
 
-	def __init__(self, Nsteps=100, eps_max=5, step_size=None, J={}, dJdE={}, field_start='linear', solver='born', opt_method='adam'):
+        # store all of the parameters associated with the optimization
 
-		# store all of the parameters associated with the optimization
+        self.Nsteps = Nsteps
+        self.eps_max = eps_max
+        self.step_size = step_size
+        self.field_start = field_start
+        self.solver = solver
+        self.opt_method = opt_method
+        self.J = J
+        self.dJdE = dJdE
+        self.objs_tot = []
+        self.objs_lin = []
+        self.objs_nl = []
 
-		self.Nsteps 	 = Nsteps
-		self.eps_max	 = eps_max
-		self.step_size   = step_size
-		self.field_start = field_start					
-		self.solver      = solver
-		self.opt_method  = opt_method
-		self.J    		 = J
-		self.dJdE 		 = dJdE		
+    def run(self, simulation, regions={}, nonlin_fns={}):
 
+        # store the parameters specific to this simulation
 
-	def run(self, simulation, regions={}, nonlin_fns={}):
-		
-		# store the parameters specific to this simulation
+        self.simulation = simulation
+        self.regions = regions
+        self.nonlin_fns = nonlin_fns
 
-		self.simulation  = simulation
-		self.regions     = regions
-		self.nonlin_fns  = nonlin_fns
+        # stores objective functions
+        obj_fns = np.zeros((self.Nsteps, 1))
 
+        # determine problem state ('linear', 'nonlinear', or 'both') from J and
+        # dJdE dictionaries
+        self._check_J_state()    # sets self.state
 
-		# stores objective functions
-		obj_fns = np.zeros((self.Nsteps,1))
+        # unpack design and nonlinear function dictionaries
+        (design_region, nl_region, nonlinear_fn, dnl_de) = self._unpack_dicts()
 
-		# determine problem state ('linear', 'nonlinear', or 'both') from J and dJdE dictionaries
-		self._check_J_state()    # sets self.state
+        # make progressbar
+        bar = progressbar.ProgressBar(max_value=self.Nsteps)
 
-		# unpack design and nonlinear function dictionaries
-		(design_region, nl_region, nonlinear_fn, dnl_de) = self._unpack_dicts()
+        for i in range(self.Nsteps):
 
-		# make progressbar
-		bar = progressbar.ProgressBar(max_value=self.Nsteps)
+            # display progressbar
+            bar.update(i + 1)
 
-		for i in range(self.Nsteps):
+            # if the problem has a linear component
+            if self.state == 'linear' or self.state == 'both':
 
-			# display progressbar	
-			bar.update(i+1)
+                # solve for the linear fields and gradient of the linear
+                # objective function
+                (Hx, Hy, Ez) = self.simulation.solve_fields()
+                grad_lin = dJdeps_linear(self.simulation, design_region, self.J[
+                                         'linear'], self.dJdE['linear'], averaging=False)
 
-			# if the problem has a linear component
-			if self.state == 'linear' or self.state == 'both':
+            # if the problem is purely nonlinear
+            else:
 
-				# solve for the linear fields and gradient of the linear objective function
-				(Hx,Hy,Ez) = self.simulation.solve_fields()
-				grad_lin = dJdeps_linear(self.simulation, design_region, self.J['linear'], self.dJdE['linear'], averaging=False)
+                # just set the fields and gradients to zeros so they don't
+                # affect the nonlinear part
+                Ez = np.zeros(self.simulation.eps_r.shape)
+                grad_lin = np.zeros(self.simulation.eps_r.shape)
 
-			# if the problem is purely nonlinear
-			else:
+            # if the problem has a nonlinear component
+            if self.state == 'nonlinear' or self.state == 'both':
 
-				# just set the fields and gradients to zeros so they don't affect the nonlinear part
-				Ez = np.zeros(self.simulation.eps_r.shape)
-				grad_lin = np.zeros(self.simulation.eps_r.shape)
+                # Store the starting linear permittivity (it will be changed by
+                # the nonlinear solvers...)
+                eps_lin = self.simulation.eps_r
 
+                # error checking on the field_start parameter
+                if self.field_start not in ['linear', 'previous']:
+                    raise AssertionError(
+                        "field_start must be one of {'linear', 'previous'}")
 
-			# if the problem has a nonlinear component
-			if self.state == 'nonlinear' or self.state == 'both':
+                # construct the starting field for the linear solver based on
+                # field_start and the iteration
+                Estart = None if self.field_start == 'linear' or i == 0 else Ez
 
-				# Store the starting linear permittivity (it will be changed by the nonlinear solvers...)
-				eps_lin = self.simulation.eps_r
+                # solve for the nonlinear fields
+                (Hx_nl, Hy_nl, Ez_nl, _) = self.simulation.solve_fields_nl(nonlinear_fn, nl_region,
+                                                                           dnl_de=dnl_de, timing=False,
+                                                                           averaging=False, Estart=None,
+                                                                           solver_nl=self.solver, conv_threshold=1e-10,
+                                                                           max_num_iter=50)
 
-				# error checking on the field_start parameter
-				if self.field_start not in ['linear','previous']:
-					raise AssertionError("field_start must be one of {'linear', 'previous'}")
+                # compute the gradient of the nonlinear objective function
+                grad_nonlin = dJdeps_nonlinear(simulation, design_region, self.J['nonlinear'], self.dJdE['nonlinear'],
+                                               nonlinear_fn, nl_region, dnl_de, averaging=False)
 
-				# construct the starting field for the linear solver based on field_start and the iteration
-				Estart = None if self.field_start =='linear' or i==0 else Ez
+                # Restore just the linear permittivity
+                self.simulation.reset_eps(eps_lin)
 
-				# solve for the nonlinear fields
-				(Hx_nl, Hy_nl, Ez_nl, _) = self.simulation.solve_fields_nl(nonlinear_fn, nl_region, 
-											   dnl_de=dnl_de, timing=False, 
-											   averaging=False, Estart=None, 
-											   solver_nl=self.solver, conv_threshold=1e-10,
-											   max_num_iter=50)
-				
-				# compute the gradient of the nonlinear objective function
-				grad_nonlin = dJdeps_nonlinear(simulation, design_region, self.J['nonlinear'], self.dJdE['nonlinear'],
-											 nonlinear_fn, nl_region, dnl_de, averaging=False)
+            # if the problem is purely linear
+            else:
 
-				# Restore just the linear permittivity
-				self.simulation.reset_eps(eps_lin)
+                # just set the fields and gradients to zero so they don't
+                # affect linear part.
+                Ez_nl = np.zeros(self.simulation.eps_r.shape)
+                grad_nonlin = np.zeros(self.simulation.eps_r.shape)
 
-			# if the problem is purely linear
-			else:
+            # add the gradients together depending on problem
+            grad = self.dJdE['total'](grad_lin, grad_nonlin)
 
-				# just set the fields and gradients to zero so they don't affect linear part.
-				Ez_nl = np.zeros(self.simulation.eps_r.shape)
-				grad_nonlin = np.zeros(self.simulation.eps_r.shape)
+            # update permittivity based on gradient
+            if self.opt_method == 'descent':
+                new_eps = self._update_permittivity(grad, design_region)
 
-			# add the gradients together depending on problem
-			grad = self.dJdE['total'](grad_lin, grad_nonlin)
+            elif self.opt_method == 'adam':
+                if i == 0:
+                    mopt = np.zeros((grad.shape))
+                    vopt = np.zeros((grad.shape))
 
-			# update permittivity based on gradient
-			if self.opt_method == 'descent':
-				new_eps = self._update_permittivity(grad, design_region)
+                (grad_adam, mopt, vopt) = step_adam(grad, mopt,
+                                                    vopt, i, epsilon=1e-8, beta1=0.9, beta2=0.999)
+                new_eps = self._update_permittivity(grad_adam, design_region)
+            else:
+                raise AssertionError(
+                    "opt_method must be one of {'descent', 'adam'}")
 
-			elif self.opt_method == 'adam':
-				if i == 0:
-					mopt = np.zeros((grad.shape))
-					vopt = np.zeros((grad.shape))
+            # compute the objective function depending on what was supplied
+            obj_fn = self._compute_objectivefn(Ez, Ez_nl)
+            obj_fns[i] = obj_fn
 
-				(grad_adam, mopt, vopt) = step_adam(grad, mopt, vopt, i, epsilon=1e-8, beta1=0.9, beta2=0.999) 
-				new_eps = self._update_permittivity(grad_adam, design_region)
-			else:
-				raise AssertionError("opt_method must be one of {'descent', 'adam'}")
+            # want: some way to print the obj function in the progressbar
+            # without adding new lines
 
-			# compute the objective function depending on what was supplied
-			obj_fn = self._compute_objectivefn(Ez, Ez_nl)
-			obj_fns[i] = obj_fn
+        return (new_eps, obj_fns)
 
-			# want: some way to print the obj function in the progressbar without adding new lines
+    def plt_objs(self, ax=None):
 
-		return (new_eps, obj_fns)
+        iters = range(1, len(self.objs_tot) + 1)
 
+        if ax is None:
+            fig, ax = plt.subplots(1, constrained_layout=True)
 
-	def _update_permittivity(self, grad, design_region):
-		# updates the permittivity with the gradient info
+        ax.plot(iters, self.objs_tot)
+        ax.set_xlabel('iteration number')
+        ax.set_ylabel('objective function')
+        ax.set_title('optimization results')
 
-		# deep copy original permittivity (deep for safety)
-		eps_old = copy.deepcopy(self.simulation.eps_r)
+        if self.state == 'both':
+            ax.plot(iters, self.objs_lin)
+            ax.plot(iters, self.objs_nl)
+            ax.legend(('total', 'linear', 'nonlinear'))
 
-		# update the old eps to get a new eps with the gradient
-		eps_new = eps_old + self.regions['design']*self.step_size*grad
+        return ax
 
-		# push back inside bounds
-		eps_new[eps_new < 1] = 1
-		eps_new[eps_new > self.eps_max] = self.eps_max
+    def _update_permittivity(self, grad, design_region):
+        # updates the permittivity with the gradient info
 
-		# reset the epsilon of the simulation
-		self.simulation.reset_eps(eps_new)
+        # deep copy original permittivity (deep for safety)
+        eps_old = copy.deepcopy(self.simulation.eps_r)
 
-		return eps_new
+        # update the old eps to get a new eps with the gradient
+        eps_new = eps_old + self.regions['design'] * self.step_size * grad
 
+        # push back inside bounds
+        eps_new[eps_new < 1] = 1
+        eps_new[eps_new > self.eps_max] = self.eps_max
 
-	def _check_J_state(self):
-		# does error checking on the objective function dictionaries and complains if they are wrong
-		# sets a flag for the run_optimization function
+        # reset the epsilon of the simulation
+        self.simulation.reset_eps(eps_new)
 
-		keys = ['linear', 'nonlinear', 'total']
+        return eps_new
 
-		# first, set any unspecified values = None
-		for k in keys:
-			if k not in self.J:
-				self.J[k] = None
-			if k not in self.dJdE:
-				self.dJdE[k] = None
+    def _check_J_state(self):
+        # does error checking on the objective function dictionaries and complains if they are wrong
+        # sets a flag for the run_optimization function
 
-		# next, determine if linear problem, nonlinear problem, or both
-		state = 'NA'
-		if self.J['linear'] is not None and self.dJdE['linear'] is not None:
-			state = 'linear'
-		if self.J['nonlinear'] is not None and self.dJdE['nonlinear'] is not None:
-			state = 'nonlinear'	if state == 'NA' else 'both'
+        keys = ['linear', 'nonlinear', 'total']
 
-		if state == 'both':
-			if 'total' not in self.J or self.J['total'] is None or 'total' not in self.dJdE or self.dJdE['total'] is None:
-				raise ValueError("must supply functions in J['total'] and dJdE['total']")
+        # first, set any unspecified values = None
+        for k in keys:
+            if k not in self.J:
+                self.J[k] = None
+            if k not in self.dJdE:
+                self.dJdE[k] = None
 
-		elif state == 'linear':
-			self.J['total']    = lambda J_lin, J_nonlin: J_lin
-			self.dJdE['total'] = lambda dJdE_lin, dJdE_nonlin: dJdE_lin
+        # next, determine if linear problem, nonlinear problem, or both
+        state = 'NA'
+        if self.J['linear'] is not None and self.dJdE['linear'] is not None:
+            state = 'linear'
+        if self.J['nonlinear'] is not None and self.dJdE['nonlinear'] is not None:
+            state = 'nonlinear' if state == 'NA' else 'both'
 
-		elif state == 'nonlinear':
-			self.J['total']    = lambda J_lin, J_nonlin: J_nonlin
-			self.dJdE['total'] = lambda dJdE_lin, dJdE_nonlin: dJdE_nonlin
+        if state == 'both':
+            if 'total' not in self.J or self.J['total'] is None or 'total' not in self.dJdE or self.dJdE['total'] is None:
+                raise ValueError(
+                    "must supply functions in J['total'] and dJdE['total']")
 
-		elif state == 'NA':
-			raise ValueError("must supply both J and dJdE with functions for 'linear', 'nonlinear' or both")
+        elif state == 'linear':
+            self.J['total'] = lambda J_lin, J_nonlin: J_lin
+            self.dJdE['total'] = lambda dJdE_lin, dJdE_nonlin: dJdE_lin
 
-		self.state = state
+        elif state == 'nonlinear':
+            self.J['total'] = lambda J_lin, J_nonlin: J_nonlin
+            self.dJdE['total'] = lambda dJdE_lin, dJdE_nonlin: dJdE_nonlin
 
+        elif state == 'NA':
+            raise ValueError(
+                "must supply both J and dJdE with functions for 'linear', 'nonlinear' or both")
 
-	def _compute_objectivefn(self, Ez, Ez_nl):
-		# does some error checking and returns the objective function
+        self.state = state
 
-		assert self.state in ['linear', 'nonlinear', 'both']
+    def _compute_objectivefn(self, Ez, Ez_nl):
+        # does some error checking and returns the objective function
 
-		# give different objective function depending on state
-		if self.state == 'linear':
-			return self.J['total'](self.J['linear'](Ez), 0)
-		elif self.state == 'nonlinear':
-			return self.J['total'](0, self.J['nonlinear'](Ez_nl))
-		elif self.state == 'both':
-			return self.J['total'](self.J['linear'](Ez), self.J['nonlinear'](Ez_nl))
+        assert self.state in ['linear', 'nonlinear', 'both']
 
+        # give different objective function depending on state
+        if self.state == 'linear':
+            J_tot = self.J['total'](self.J['linear'](Ez), 0)
 
-	def _unpack_dicts(self):
-		# does error checking on the regions and nonlin_fns dictionary and returns results.
+        elif self.state == 'nonlinear':
+            J_tot = self.J['total'](0, self.J['nonlinear'](Ez_nl))
 
-		# unpack regions
-		if 'design' not in self.regions:
-			raise ValueError("must supply a 'design' region to regions dictionary")
-		design_region = self.regions['design']
+        else:
+            J_lin = self.J['linear'](Ez)
+            J_nl = self.J['nonlinear'](Ez)
+            J_tot = self.J['total'](J_lin, J_nl)
+            self.objs_lin.append(J_lin)
+            self.objs_nl.append(J_nl)
 
-		if self.state == 'nonlinear' or self.state == 'both':
-			if 'nonlin' not in self.regions:
-				raise ValueError("must supply a 'nonlin' region to regions dictionary")
-			nonlin_region = self.regions['nonlin']
+        self.objs_tot.append(J_tot)
+        return J_tot
 
-			# unpack nonlinear functions (if state is 'nonlinear' or 'both')
-			if 'deps_de' not in self.nonlin_fns or 'dnl_de' not in self.nonlin_fns:
-				raise ValueError("must supply 'deps_de' and 'dnl_de' functions to nonlin_fns dictionary")
-			deps_de = self.nonlin_fns['deps_de']
-			dnl_de  = self.nonlin_fns['dnl_de']
-			if deps_de is None or dnl_de is None:
-				raise ValueError("must supply 'deps_de' and 'dnl_de' functions to nonlin_fns dictionary")
-		else:
-			nonlin_region = deps_de = dnl_de = None
+    def _unpack_dicts(self):
+        # does error checking on the regions and nonlin_fns dictionary and
+        # returns results.
 
-		return (design_region, nonlin_region, deps_de, dnl_de)
+        # unpack regions
+        if 'design' not in self.regions:
+            raise ValueError(
+                "must supply a 'design' region to regions dictionary")
+        design_region = self.regions['design']
+
+        if self.state == 'nonlinear' or self.state == 'both':
+            if 'nonlin' not in self.regions:
+                raise ValueError(
+                    "must supply a 'nonlin' region to regions dictionary")
+            nonlin_region = self.regions['nonlin']
+
+            # unpack nonlinear functions (if state is 'nonlinear' or 'both')
+            if 'deps_de' not in self.nonlin_fns or 'dnl_de' not in self.nonlin_fns:
+                raise ValueError(
+                    "must supply 'deps_de' and 'dnl_de' functions to nonlin_fns dictionary")
+            deps_de = self.nonlin_fns['deps_de']
+            dnl_de = self.nonlin_fns['dnl_de']
+            if deps_de is None or dnl_de is None:
+                raise ValueError(
+                    "must supply 'deps_de' and 'dnl_de' functions to nonlin_fns dictionary")
+        else:
+            nonlin_region = deps_de = dnl_de = None
+
+        return (design_region, nonlin_region, deps_de, dnl_de)
+
 
 
 def step_adam(grad, mopt_old, vopt_old, iteration_index, epsilon=1e-8, beta1=0.9, beta2=0.999):
-	mopt = beta1*mopt_old + (1-beta1)*grad;
-	mopt_t = mopt/(1 - beta1**(iteration_index+1));
-	vopt = beta2*vopt_old + (1 - beta2)*(np.square(grad));
-	vopt_t = vopt/(1 - beta2**(iteration_index+1));
-	grad_adam = mopt_t/(np.sqrt(vopt_t) + epsilon);
+    mopt = beta1 * mopt_old + (1 - beta1) * grad
+    mopt_t = mopt / (1 - beta1**(iteration_index + 1))
+    vopt = beta2 * vopt_old + (1 - beta2) * (np.square(grad))
+    vopt_t = vopt / (1 - beta2**(iteration_index + 1))
+    grad_adam = mopt_t / (np.sqrt(vopt_t) + epsilon)
 
-	return (grad_adam, mopt, vopt)
+    return (grad_adam, mopt, vopt)
