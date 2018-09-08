@@ -1,14 +1,6 @@
 # nonlinear_avm
 inverse design of a nonlinear optical device using AVM
 
-## Requirements
-- [Fdfdpy](https://github.com/fancompute/fdfdpy) package.
-- numpy
-- matplotlib
-- [pyMKL](https://github.com/dwfmarchant/pyMKL) (included)
-- scipy
-- progressbar
-
 ## Creating devices
 
 In `structures.py` one may define functions for creating permittivity distributions based on geometric parameters.
