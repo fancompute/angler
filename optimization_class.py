@@ -23,6 +23,7 @@ class Optimization():
         self.objs_tot = []
         self.objs_lin = []
         self.objs_nl = []
+        self.convergences = []
 
     def run(self, simulation, regions={}, nonlin_fns={}):
 
@@ -31,9 +32,6 @@ class Optimization():
         self.simulation = simulation
         self.regions = regions
         self.nonlin_fns = nonlin_fns
-
-        # stores objective functions
-        obj_fns = np.zeros((self.Nsteps, 1))
 
         # determine problem state ('linear', 'nonlinear', or 'both') from J and
         # dJdE dictionaries
@@ -84,11 +82,13 @@ class Optimization():
                 Estart = None if self.field_start == 'linear' or i == 0 else Ez
 
                 # solve for the nonlinear fields
-                (Hx_nl, Hy_nl, Ez_nl, _) = self.simulation.solve_fields_nl(nonlinear_fn, nl_region,
+                (Hx_nl, Hy_nl, Ez_nl, conv) = self.simulation.solve_fields_nl(nonlinear_fn, nl_region,
                                                                            dnl_de=dnl_de, timing=False,
                                                                            averaging=False, Estart=None,
                                                                            solver_nl=self.solver, conv_threshold=1e-10,
                                                                            max_num_iter=50)
+                # add final convergence to the optimization list
+                self.convergences.append(float(conv[-1]))
 
                 # compute the gradient of the nonlinear objective function
                 grad_nonlin = dJdeps_nonlinear(simulation, design_region, self.J['nonlinear'], self.dJdE['nonlinear'],
@@ -117,8 +117,10 @@ class Optimization():
                     mopt = np.zeros((grad.shape))
                     vopt = np.zeros((grad.shape))
 
-                (grad_adam, mopt, vopt) = step_adam(grad, mopt,
-                                                    vopt, i, epsilon=1e-8, beta1=0.9, beta2=0.999)
+                (grad_adam, mopt, vopt) = self._step_adam(grad, mopt, vopt, i,
+                                                          epsilon=1e-8,
+                                                          beta1=0.9,
+                                                          beta2=0.999)
                 new_eps = self._update_permittivity(grad_adam, design_region)
             else:
                 raise AssertionError(
@@ -126,12 +128,11 @@ class Optimization():
 
             # compute the objective function depending on what was supplied
             obj_fn = self._compute_objectivefn(Ez, Ez_nl)
-            obj_fns[i] = obj_fn
 
             # want: some way to print the obj function in the progressbar
             # without adding new lines
 
-        return (new_eps, obj_fns)
+        return new_eps
 
     def plt_objs(self, ax=None):
 
@@ -151,6 +152,32 @@ class Optimization():
             ax.legend(('total', 'linear', 'nonlinear'))
 
         return ax
+
+    def compute_index_shift(self, simulation, regions, nonlin_fns):
+        # computes the max shift of refractive index caused by nonlinearity
+        
+        # solve linear fields
+        (Hx, Hy, Ez) = self.simulation.solve_fields()
+
+        # get region of nonlinearity
+        nl_region = regions['nonlin']
+
+        # how eps_r changes with Ez
+        deps_de = nonlin_fns['deps_de']
+
+        # relative permittivity shift
+        deps = deps_de(Ez*nl_region)
+
+        # index shift
+        dn = np.sqrt(deps)
+
+        # could np.max() it here if you want.  Returning array for now
+
+        return dn
+
+        
+
+
 
     def _update_permittivity(self, grad, design_region):
         # updates the permittivity with the gradient info
@@ -261,13 +288,11 @@ class Optimization():
 
         return (design_region, nonlin_region, deps_de, dnl_de)
 
+    def _step_adam(self, grad, mopt_old, vopt_old, iteration_index, epsilon=1e-8, beta1=0.9, beta2=0.999):
+        mopt = beta1 * mopt_old + (1 - beta1) * grad
+        mopt_t = mopt / (1 - beta1**(iteration_index + 1))
+        vopt = beta2 * vopt_old + (1 - beta2) * (np.square(grad))
+        vopt_t = vopt / (1 - beta2**(iteration_index + 1))
+        grad_adam = mopt_t / (np.sqrt(vopt_t) + epsilon)
 
-
-def step_adam(grad, mopt_old, vopt_old, iteration_index, epsilon=1e-8, beta1=0.9, beta2=0.999):
-    mopt = beta1 * mopt_old + (1 - beta1) * grad
-    mopt_t = mopt / (1 - beta1**(iteration_index + 1))
-    vopt = beta2 * vopt_old + (1 - beta2) * (np.square(grad))
-    vopt_t = vopt / (1 - beta2**(iteration_index + 1))
-    grad_adam = mopt_t / (np.sqrt(vopt_t) + epsilon)
-
-    return (grad_adam, mopt, vopt)
+        return (grad_adam, mopt, vopt)
