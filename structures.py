@@ -34,7 +34,7 @@ def apply_regions(reg_list, xs, ys, eps_start):
 	return eps_r
 
 
-def three_port(L, H, w, d, dl, shape, eps_start):
+def three_port(L, H, w, d, dl, l, spc, NPML, eps_start):
 
 	# CONSTRUCTS A ONE IN TWO OUT PORT DEVICE
 	# L         : box length in L0
@@ -44,6 +44,11 @@ def three_port(L, H, w, d, dl, shape, eps_start):
 	# dl        : grid size in L0
 	# shape     : shape of the permittivity output
 	# eps_start : starting relative permittivity
+
+	Nx = 2*NPML[0] + int((2*l + L)/dl)       # num. grids in horizontal
+	Ny = 2*NPML[1] + int((2*H + 2*spc)/dl)   # num. grids in vertical
+	nx, ny = int(Nx/2), int(Ny/2)            # halfway grid points
+	shape = (Nx,Ny)                          # shape of domain (in num. grids)	
 
 	# x and y coordinate arrays
 	xs, ys = get_grid(shape, dl)
