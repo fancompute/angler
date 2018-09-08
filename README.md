@@ -70,7 +70,14 @@ If the objective function has a nonlinear component one must define the nonlinea
 
 With these dictionaries defined, the a new optimization object may be initialilzed by calling:
 
-	optimization = Optimization(Nsteps=Nsteps, J=J, dJdE=dJdE, eps_max=eps_m, step_size=step_size, solver=solver, opt_method=opt_method, max_ind_shift=max_ind_shift)
+	optimization = Optimization(Nsteps=Nsteps,
+				    J=J,
+				    dJdE=dJdE,
+				    eps_max=eps_m,
+				    step_size=step_size,
+				    solver=solver,
+				    opt_method=opt_method,
+				    max_ind_shift=max_ind_shift)
 
 Where the additional parameters are:
 
