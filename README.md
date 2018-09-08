@@ -35,9 +35,9 @@ To setup an optimization, one must define:
 The objective function:
 
 	J = {
-		'linear':    lambda e_lin: pass,       	# scalar function of the linear electric fields
-		'nonlinear': lambda e_nl: pass,    		# scalar function of the nonlinear electric fields
-		'total':     lambda J_lin, J_nl: pass  # scalar function of J['linear'] and J['nonlinear']
+		'linear':    lambda e_lin: pass,       	          # scalar function of the linear electric fields
+		'nonlinear': lambda e_nl: pass,    		  # scalar function of the nonlinear electric fields
+		'total':     lambda J_lin, J_nl: pass             # scalar function of J['linear'] and J['nonlinear']
 	}
 
 If only `J['linear']` or `J['nonlinear']` are defined, the simulation will simply solve for the linear or nonlinear parts, repsectively.  There is no need to define `J['total']` in this case.
@@ -46,8 +46,8 @@ The partial derivatives of the objective function with respect to e_lin, e_nl, :
 
 	dJdE = {
 		'linear':    lambda e_lin: pass,       		  # scalar function of the linear electric fields
-		'nonlinear': lambda e_nl: pass,    			  # scalar function of the nonlinear electric fields
-		'total':     lambda dJdE_lin, dJdE_nl: pass  # scalar function of dJdE['linear'] and dJdE['nonlinear']
+		'nonlinear': lambda e_nl: pass,    		  # scalar function of the nonlinear electric fields
+		'total':     lambda dJdE_lin, dJdE_nl: pass       # scalar function of dJdE['linear'] and dJdE['nonlinear']
 	}
 
 Again, if one of these terms was not included in `J`, there is no need to include here either.
