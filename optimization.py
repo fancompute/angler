@@ -8,7 +8,7 @@ import matplotlib.pylab as plt
 
 class Optimization():
 
-    def __init__(self, Nsteps=100, eps_max=5, step_size=None, J={}, dJdE={},
+    def __init__(self, Nsteps=100, eps_max=5, step_size=0.01, J={}, dJdE={},
                  field_start='linear', solver='born', opt_method='adam',
                  max_ind_shift=None):
 

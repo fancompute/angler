@@ -1,89 +1,6 @@
 # nonlinear_avm
 inverse design of a nonlinear optical device using AVM
 
-# Modules
-
-## nonlinear_solvers
-For solving a nonlinear EM problem defined though a field-dependent permittivity using either the Born or the Newton method. See notebook `Nonlinear_solvers_check.ipynb`
-
-Syntax: 
-
-    convergence_array = born_solve(simulation, b, nonlinear_fn, nl_region, Estart, conv_threshold, max_num_iter)
-    convergence_array = newton_solve(simulation, b, nonlinear_fn, nl_region, nl_de, Estart, conv_threshold, max_num_iter)
-
-Input:
-- `simulation`: an object of the `fdfdpy.Fdfd` class (needs to be initialized with the linear permittivity but not necessarily solved)
-- `b`: current density
-- `nonlinear_fn`: an arbitrary function of `Ez` added to the relative permittivity such that `eps_tot = eps_lin + nonlinear_fn(Ez)`
-- `nl_region`: region of the simulation space within which the nonlinear function is applied
-- `nl_de`: (only for newton_solve) partial derivative of nonlinar_fn with respect to `Ez`
-- `Estart`: (optional) starting field for the iteration; if not supplied, it will start from the solution of the linear problem
-- `conv_treshold`: (optional) treshold on the convergence parameter for termination of the iteration; default is `1e-8`
-- `max_num_iter`: (optional) maximum number of iterations before termination; default is `10`
-
-Output:
-- `convergence_array`: contains the convergence parameter at every step of the iteration
-- `simulation`: the object is updated such that `simulation.eps_r` contains the nonlinear permittivity and `simulation.fields` contains the fields computed at the last step of the iteration
-
-## adjoint
-For computing the derivative of an objective function that depends on `Ez` with respect to the relative permittivity at every point within a specified region using the linear or nonlinear adjoint variable method. See notebooks `Linear_gradient` and `Nonlinear_gradient`.
-
-**dJdeps_linear()**
-
-Syntax:
-
-    dJdeps = dJdeps_linear(simulation, design_region, J, dJdE)
-
-Input:
-- `simulation`: an object of the fdfdpy.Fdfd class that has has already been solved using simulation.solve_fields()
-- `design_region`: the region of simulation space in which the gradient will be computed
-- `J`: the objective function 
-- `dJdE`: function defining the partial derivative of J with respect to Ez
-
-Output:
-- `dJdeps`: the total derivative of J with respect to the permittivity of every point in the design region
-
-**dJdeps_nonlinear()**
-
-Syntax:
-
-    dJdeps = dJdeps_nonlinear(simulation, design_region, J, dJdE, nonlinear_fn, nl_region, nl_de)
-
-Input:
-- `simulation`: an object of the `fdfdpy.Fdfd` class that has has already been solved using `born_solve` or `newton_solve`, or `\_solve_nl()` from the `optimization.py` module
-- `design_region`: the region of simulation space in which the gradient will be computed
-- `J`: the objective function 
-- `dJdE`: function defining the partial derivative of `J` with respect to `Ez`
-- `nonlinear_fn`, `nl_region`, `nl_de`: see input to the `nonlinear_solvers` functions
-
-Output:
-- `dJdeps`: the total derivative of `J` with respect to the *linear* permittivity of every point in the design region
-
-## optimization
-For running an optimization of either a linear or nonlinear problem 
-
-Syntax:
-
-    obj_fns = run_optimization(simulation, b, J, dJdE, design_region, Nsteps, eps_max, 
-					nonlinear_fn, nl_region, nl_de, field_start, solver, step_size)
-
-Input:
-- `simulation, object of the fdfdpy.Fdfd class (not necessarily solved)
-- `b: current density
-- `J`: dictionary of functions `J['linear']`, `J['nonlinear']` and `J['total']`, defining objective functions that depend on the field solutions to the linear and the nonlinear problems, respectively, as well as how those two are combined
-- `dJdE`: dictionary of functions corresponding to the derivatives of `J` with respect to `Ez`
-- `design_region`: the region of simulation space in which the gradient will be computed
-- `Nsteps`: total number of steps in the gradient descent
-- `eps_max`: values above eps_max will be truncated back to eps_max
-- `nonlinear_fn`, `nl_region`, `nl_de`: (optional) see input to the `nonlinear_solvers` functions; default is `None` as for optimizing a linear system
-- `field_start`: `'linear'` (default) or `'previous'`, defining whether, at each step of the gradient descent, the nonlinear solve starts from the solution to the linear system or from the nonlinear solution found at the previous step
-- `solver`: (optional) `'born'` (default) or `'newton'`, defines which nonlinear solver will be used
-- `step_size`: (optional) defines the step size in the gradient descent; default is 0.1
-          
-Output:
-- `obj_fns`: the values of `J['total']` at every step of the gradient descent
-- `simulation`: the object is updated such that `simulation.eps_r` contains the *linear* permittivity at the final step of the gradient descent; the simulation is *not* solved
-
 ## Requirements
 - [Fdfdpy](https://github.com/fancompute/fdfdpy) package.
 - numpy
@@ -92,16 +9,113 @@ Output:
 - scipy
 - progressbar
 
+## Creating devices
+
+In `structures.py` one may define functions for creating permittivity distributions based on geometric parameters.
+
+Right now, only the `three_port` system is included, which is a dielectric box with 1 input waveguide and 2 output wavguides.  The following geometric parameters may be specified:
+
+
+	L     		# length of box (L0)
+	H     		# height of box (L0)
+	w     		# width of waveguides (L0)
+	d 	  		# distance between waveguides (L0)
+	l     		# length of waveguide from PML to box (L0)
+	spc   		# space between box and PML (L0)
+	NPML  		# [num PML grids in x, num PML grids in y]
+	eps_start   #starting relative permittivity of device
+
+and then `structures.three_port` can be called to give a permittvity array for this device, which can be used in simulations.
+
+
+	eps_r = three_port(L, H, w, d, dl, l, spc, NPML, eps_start=eps_m)
+
+The total grid points in X and Y (`Nx` and `Ny`) are solved for and can be obtained by
+
+	(Nx, Ny) = eps_r.shape
+
+## Running optimization
+
+We provide an `Optimization` class in `optimization.py` that may be used to run gradient-based optimization of the permittivity distribution within some design region.  This optimization may be a function of either the linear fields, nonlinear fields, or both.
+
+To setup an optimization, one must define:
+
+The objective function:
+
+	J = {
+		'linear':    lambda e_lin: pass,       	# scalar function of the linear electric fields
+		'nonlinear': lambda e_nl: pass,    		# scalar function of the nonlinear electric fields
+		'total':     lambda J_lin, J_nl: pass  # scalar function of J['linear'] and J['nonlinear']
+	}
+
+If only `J['linear']` or `J['nonlinear']` are defined, the simulation will simply solve for the linear or nonlinear parts, repsectively.  There is no need to define `J['total']` in this case.
+
+The partial derivatives of the objective function with respect to e_lin, e_nl, :
+
+	dJdE = {
+		'linear':    lambda e_lin: pass,       		  # scalar function of the linear electric fields
+		'nonlinear': lambda e_nl: pass,    			  # scalar function of the nonlinear electric fields
+		'total':     lambda dJdE_lin, dJdE_nl: pass  # scalar function of dJdE['linear'] and dJdE['nonlinear']
+	}
+
+Again, if one of these terms was not included in `J`, there is no need to include here either.
+
+The spatial regions defined for the optimization:
+
+	regions = {
+		'design':    np.array(),        # numpy array with 1 where permittivity is changed and 0 elsewhere
+		'nonlin':	 np.array()		    # numpy array with 1 where nonlinear effects are present and 0 elsewhere
+	}
+
+`regions['nonlin']` is only needed if the objective function has a nonlinear component.
+
+If the objective function has a nonlinear component one must define the nonlinear function being applied and its derivative:
+
+	nonlin_fns = {
+		'deps_de':   lambda e: pass,    # how relative permittivity changes with the electric field
+		'dnl_de':    lambda e: pass     # partial derivative of deps_de with respect to e
+	}
+
+With these dictionaries defined, the a new optimization object may be initialilzed by calling:
+
+	optimization = Optimization(Nsteps=Nsteps, J=J, dJdE=dJdE, eps_max=eps_m, step_size=step_size, solver=solver, opt_method=opt_method, max_ind_shift=max_ind_shift)
+
+Where the additional parameters are:
+
+	Nsteps           # how many iterations to run. default = 100
+	eps_max          # the maximum allowed relative permittivity (set to your material of interest). default = 0.5
+    step_size        # step size for gradient updates. default = 0.01
+    field_start      # what field to use to start nonlinear solver ('linear', 'previous').  default = 'linear'
+    solver           # nonlinear equation solver (either 'born' or 'newton') default = 'born'
+    opt_method       # optimization update method (either 'descent' or 'adam' for gradient descent or ADAM) default = 'adam'
+    max_ind_shift    # maximum allowed index shift.  Default = None.  If specified, will adaptively decrease input power to make sure material avoids damage.
+
+With the optimization object initialized, one may now run an optimization on the `Fdfd` `simulation` object that is defined previously defined.  For more details, see [fdfdpy](https://github.com/fancompute/fdfdpy).
+
+	new_eps = optimization.run(simulation, regions=regions, nonlin_fns=nonlin_fns)
+
+This will try to optimize out objective function and will return a final, optimized permittivity distribution.
+
+One may plot the objective function as a function of iterations by running the method:
+
+	optimization.plt_objs()
+
+If the objective function has both linear and nonlinear components, these will be displayed along with the total objective function.
+
+## Package Requirements
+- [fdfdpy](https://github.com/fancompute/fdfdpy).
+- numpy
+- matplotlib
+- [pyMKL](https://github.com/dwfmarchant/pyMKL) (included)
+- scipy
+- progressbar
+
 ## To Do
-- [ ] Update readme with new run_optimization call and dictionaries
 - [ ] Fix relative package imports (move notebooks back to top directory? make this a module?)
-- [ ] Do Hz polarization sensitivity. (necessary?)
-- [x] Setup 2 port demo problem.  (define function or class to create `eps_r`, `des_region`, `nl_region`, etc. arrays from fundamental parameters of the problem).
+- [ ] Do Hz polarization sensitivity.
 - [ ] Explore parameters to make a publishable 2-port demo.
-- [ ] Make Fdfd a submodule of this package
-- [ ] Write a gradient computation using the RNN-like approach. (necessary?)
-- [x] Run a pixel-wise optimization of a nonlinear optimization. (ensure `J` increases / no divergence).
-- [x] Test senstitvity of 'both' objective functions (linear and nonlinear)
-- [x] Write an adjoint gradient computation for a nonlinear system
-- [x] Test a nonlinear optimization
-- [x] Handle cases where objective function is a function of the linear field and nonlinear field (for example, supply a `J` dictionary with keys `J_lin` and `J_nonlin` each containing functions for these parts.
+- [ ] Make Fdfd a submodule of this package.
+- [ ] Numerical gradient test method.
+- [ ] Frequency scanning for bandwidth.
+- [ ] Requirements.txt or setup.py
+
