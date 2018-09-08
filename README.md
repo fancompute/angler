@@ -1,6 +1,14 @@
 # nonlinear_avm
 inverse design of a nonlinear optical device using AVM
 
+## Examples
+
+There are several jupyter notebook examples in the `Notebooks/` directory.  The most up to date and thorough example is 
+
+	Notebooks/Three_Port_Al2S3.ipynb
+
+which provives the code used to generate the results in the paper for an Al2S3 1 -> 2 port nonlinear optical switch.
+
 ## Creating devices
 
 In `structures.py` one may define functions for creating permittivity distributions based on geometric parameters.
@@ -93,13 +101,23 @@ With the optimization object initialized, one may now run an optimization on the
 
 	new_eps = optimization.run(simulation, regions=regions, nonlin_fns=nonlin_fns)
 
-This will try to optimize out objective function and will return a final, optimized permittivity distribution.
+This will try to optimize the objective function `J['tot']` and will return a final, optimized permittivity distribution.
 
 One may plot the objective function as a function of iterations by running the method:
 
 	optimization.plt_objs()
 
 If the objective function has both linear and nonlinear components, these will be displayed along with the total objective function.
+
+Running the method
+	
+	dn = optimization.compute_index_shift(self, simulation, regions, nonlin_fns)
+
+will return a numpy array representing the spatial distribution of the refractive index shift caused by the nonlinear effects.  
+
+	np.max(dn)
+	
+Will return the max index shift, which is used to determine whether the device is operating above the damage threshold.
 
 ## Package Requirements
 - [fdfdpy](https://github.com/fancompute/fdfdpy).
