@@ -49,6 +49,23 @@ class Optimization():
             # display progressbar
             bar.update(i + 1)
 
+            # perform src amplitude adjustment for index shift capping
+            if self.state == 'both' and self.max_ind_shift is not None:
+                ratio = np.inf     # ratio of actual index shift to allowed
+                epsilon = 5e-2     # extra bit to subtract from src
+                max_count = 10     # maximum amount to try
+                count = 0
+                while ratio > 1:
+                    dn = self.compute_index_shift(simulation, regions, nonlin_fns)
+                    max_shift = np.max(dn)
+                    ratio = max_shift / self.max_ind_shift
+                    if count <= max_count:   
+                        simulation.src = simulation.src*np.sqrt(1/ratio) - epsilon
+                        count += 1
+                    # if you've gone over the max count, we've lost our patience.  Just manually decrease it.         
+                    else:
+                        simulation.src = simulation.src*0.98
+                        
             # if the problem has a linear component
             if self.state == 'linear' or self.state == 'both':
 
@@ -103,23 +120,6 @@ class Optimization():
                 # just set the fields and gradients to zero so they don't affect linear part.
                 Ez_nl = np.zeros(self.simulation.eps_r.shape)
                 grad_nonlin = np.zeros(self.simulation.eps_r.shape)
-
-            # perform src amplitude adjustment for index shift capping
-            if self.state == 'both' and self.max_ind_shift is not None:
-                ratio = np.inf     # ratio of actual index shift to allowed
-                epsilon = 1e-3     # extra bit to subtract from src
-                max_count = 40     # maximum amount to try
-                count = 0
-                while ratio > 1:
-                    dn = self.compute_index_shift(simulation, regions, nonlin_fns)
-                    max_shift = np.max(dn)
-                    ratio = max_shift / self.max_ind_shift
-                    simulation.src = simulation.src*np.sqrt(1/ratio) - epsilon
-                    count += 1           
-                    # if you've gone over the max count, we've lost our patience.  Just manually decrease it.         
-                    if count > max_count:                        
-                        simulation.src = simulation.src*0.9
-
 
             # add the gradients together depending on problem
             grad = self.dJdE['total'](grad_lin, grad_nonlin)
