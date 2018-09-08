@@ -8,7 +8,9 @@ import matplotlib.pylab as plt
 
 class Optimization():
 
-    def __init__(self, Nsteps=100, eps_max=5, step_size=None, J={}, dJdE={}, field_start='linear', solver='born', opt_method='adam'):
+    def __init__(self, Nsteps=100, eps_max=5, step_size=None, J={}, dJdE={},
+                 field_start='linear', solver='born', opt_method='adam',
+                 max_ind_shift=None):
 
         # store all of the parameters associated with the optimization
 
@@ -24,17 +26,16 @@ class Optimization():
         self.objs_lin = []
         self.objs_nl = []
         self.convergences = []
+        self.max_ind_shift = max_ind_shift
 
     def run(self, simulation, regions={}, nonlin_fns={}):
 
         # store the parameters specific to this simulation
-
         self.simulation = simulation
         self.regions = regions
         self.nonlin_fns = nonlin_fns
 
-        # determine problem state ('linear', 'nonlinear', or 'both') from J and
-        # dJdE dictionaries
+        # determine problem state ('linear', 'nonlinear', or 'both') from J and dJdE dictionaries
         self._check_J_state()    # sets self.state
 
         # unpack design and nonlinear function dictionaries
@@ -51,8 +52,7 @@ class Optimization():
             # if the problem has a linear component
             if self.state == 'linear' or self.state == 'both':
 
-                # solve for the linear fields and gradient of the linear
-                # objective function
+                # solve for the linear fields and gradient of the linear objective function
                 (Hx, Hy, Ez) = self.simulation.solve_fields()
                 grad_lin = dJdeps_linear(self.simulation, design_region, self.J[
                                          'linear'], self.dJdE['linear'], averaging=False)
@@ -60,26 +60,26 @@ class Optimization():
             # if the problem is purely nonlinear
             else:
 
-                # just set the fields and gradients to zeros so they don't
-                # affect the nonlinear part
+                # just set the fields and gradients to zeros so they don't affect the nonlinear part
                 Ez = np.zeros(self.simulation.eps_r.shape)
                 grad_lin = np.zeros(self.simulation.eps_r.shape)
 
             # if the problem has a nonlinear component
             if self.state == 'nonlinear' or self.state == 'both':
 
-                # Store the starting linear permittivity (it will be changed by
-                # the nonlinear solvers...)
-                eps_lin = self.simulation.eps_r
+                # Store the starting linear permittivity (it will be changed by the nonlinear solvers...)
+                eps_lin = copy.deepcopy(self.simulation.eps_r)
 
                 # error checking on the field_start parameter
                 if self.field_start not in ['linear', 'previous']:
                     raise AssertionError(
                         "field_start must be one of {'linear', 'previous'}")
 
-                # construct the starting field for the linear solver based on
-                # field_start and the iteration
-                Estart = None if self.field_start == 'linear' or i == 0 else Ez
+                # construct the starting field for the linear solver based on field_start and the iteration
+                if self.field_start == 'linear' or i == 0:
+                    Estart = None 
+                else:
+                    Estart = Ez                 
 
                 # solve for the nonlinear fields
                 (Hx_nl, Hy_nl, Ez_nl, conv) = self.simulation.solve_fields_nl(nonlinear_fn, nl_region,
@@ -100,19 +100,37 @@ class Optimization():
             # if the problem is purely linear
             else:
 
-                # just set the fields and gradients to zero so they don't
-                # affect linear part.
+                # just set the fields and gradients to zero so they don't affect linear part.
                 Ez_nl = np.zeros(self.simulation.eps_r.shape)
                 grad_nonlin = np.zeros(self.simulation.eps_r.shape)
+
+            # perform src amplitude adjustment for index shift capping
+            if self.state == 'both' and self.max_ind_shift is not None:
+                ratio = np.inf     # ratio of actual index shift to allowed
+                epsilon = 1e-3     # extra bit to subtract from src
+                max_count = 40     # maximum amount to try
+                count = 0
+                while ratio > 1:
+                    dn = self.compute_index_shift(simulation, regions, nonlin_fns)
+                    max_shift = np.max(dn)
+                    ratio = max_shift / self.max_ind_shift
+                    simulation.src = simulation.src*np.sqrt(1/ratio) - epsilon
+                    count += 1           
+                    # if you've gone over the max count, we've lost our patience.  Just manually decrease it.         
+                    if count > max_count:                        
+                        simulation.src = simulation.src*0.9
+
 
             # add the gradients together depending on problem
             grad = self.dJdE['total'](grad_lin, grad_nonlin)
 
             # update permittivity based on gradient
             if self.opt_method == 'descent':
+                # gradient descent update
                 new_eps = self._update_permittivity(grad, design_region)
 
             elif self.opt_method == 'adam':
+                # adam update                
                 if i == 0:
                     mopt = np.zeros((grad.shape))
                     vopt = np.zeros((grad.shape))
