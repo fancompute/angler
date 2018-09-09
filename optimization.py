@@ -64,7 +64,7 @@ class Optimization():
                         count += 1
                     # if you've gone over the max count, we've lost our patience.  Just manually decrease it.         
                     else:
-                        simulation.src = simulation.src*0.9
+                        simulation.src = simulation.src*0.98
                         
             # if the problem has a linear component
             if self.state == 'linear' or self.state == 'both':
