@@ -268,7 +268,7 @@ class Optimization():
 
         else:
             J_lin = self.J['linear'](Ez)
-            J_nl = self.J['nonlinear'](Ez)
+            J_nl = self.J['nonlinear'](Ez_nl)
             J_tot = self.J['total'](J_lin, J_nl)
             self.objs_lin.append(J_lin)
             self.objs_nl.append(J_nl)
