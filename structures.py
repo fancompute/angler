@@ -46,7 +46,7 @@ def three_port(L, H, w, d, dl, l, spc, NPML, eps_start):
 	# eps_start : starting relative permittivity
 
 	Nx = 2*NPML[0] + int((2*l + L)/dl)       # num. grids in horizontal
-	Ny = 2*NPML[1] + int((2*H + 2*spc)/dl)   # num. grids in vertical
+	Ny = 2*NPML[1] + int((H + 2*spc)/dl)   # num. grids in vertical
 	nx, ny = int(Nx/2), int(Ny/2)            # halfway grid points
 	shape = (Nx,Ny)                          # shape of domain (in num. grids)	
 
