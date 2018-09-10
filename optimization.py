@@ -181,10 +181,10 @@ class Optimization():
         nl_region = regions['nonlin']
 
         # how eps_r changes with Ez
-        deps_de = nonlin_fns['deps_de']
+        eps_nl = nonlin_fns['eps_nl']
 
         # relative permittivity shift
-        deps = deps_de(Ez*nl_region)
+        deps = eps_nl(Ez*nl_region)
 
         # index shift
         dn = np.sqrt(deps)
@@ -293,18 +293,18 @@ class Optimization():
             nonlin_region = self.regions['nonlin']
 
             # unpack nonlinear functions (if state is 'nonlinear' or 'both')
-            if 'deps_de' not in self.nonlin_fns or 'dnl_de' not in self.nonlin_fns:
+            if 'eps_nl' not in self.nonlin_fns or 'dnl_de' not in self.nonlin_fns:
                 raise ValueError(
-                    "must supply 'deps_de' and 'dnl_de' functions to nonlin_fns dictionary")
-            deps_de = self.nonlin_fns['deps_de']
+                    "must supply 'eps_nl' and 'dnl_de' functions to nonlin_fns dictionary")
+            eps_nl = self.nonlin_fns['eps_nl']
             dnl_de = self.nonlin_fns['dnl_de']
-            if deps_de is None or dnl_de is None:
+            if eps_nl is None or dnl_de is None:
                 raise ValueError(
-                    "must supply 'deps_de' and 'dnl_de' functions to nonlin_fns dictionary")
+                    "must supply 'eps_nl' and 'dnl_de' functions to nonlin_fns dictionary")
         else:
-            nonlin_region = deps_de = dnl_de = None
+            nonlin_region = eps_nl = dnl_de = None
 
-        return (design_region, nonlin_region, deps_de, dnl_de)
+        return (design_region, nonlin_region, eps_nl, dnl_de)
 
     def _step_adam(self, grad, mopt_old, vopt_old, iteration_index, epsilon=1e-8, beta1=0.9, beta2=0.999):
         mopt = beta1 * mopt_old + (1 - beta1) * grad
