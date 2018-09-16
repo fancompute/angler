@@ -112,7 +112,7 @@ class Optimization():
                                                nonlinear_fn, nl_region, dnl_de, averaging=False)
 
                 # Restore just the linear permittivity
-                self.simulation.reset_eps(eps_lin)
+                self.simulation.eps_r = eps_lin
 
             # if the problem is purely linear
             else:
@@ -211,7 +211,7 @@ class Optimization():
         eps_new[eps_new > self.eps_max] = self.eps_max
 
         # reset the epsilon of the simulation
-        self.simulation.reset_eps(eps_new)
+        self.simulation.eps_r = eps_new
 
         return eps_new
 
