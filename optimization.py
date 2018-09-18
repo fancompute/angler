@@ -59,13 +59,13 @@ class Optimization():
                     dn = self.compute_index_shift(simulation, regions, nonlin_fns)
                     max_shift = np.max(dn)
                     ratio = max_shift / self.max_ind_shift
-                    if count <= max_count:   
+                    if count <= max_count:
                         simulation.src = simulation.src*(np.sqrt(1/ratio) - epsilon)
                         count += 1
                     # if you've gone over the max count, we've lost our patience.  Just manually decrease it.         
                     else:
                         simulation.src = simulation.src*0.98
-                        
+
             # if the problem has a linear component
             if self.state == 'linear' or self.state == 'both':
 
@@ -171,9 +171,46 @@ class Optimization():
 
         return ax
 
+    def check_deriv(self, simulation, design_region):
+        # checks the numerical derivative matches analytical.
+
+        # pick a few points in the design region.
+        Npts = 5
+        d_eps = 1e-8
+
+        # solve for the linear fields and gradient of the linear objective function
+        (_, _, Ez) = simulation.solve_fields()
+        grad_avm = dJdeps_linear(simulation, design_region, self.J[
+                                 'linear'], self.dJdE['linear'], averaging=False)
+        J_orig = self.J['linear'](Ez)
+
+        avm_grads = []
+        num_grads = []
+
+        for pt_index in range(Npts):
+            x, y = np.where(design_region == 1)
+            i = np.random.randint(len(x))
+            pt = [x[i], y[i]]
+
+            eps_new = copy.deepcopy(simulation.eps_r)
+            eps_new[pt[0], pt[1]] += d_eps
+
+            sim_new = copy.deepcopy(simulation)
+            sim_new.reset_eps(eps_new)
+
+            (_, _, Ez_new) = sim_new.solve_fields()
+            J_new = self.J['linear'](Ez_new)
+
+            avm_grads.append(grad_avm[pt[0], pt[1]])
+            num_grads.append((J_new - J_orig)/d_eps)
+
+            # import matplotlib.pylab as plt; import pdb; pdb.set_trace()
+
+        return avm_grads, num_grads
+
     def compute_index_shift(self, simulation, regions, nonlin_fns):
         # computes the max shift of refractive index caused by nonlinearity
-        
+
         # solve linear fields
         (Hx, Hy, Ez) = self.simulation.solve_fields()
 
@@ -190,12 +227,7 @@ class Optimization():
         dn = np.sqrt(deps)
 
         # could np.max() it here if you want.  Returning array for now
-
         return dn
-
-        
-
-
 
     def _update_permittivity(self, grad, design_region):
         # updates the permittivity with the gradient info
