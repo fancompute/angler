@@ -1,5 +1,6 @@
 import unittest
 import numpy as np
+from numpy.testing import assert_allclose
 
 from fdfdpy.Fdfd import Fdfd
 from structures import three_port
@@ -94,6 +95,11 @@ class TestGradient(unittest.TestCase):
 
         print('adjoint gradients:   {}'.format(avm_grads))
         print('numerical gradients: {}'.format(num_grads))
+
+        avm_grads = np.array(avm_grads)
+        num_grads = np.array(num_grads)
+
+        assert_allclose(avm_grads, num_grads, rtol=1e-03, atol=1)
 
 
 if __name__ == '__main__':

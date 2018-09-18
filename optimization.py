@@ -112,7 +112,7 @@ class Optimization():
                                                nonlinear_fn, nl_region, dnl_de, averaging=False)
 
                 # Restore just the linear permittivity
-                self.simulation.eps_r = eps_lin
+                self.simulation.reset_eps(eps_lin)
 
             # if the problem is purely linear
             else:
@@ -171,23 +171,20 @@ class Optimization():
 
         return ax
 
-    def check_deriv(self, simulation, design_region):
+    def check_deriv_lin(self, simulation, design_region, Npts=5):
         # checks the numerical derivative matches analytical.
 
-        # pick a few points in the design region.
-        Npts = 5
         d_eps = 1e-8
 
         # solve for the linear fields and gradient of the linear objective function
         (_, _, Ez) = simulation.solve_fields()
-        grad_avm = dJdeps_linear(simulation, design_region, self.J[
-                                 'linear'], self.dJdE['linear'], averaging=False)
+        grad_avm = dJdeps_linear(simulation, design_region, self.J['linear'], self.dJdE['linear'], averaging=False)
         J_orig = self.J['linear'](Ez)
 
         avm_grads = []
         num_grads = []
 
-        for pt_index in range(Npts):
+        for _ in range(Npts):
             x, y = np.where(design_region == 1)
             i = np.random.randint(len(x))
             pt = [x[i], y[i]]
@@ -200,6 +197,57 @@ class Optimization():
 
             (_, _, Ez_new) = sim_new.solve_fields()
             J_new = self.J['linear'](Ez_new)
+
+            avm_grads.append(grad_avm[pt[0], pt[1]])
+            num_grads.append((J_new - J_orig)/d_eps)
+
+            # import matplotlib.pylab as plt; import pdb; pdb.set_trace()
+
+        return avm_grads, num_grads
+
+    def check_deriv_nonlin(self, simulation, regions, nonlin_fns, non Npts=5):
+        # checks the numerical derivative matches analytical.
+
+        d_eps = 1e-8
+
+        eps_orig = copy.deepcopy(simulation.eps_r)
+        # solve for the nonlinear fields and gradient of the linear objective function
+        nl_region = regions['nonlin']
+        design_region = regions['design']
+        nonlinear_fn = nonlin_fns['eps_nl']
+        dnl_de = nonlin_fns['dnl_de']
+
+        (Hx_nl, Hy_nl, Ez_nl, conv) = simulation.solve_fields_nl(nonlinear_fn, nl_region,
+                                                                      dnl_de=dnl_de, timing=False,
+                                                                      averaging=False, Estart=None,
+                                                                      solver_nl='newton', conv_threshold=1e-10,
+                                                                      max_num_iter=50)
+        # compute the gradient of the nonlinear objective function
+        grad_avm = dJdeps_nonlinear(simulation, design_region, self.J['nonlinear'], self.dJdE['nonlinear'],
+                                    nonlinear_fn, nl_region, dnl_de, averaging=False)
+
+        # Restore just the linear permittivity
+        self.simulation.reset_eps(eps_lin)
+
+
+        J_orig = self.J['nonlinear'](Ez)
+
+        avm_grads = []
+        num_grads = []
+
+        for _ in range(Npts):
+            x, y = np.where(design_region == 1)
+            i = np.random.randint(len(x))
+            pt = [x[i], y[i]]
+
+            eps_new = copy.deepcopy(simulation.eps_r)
+            eps_new[pt[0], pt[1]] += d_eps
+
+            sim_new = copy.deepcopy(simulation)
+            sim_new.reset_eps(eps_new)
+
+            # (_, _, Ez_new) = sim_new.solve_fields()
+            J_new = self.J['nonlinear'](Ez_new)
 
             avm_grads.append(grad_avm[pt[0], pt[1]])
             num_grads.append((J_new - J_orig)/d_eps)

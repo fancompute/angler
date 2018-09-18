@@ -1,5 +1,6 @@
 import unittest
 import numpy as np
+from numpy.testing import assert_allclose
 
 from fdfdpy import Simulation
 from structures import three_port
@@ -43,7 +44,6 @@ class TestGradient(unittest.TestCase):
         self.simulation = Simulation(omega, eps_r, dl, NPML, 'Ez')
         self.simulation.add_mode(np.sqrt(eps_m), 'x', [NPML[0]+int(l/2/dl), ny], int(H/2/dl), scale=source_amp)
         self.simulation.setup_modes()
-        print('Calculate an input power of {} Watts/L0'.format(self.simulation.W_in))
 
         # top modal profile
         top = Simulation(omega, eps_r, dl, NPML, 'Ez')
@@ -97,10 +97,10 @@ class TestGradient(unittest.TestCase):
 
         avm_grads, num_grads = self.optimization.check_deriv(self.simulation, self.design_region)
 
-        print(avm_grads)
-        print(num_grads)
+        avm_grads = np.array(avm_grads)
+        num_grads = np.array(num_grads)
 
-        import pdb; pdb.set_trace()
+        assert_allclose(avm_grads, num_grads, rtol=1e-03, atol=.1)
 
 
 if __name__ == '__main__':
