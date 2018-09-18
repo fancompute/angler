@@ -59,8 +59,8 @@ class TestGradient(unittest.TestCase):
 
         # define linear and nonlinear parts of objective function + the total objective function form
         self.J = {}
-        self.J['linear']    = lambda e: np.sum(np.square(np.abs(e*J_top)))
-        self.J['nonlinear'] = lambda e: np.sum(np.square(np.abs(e*J_bot)))
+        self.J['linear']    = lambda e: np.sum(np.square(np.abs(e))*J_top)
+        self.J['nonlinear'] = lambda e: np.sum(np.square(np.abs(e))*J_bot)
         self.J['total']     = lambda J_lin, J_nonlin: J_lin + J_nonlin
 
         # define linear and nonlinear parts of dJdE + the total derivative form
