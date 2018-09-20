@@ -8,9 +8,14 @@ import matplotlib.pylab as plt
 
 class Optimization():
 
-    def __init__(self, Nsteps=100, eps_max=5, step_size=0.01, J={}, dJdE={},
+    def __init__(self, Nsteps=100, eps_max=5, step_size=0.01, J=None, dJdE=None,
                  field_start='linear', solver='born', opt_method='adam',
                  max_ind_shift=None):
+
+        if J is None:
+            J = {}
+        if dJdE is None:
+            dJdE = {}
 
         # store all of the parameters associated with the optimization
 
@@ -28,7 +33,12 @@ class Optimization():
         self.convergences = []
         self.max_ind_shift = max_ind_shift
 
-    def run(self, simulation, regions={}, nonlin_fns={}):
+    def run(self, simulation, regions=None, nonlin_fns=None):
+
+        if regions is None:
+            regions = {}
+        if nonlin_fns is None:
+            nonlin_fns = {}
 
         # store the parameters specific to this simulation
         self.simulation = simulation
