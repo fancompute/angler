@@ -91,7 +91,7 @@ class TestGradient(unittest.TestCase):
     def test_linear_gradient(self):
 
         # solve for the linear fields and gradient of the linear objective function
-        avm_grads, num_grads = self.optimization.check_deriv(self.simulation, self.design_region)
+        avm_grads, num_grads = self.optimization.check_deriv_lin(self.simulation, self.design_region)
 
         print('adjoint gradients:   {}'.format(avm_grads))
         print('numerical gradients: {}'.format(num_grads))

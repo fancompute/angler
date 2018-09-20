@@ -95,7 +95,7 @@ class TestGradient(unittest.TestCase):
         grad_lin = dJdeps_linear(self.simulation, self.design_region, self.J[
                                  'linear'], self.dJdE['linear'], averaging=False)
 
-        avm_grads, num_grads = self.optimization.check_deriv(self.simulation, self.design_region)
+        avm_grads, num_grads = self.optimization.check_deriv_lin(self.simulation, self.design_region)
 
         avm_grads = np.array(avm_grads)
         num_grads = np.array(num_grads)

@@ -205,7 +205,7 @@ class Optimization():
 
         return avm_grads, num_grads
 
-    def check_deriv_nonlin(self, simulation, regions, nonlin_fns, non Npts=5):
+    def check_deriv_nonlin(self, simulation, regions, nonlin_fns, Npts=5):
         # checks the numerical derivative matches analytical.
 
         d_eps = 1e-8
