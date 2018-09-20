@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from numpy.testing import assert_allclose
 
-from fdfdpy.Fdfd import Fdfd
+from fdfdpy import Simulation
 from structures import three_port
 from optimization import Optimization
 from adjoint import dJdeps_linear, dJdeps_nonlinear
@@ -11,7 +11,7 @@ from adjoint import dJdeps_linear, dJdeps_nonlinear
 class TestGradient(unittest.TestCase):
 
     def setUp(self):
-        # create a Fdfd to test just like in notebook
+        # create a simulation to test just like in notebook
 
         lambda0 = 2e-6              # free space wavelength (m)
         c0 = 3e8                    # speed of light in vacuum (m/s)
@@ -41,18 +41,18 @@ class TestGradient(unittest.TestCase):
         nx, ny = int(Nx/2), int(Ny/2)            # halfway grid points
 
         # set the modal source and probes
-        self.simulation = Fdfd(omega, eps_r, dl, NPML, 'Ez')
+        self.simulation = Simulation(omega, eps_r, dl, NPML, 'Ez')
         self.simulation.add_mode(np.sqrt(eps_m), 'x', [NPML[0]+int(l/2/dl), ny], int(H/2/dl), scale=source_amp)
         self.simulation.setup_modes()
 
         # top modal profile
-        top = Fdfd(omega, eps_r, dl, NPML, 'Ez')
+        top = Simulation(omega, eps_r, dl, NPML, 'Ez')
         top.add_mode(np.sqrt(eps_m), 'x', [-NPML[0]-int(l/2/dl), ny+int(d/2/dl)], int(H/2/dl))
         top.setup_modes()
         J_top = np.abs(top.src)
 
         # bottom modal profile
-        bot = Fdfd(omega, eps_r, dl, NPML, 'Ez')
+        bot = Simulation(omega, eps_r, dl, NPML, 'Ez')
         bot.add_mode(np.sqrt(eps_m), 'x', [-NPML[0]-int(l/2/dl), ny-int(d/2/dl)], int(d/dl))
         bot.setup_modes()
         J_bot = np.abs(bot.src)
@@ -91,15 +91,16 @@ class TestGradient(unittest.TestCase):
     def test_linear_gradient(self):
 
         # solve for the linear fields and gradient of the linear objective function
-        avm_grads, num_grads = self.optimization.check_deriv_lin(self.simulation, self.design_region)
+        (Hx, Hy, Ez) = self.simulation.solve_fields()
+        grad_lin = dJdeps_linear(self.simulation, self.design_region, self.J[
+                                 'linear'], self.dJdE['linear'], averaging=False)
 
-        print('adjoint gradients:   {}'.format(avm_grads))
-        print('numerical gradients: {}'.format(num_grads))
+        avm_grads, num_grads = self.optimization.check_deriv_lin(self.simulation, self.design_region)
 
         avm_grads = np.array(avm_grads)
         num_grads = np.array(num_grads)
 
-        assert_allclose(avm_grads, num_grads, rtol=1e-03, atol=1)
+        assert_allclose(avm_grads, num_grads, rtol=1e-03, atol=.1)
 
 
 if __name__ == '__main__':
