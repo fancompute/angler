@@ -143,7 +143,7 @@ def adjoint_nonlinear(simulation, b_aj, nonlinear_fn, nl_region, nl_de,
 
 	if simulation.pol == 'Ez':
 		Ez = simulation.fields['Ez']
-		Anl = simulation.A
+		Anl = simulation.A # + sp.spdiags(omega**2*EPSILON_0_*nonlinear_fn(Ez*nl_region).reshape((-1,)), 0, M, M, format=matrix_format)
 		dAde = omega**2*EPSILON_0_*nl_de(Ez*nl_region)
 
 		C11 = Anl + sp.spdiags((dAde*Ez).reshape((-1,)), 0, M, M, format=matrix_format)
