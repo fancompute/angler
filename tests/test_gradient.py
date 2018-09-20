@@ -19,7 +19,7 @@ class TestGradient(unittest.TestCase):
         dl = 1.1e-1                 # grid size (L0)
         NPML = [15, 15]             # number of pml grid points on x and y borders
         pol = 'Ez'                  # polarization (either 'Hz' or 'Ez')
-        source_amp = 40             # amplitude of modal source (A/L0^2?)
+        source_amp = 0.01             # amplitude of modal source (A/L0^2?)
 
         # material constants
         n_index = 2.44              # refractive index
@@ -90,18 +90,27 @@ class TestGradient(unittest.TestCase):
 
     def test_linear_gradient(self):
 
-        # solve for the linear fields and gradient of the linear objective function
-        (Hx, Hy, Ez) = self.simulation.solve_fields()
-        grad_lin = dJdeps_linear(self.simulation, self.design_region, self.J[
-                                 'linear'], self.dJdE['linear'], averaging=False)
-
         avm_grads, num_grads = self.optimization.check_deriv_lin(self.simulation, self.design_region)
 
         avm_grads = np.array(avm_grads)
         num_grads = np.array(num_grads)
 
+        print(avm_grads)
+        print(num_grads)
+        
         assert_allclose(avm_grads, num_grads, rtol=1e-03, atol=.1)
 
+    def test_nonlinear_gradient(self):
+
+        avm_grads, num_grads = self.optimization.check_deriv_nonlin(self.simulation, self.regions, self.nonlin_fns)
+
+        avm_grads = np.array(avm_grads)
+        num_grads = np.array(num_grads)
+
+        print(avm_grads)
+        print(num_grads)
+
+        assert_allclose(avm_grads, num_grads, rtol=1e-03, atol=.1)
 
 if __name__ == '__main__':
     unittest.main()

@@ -217,18 +217,15 @@ class Optimization():
         nonlinear_fn = nonlin_fns['eps_nl']
         dnl_de = nonlin_fns['dnl_de']
 
-        (Hx_nl, Hy_nl, Ez_nl, conv) = simulation.solve_fields_nl(nonlinear_fn, nl_region,
-                                                                      dnl_de=dnl_de, timing=False,
-                                                                      averaging=False, Estart=None,
-                                                                      solver_nl='newton', conv_threshold=1e-10,
-                                                                      max_num_iter=50)
+        (_, _, Ez, _) = simulation.solve_fields_nl(nonlinear_fn, nl_region,
+                                                      dnl_de=dnl_de, timing=False,
+                                                      averaging=False, Estart=None,
+                                                      solver_nl='newton', conv_threshold=1e-10,
+                                                      max_num_iter=50)
+
         # compute the gradient of the nonlinear objective function
         grad_avm = dJdeps_nonlinear(simulation, design_region, self.J['nonlinear'], self.dJdE['nonlinear'],
                                     nonlinear_fn, nl_region, dnl_de, averaging=False)
-
-        # Restore just the linear permittivity
-        self.simulation.reset_eps(eps_lin)
-
 
         J_orig = self.J['nonlinear'](Ez)
 
@@ -246,7 +243,11 @@ class Optimization():
             sim_new = copy.deepcopy(simulation)
             sim_new.reset_eps(eps_new)
 
-            # (_, _, Ez_new) = sim_new.solve_fields()
+            (_, _, Ez_new, _) = sim_new.solve_fields_nl(nonlinear_fn, nl_region,
+                                                              dnl_de=dnl_de, timing=False,
+                                                              averaging=False, Estart=None,
+                                                              solver_nl='newton', conv_threshold=1e-10,
+                                                              max_num_iter=50)
             J_new = self.J['nonlinear'](Ez_new)
 
             avm_grads.append(grad_avm[pt[0], pt[1]])
