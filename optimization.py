@@ -35,6 +35,8 @@ class Optimization():
 
     def run(self, simulation, regions=None, nonlin_fns=None):
 
+        # set default values.
+        # Note that setting a mutable keyword argument: {}, [] is a no no.
         if regions is None:
             regions = {}
         if nonlin_fns is None:
@@ -184,6 +186,7 @@ class Optimization():
     def check_deriv_lin(self, simulation, design_region, Npts=5):
         # checks the numerical derivative matches analytical.
 
+        # how much to perturb eps for numerical gradient
         d_eps = 1e-8
 
         # solve for the linear fields and gradient of the linear objective function
@@ -194,33 +197,44 @@ class Optimization():
         avm_grads = []
         num_grads = []
 
+        # for a number of points
         for _ in range(Npts):
+
+            # pick a random point within the design region
             x, y = np.where(design_region == 1)
             i = np.random.randint(len(x))
             pt = [x[i], y[i]]
 
+            # create a new, perturbed permittivity
             eps_new = copy.deepcopy(simulation.eps_r)
             eps_new[pt[0], pt[1]] += d_eps
 
+            # make a copy of the current simulation
             sim_new = copy.deepcopy(simulation)
             sim_new.reset_eps(eps_new)
 
+            # solve for the fields with this new permittivity
             (_, _, Ez_new) = sim_new.solve_fields()
             J_new = self.J['linear'](Ez_new)
 
-            avm_grads.append(grad_avm[pt[0], pt[1]])
-            num_grads.append((J_new - J_orig)/d_eps)
+            # compute the numerical gradient
+            grad_num = (J_new - J_orig)/d_eps
 
-            # import matplotlib.pylab as plt; import pdb; pdb.set_trace()
+            # append both gradients to lists
+            avm_grads.append(grad_avm[pt[0], pt[1]])
+            num_grads.append(grad_num)
 
         return avm_grads, num_grads
 
     def check_deriv_nonlin(self, simulation, regions, nonlin_fns, Npts=5):
-        # checks the numerical derivative matches analytical.
+        """ checks whether the numerical derivative matches analytical """
 
+        # how much to perturb epsilon for numerical gradient
         d_eps = 1e-8
 
+        # make copy of original epsilon
         eps_orig = copy.deepcopy(simulation.eps_r)
+
         # solve for the nonlinear fields and gradient of the linear objective function
         nl_region = regions['nonlin']
         design_region = regions['design']
@@ -233,42 +247,53 @@ class Optimization():
                                                       solver_nl='newton', conv_threshold=1e-10,
                                                       max_num_iter=50)
 
-        # compute the gradient of the nonlinear objective function
+        # compute the gradient of the nonlinear objective function with AVM
         grad_avm = dJdeps_nonlinear(simulation, design_region, self.J['nonlinear'], self.dJdE['nonlinear'],
                                     nonlinear_fn, nl_region, dnl_de, averaging=False)
 
+        # compute original objective function (to compare with numerical)
         J_orig = self.J['nonlinear'](Ez)
 
         avm_grads = []
         num_grads = []
 
+        # for a number of points
         for _ in range(Npts):
+
+            # pick a random point within design region
             x, y = np.where(design_region == 1)
             i = np.random.randint(len(x))
             pt = [x[i], y[i]]
 
+            # perturb the permittivity and store in a new array
             eps_new = copy.deepcopy(simulation.eps_r)
             eps_new[pt[0], pt[1]] += d_eps
 
+            # create a deep copy of the current simulation object with new eps
             sim_new = copy.deepcopy(simulation)
             sim_new.reset_eps(eps_new)
 
+            # solve for the new nonlinear fields
             (_, _, Ez_new, _) = sim_new.solve_fields_nl(nonlinear_fn, nl_region,
                                                               dnl_de=dnl_de, timing=False,
                                                               averaging=False, Estart=None,
                                                               solver_nl='newton', conv_threshold=1e-10,
                                                               max_num_iter=50)
+
+            # compute the new objective function
             J_new = self.J['nonlinear'](Ez_new)
 
-            avm_grads.append(grad_avm[pt[0], pt[1]])
-            num_grads.append((J_new - J_orig)/d_eps)
+            # compute the numerical gradient
+            grad_num = (J_new - J_orig)/d_eps
 
-            # import matplotlib.pylab as plt; import pdb; pdb.set_trace()
+            # append both gradients to lists
+            avm_grads.append(grad_avm[pt[0], pt[1]])
+            num_grads.append(grad_num)
 
         return avm_grads, num_grads
 
     def compute_index_shift(self, simulation, regions, nonlin_fns):
-        # computes the max shift of refractive index caused by nonlinearity
+        """ computes the max shift of refractive index caused by nonlinearity"""
 
         # solve linear fields
         (Hx, Hy, Ez) = self.simulation.solve_fields()
@@ -287,6 +312,64 @@ class Optimization():
 
         # could np.max() it here if you want.  Returning array for now
         return dn
+
+    def scan_frequency(self, freqs=None):
+        """ Scans the objective function vs. frequency """
+
+        # set the frequencies (Hz), if not specified as a list
+        if freqs is None:
+            Nf = 50
+            delta_f = self.simulation.omega/20
+            freqs = 1/2/np.pi*np.linspace(self.simulation.omega - delta_f/2,
+                                          self.simulation.omega + delta_f/2,  Nf)
+        else:
+            Nf = len(freqs)
+
+        bar = progressbar.ProgressBar(max_value=Nf)
+
+        # keep track of original frequency (to reset it later)
+        omega_original = self.simulation.omega
+
+        # loop through frequencies
+        objs = []
+        for i, f in enumerate(freqs):
+
+            bar.update(i + 1)
+
+            # reset the simulation and compute new A (hacky way of doing it)
+            self.simulation.omega = 2*np.pi*f
+            self.simulation.eps_r = self.simulation.eps_r
+
+            # get the regions and nonlinearities
+            (design_region, nl_region, nonlinear_fn, dnl_de) = self._unpack_dicts()
+
+            # compute the fields depending on the state
+            if self.state == 'linear' or self.state == 'both':
+                (_, _, Ez) = self.simulation.solve_fields()
+
+            if self.state == 'nonlinear' or self.state == 'both':
+
+                (_, _, Ez_nl, _) = self.simulation.solve_fields_nl(nonlinear_fn, nl_region,
+                                                              dnl_de=dnl_de, timing=False,
+                                                              averaging=False, Estart=None,
+                                                              solver_nl='newton', conv_threshold=1e-10,
+                                                              max_num_iter=50)
+
+            # create placeholders for the fields if state is not 'both'
+            if self.state == 'linear':
+                Ez_nl = np.zeros(Ez.shape)
+            elif self.state == 'nonlinear':
+                Ez = np.zeros(Ez_nl.shape)
+
+            # compute objective function and append to list
+            obj_fn = self._compute_objectivefn(Ez, Ez_nl)
+            objs.append(obj_fn)
+
+        # reset the frequency and recompute A
+        self.simulation.omega = omega_original
+        self.simulation.eps_r = self.simulation.eps_r
+
+        return freqs, objs
 
     def _update_permittivity(self, grad, design_region):
         # updates the permittivity with the gradient info

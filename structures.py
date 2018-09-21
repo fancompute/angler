@@ -48,14 +48,14 @@ def three_port(L, H, w, d, dl, l, spc, NPML, eps_start):
     Nx = 2*NPML[0] + int((2*l + L)/dl)       # num. grids in horizontal
     Ny = 2*NPML[1] + int((H + 2*spc)/dl)   # num. grids in vertical
     nx, ny = int(Nx/2), int(Ny/2)            # halfway grid points
-    shape = (Nx, Ny)                          # shape of domain (in num. grids)  
+    shape = (Nx, Ny)                          # shape of domain (in num. grids)
 
     # x and y coordinate arrays
     xs, ys = get_grid(shape, dl)
 
     # define regions
     box    = lambda x, y: (np.abs(x) < L/2) * (np.abs(y) < H/2)
-    wg_in  = lambda x, y: (x < 0)           * (np.abs(y+0.001) < w/2)  # note, this 1e-5 is to fix gridding issues
+    wg_in  = lambda x, y: (x < 0)           * (np.abs(y+0.1) < w/2)  # note, this slight offset is to fix gridding issues
     wg_top = lambda x, y: (x > 0)           * (np.abs(y-d/2) < w/2)
     wg_bot = lambda x, y: (x > 0)           * (np.abs(y+d/2) < w/2)
 
