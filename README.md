@@ -72,7 +72,7 @@ The spatial regions defined for the optimization:
 If the objective function has a nonlinear component one must define the nonlinear function being applied and its derivative:
 
 	nonlin_fns = {
-		'deps_de':   lambda e: pass,    # how relative permittivity changes with the electric field
+		'eps_nl':   lambda e: pass,    # how relative permittivity changes with the electric field
 		'dnl_de':    lambda e: pass     # partial derivative of deps_de with respect to e
 	}
 
@@ -120,19 +120,13 @@ will return a numpy array representing the spatial distribution of the refractiv
 Will return the max index shift, which is used to determine whether the device is operating above the damage threshold.
 
 ## Package Requirements
-- [fdfdpy](https://github.com/fancompute/fdfdpy).
+- fdfdpy
 - numpy
-- matplotlib
-- [pyMKL](https://github.com/dwfmarchant/pyMKL) (included)
 - scipy
-- progressbar
+- matplotlib
 
 ## To Do
-- [ ] Fix relative package imports (move notebooks back to top directory? make this a module?)
 - [ ] Do Hz polarization sensitivity.
-- [ ] Explore parameters to make a publishable 2-port demo.
-- [ ] Make Fdfd a submodule of this package.
-- [ ] Numerical gradient test method.
+- [ ] Get a structure working with a lower index shift
 - [ ] Frequency scanning for bandwidth.
-- [ ] Requirements.txt or setup.py
 
