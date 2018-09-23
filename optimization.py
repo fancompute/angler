@@ -74,7 +74,7 @@ class Optimization():
                     if count <= max_count:
                         simulation.src = simulation.src*(np.sqrt(1/ratio) - epsilon)
                         count += 1
-                    # if you've gone over the max count, we've lost our patience.  Just manually decrease it.         
+                    # if you've gone over the max count, we've lost our patience.  Just manually decrease it.
                     else:
                         simulation.src = simulation.src*0.98
 
@@ -106,16 +106,16 @@ class Optimization():
 
                 # construct the starting field for the linear solver based on field_start and the iteration
                 if self.field_start == 'linear' or i == 0:
-                    Estart = None 
+                    Estart = None
                 else:
-                    Estart = Ez                 
+                    Estart = Ez
 
                 # solve for the nonlinear fields
                 (Hx_nl, Hy_nl, Ez_nl, conv) = self.simulation.solve_fields_nl(nonlinear_fn, nl_region,
-                                                                           dnl_de=dnl_de, timing=False,
-                                                                           averaging=False, Estart=None,
-                                                                           solver_nl=self.solver, conv_threshold=1e-10,
-                                                                           max_num_iter=50)
+                                                                              dnl_de=dnl_de, timing=False,
+                                                                              averaging=False, Estart=None,
+                                                                              solver_nl=self.solver, conv_threshold=1e-10,
+                                                                              max_num_iter=50)
                 # add final convergence to the optimization list
                 self.convergences.append(float(conv[-1]))
 
@@ -242,10 +242,10 @@ class Optimization():
         dnl_de = nonlin_fns['dnl_de']
 
         (_, _, Ez, _) = simulation.solve_fields_nl(nonlinear_fn, nl_region,
-                                                      dnl_de=dnl_de, timing=False,
-                                                      averaging=False, Estart=None,
-                                                      solver_nl='newton', conv_threshold=1e-10,
-                                                      max_num_iter=50)
+                                                   dnl_de=dnl_de, timing=False,
+                                                   averaging=False, Estart=None,
+                                                   solver_nl='newton', conv_threshold=1e-10,
+                                                   max_num_iter=50)
 
         # compute the gradient of the nonlinear objective function with AVM
         grad_avm = dJdeps_nonlinear(simulation, design_region, self.J['nonlinear'], self.dJdE['nonlinear'],
@@ -271,14 +271,14 @@ class Optimization():
 
             # create a deep copy of the current simulation object with new eps
             sim_new = copy.deepcopy(simulation)
-            sim_new.eps_new = eps_new
+            sim_new.eps_r = eps_new
 
             # solve for the new nonlinear fields
             (_, _, Ez_new, _) = sim_new.solve_fields_nl(nonlinear_fn, nl_region,
-                                                              dnl_de=dnl_de, timing=False,
-                                                              averaging=False, Estart=None,
-                                                              solver_nl='newton', conv_threshold=1e-10,
-                                                              max_num_iter=50)
+                                                        dnl_de=dnl_de, timing=False,
+                                                        averaging=False, Estart=None,
+                                                        solver_nl='newton', conv_threshold=1e-10,
+                                                        max_num_iter=50)
 
             # compute the new objective function
             J_new = self.J['nonlinear'](Ez_new)
@@ -327,33 +327,33 @@ class Optimization():
 
         bar = progressbar.ProgressBar(max_value=Nf)
 
-        # keep track of original frequency (to reset it later)
-        omega_original = self.simulation.omega
-
         # loop through frequencies
         objs = []
         for i, f in enumerate(freqs):
 
             bar.update(i + 1)
 
-            # reset the simulation and compute new A (hacky way of doing it)
-            self.simulation.omega = 2*np.pi*f
-            self.simulation.eps_r = self.simulation.eps_r
+            # make a new simulation object
+            sim_new = copy.deepcopy(self.simulation)
+
+            # reset the simulation to compute new A (hacky way of doing it)
+            sim_new.omega = 2*np.pi*f
+            sim_new.eps_r = self.simulation.eps_r
 
             # get the regions and nonlinearities
             (design_region, nl_region, nonlinear_fn, dnl_de) = self._unpack_dicts()
 
             # compute the fields depending on the state
             if self.state == 'linear' or self.state == 'both':
-                (_, _, Ez) = self.simulation.solve_fields()
+                (_, _, Ez) = sim_new.solve_fields()
 
             if self.state == 'nonlinear' or self.state == 'both':
 
-                (_, _, Ez_nl, _) = self.simulation.solve_fields_nl(nonlinear_fn, nl_region,
-                                                              dnl_de=dnl_de, timing=False,
-                                                              averaging=False, Estart=None,
-                                                              solver_nl='newton', conv_threshold=1e-10,
-                                                              max_num_iter=50)
+                (_, _, Ez_nl, _) = sim_new.solve_fields_nl(nonlinear_fn, nl_region,
+                                                           dnl_de=dnl_de, timing=False,
+                                                           averaging=False, Estart=None,
+                                                           solver_nl='newton', conv_threshold=1e-10,
+                                                           max_num_iter=50)
 
             # create placeholders for the fields if state is not 'both'
             if self.state == 'linear':
@@ -364,10 +364,6 @@ class Optimization():
             # compute objective function and append to list
             obj_fn = self._compute_objectivefn(Ez, Ez_nl)
             objs.append(obj_fn)
-
-        # reset the frequency and recompute A
-        self.simulation.omega = omega_original
-        self.simulation.eps_r = self.simulation.eps_r
 
         # compute HM
         objs_array = np.array(objs)
