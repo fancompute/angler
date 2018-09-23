@@ -8,7 +8,7 @@ import matplotlib.pylab as plt
 
 class Optimization():
 
-    def __init__(self, Nsteps=100, eps_max=5, step_size=0.01, J=None, dJdE=None,
+    def __init__(self, Nsteps=100, eps_max=5, step_size=0.01, J=None, dJdE=None, dJdeps_explicit=None,
                  field_start='linear', solver='born', opt_method='adam',
                  max_ind_shift=None):
 
@@ -27,6 +27,7 @@ class Optimization():
         self.opt_method = opt_method
         self.J = J
         self.dJdE = dJdE
+        self.dJdeps_explicit = dJdeps_explicit
         self.objs_tot = []
         self.objs_lin = []
         self.objs_nl = []
@@ -51,18 +52,18 @@ class Optimization():
         self._check_J_state()    # sets self.state
 
         # unpack design and nonlinear function dictionaries
-        (design_region, nl_region, nonlinear_fn, dnl_de) = self._unpack_dicts()
+        (design_region, nl_region, nonlinear_fn, dnl_de, dnl_deps) = self._unpack_dicts()
 
         # make progressbar
         bar = progressbar.ProgressBar(max_value=self.Nsteps)
-
-        # Store the starting linear permittivity 
-        eps_lin = copy.deepcopy(self.simulation.eps_r)
 
         for i in range(self.Nsteps):
 
             # display progressbar
             bar.update(i + 1)
+
+            # Store the starting linear permittivity 
+            eps_lin = copy.deepcopy(self.simulation.eps_r)
 
             # perform src amplitude adjustment for index shift capping
             if self.state == 'both' and self.max_ind_shift is not None:
@@ -86,8 +87,8 @@ class Optimization():
 
                 # solve for the linear fields and gradient of the linear objective function
                 (Hx, Hy, Ez) = self.simulation.solve_fields()
-                grad_lin = dJdeps_linear(self.simulation, design_region, self.J[
-                                         'linear'], self.dJdE['linear'], averaging=False)
+                grad_lin = dJdeps_linear(self.simulation, design_region,
+                                         self.dJdE['linear'], self.dJdeps_explicit['linear'], averaging=False)
 
             # if the problem is purely nonlinear
             else:
@@ -120,8 +121,8 @@ class Optimization():
                 self.convergences.append(float(conv[-1]))
 
                 # compute the gradient of the nonlinear objective function
-                grad_nonlin = dJdeps_nonlinear(simulation, design_region, self.J['nonlinear'], self.dJdE['nonlinear'],
-                                               nonlinear_fn, nl_region, dnl_de, averaging=False)
+                grad_nonlin = dJdeps_nonlinear(simulation, design_region, self.dJdE['nonlinear'], self.dJdeps_explicit['linear'],
+                                               nonlinear_fn, nl_region, dnl_de, dnl_deps, averaging=False)
 
                 # Restore just the linear permittivity
                 self.simulation.eps_r = eps_lin
@@ -135,7 +136,6 @@ class Optimization():
 
             # add the gradients together depending on problem
             grad = self.dJdE['total'](grad_lin, grad_nonlin)
-            print(grad_lin[72, 75], grad_nonlin[72, 75])
 
             # update permittivity based on gradient
             if self.opt_method == 'descent':
@@ -195,7 +195,7 @@ class Optimization():
 
         # solve for the linear fields and gradient of the linear objective function
         (_, _, Ez) = simulation.solve_fields()
-        grad_avm = dJdeps_linear(simulation, design_region, self.J['linear'], self.dJdE['linear'], averaging=False)
+        grad_avm = dJdeps_linear(simulation, design_region, self.dJdE['linear'], self.dJdeps_explicit['linear'], averaging=False)
         J_orig = self.J['linear'](Ez, eps_orig)
 
         avm_grads = []
@@ -244,6 +244,7 @@ class Optimization():
         design_region = regions['design']
         nonlinear_fn = nonlin_fns['eps_nl']
         dnl_de = nonlin_fns['dnl_de']
+        dnl_deps = nonlin_fns['dnl_deps']
 
         (_, _, Ez, _) = simulation.solve_fields_nl(nonlinear_fn, nl_region,
                                                    dnl_de=dnl_de, timing=False,
@@ -252,8 +253,8 @@ class Optimization():
                                                    max_num_iter=50)
 
         # compute the gradient of the nonlinear objective function with AVM
-        grad_avm = dJdeps_nonlinear(simulation, design_region, self.J['nonlinear'], self.dJdE['nonlinear'],
-                                    nonlinear_fn, nl_region, dnl_de, averaging=False)
+        grad_avm = dJdeps_nonlinear(simulation, design_region, self.dJdE['nonlinear'], self.dJdeps_explicit['linear'],
+                                    nonlinear_fn, nl_region, dnl_de, dnl_deps, averaging=False)
 
         # compute original objective function (to compare with numerical)
         J_orig = self.J['nonlinear'](Ez, eps_orig)
@@ -454,10 +455,10 @@ class Optimization():
 
         # give different objective function depending on state
         if self.state == 'linear':
-            J_tot = self.J['total'](self.J['linear'](Ez, eps_r), 0)
+            J_tot = self.J['total'](self.J['linear'](Ez), 0)
 
         elif self.state == 'nonlinear':
-            J_tot = self.J['total'](0, self.J['nonlinear'](Ez_nl, eps_r))
+            J_tot = self.J['total'](0, self.J['nonlinear'](Ez_nl))
 
         else:
             J_lin = self.J['linear'](Ez, eps_r)
@@ -491,13 +492,14 @@ class Optimization():
                     "must supply 'eps_nl' and 'dnl_de' functions to nonlin_fns dictionary")
             eps_nl = self.nonlin_fns['eps_nl']
             dnl_de = self.nonlin_fns['dnl_de']
+            dnl_deps = self.nonlin_fns['dnl_deps']
             if eps_nl is None or dnl_de is None:
                 raise ValueError(
                     "must supply 'eps_nl' and 'dnl_de' functions to nonlin_fns dictionary")
         else:
-            nonlin_region = eps_nl = dnl_de = None
+            nonlin_region = eps_nl = dnl_de = dnl_deps = None
 
-        return (design_region, nonlin_region, eps_nl, dnl_de)
+        return (design_region, nonlin_region, eps_nl, dnl_de, dnl_deps)
 
     def _step_adam(self, grad, mopt_old, vopt_old, iteration_index, epsilon=1e-8, beta1=0.9, beta2=0.999):
         mopt = beta1 * mopt_old + (1 - beta1) * grad
