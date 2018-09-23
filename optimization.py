@@ -135,6 +135,7 @@ class Optimization():
 
             # add the gradients together depending on problem
             grad = self.dJdE['total'](grad_lin, grad_nonlin)
+            print(grad_lin[72, 75], grad_nonlin[72, 75])
 
             # update permittivity based on gradient
             if self.opt_method == 'descent':
@@ -308,7 +309,7 @@ class Optimization():
         eps_nl = nonlin_fns['eps_nl']
 
         # relative permittivity shift
-        deps = eps_nl(Ez*nl_region)
+        deps = eps_nl(Ez*nl_region, simulation.eps_r)
 
         # index shift
         dn = np.sqrt(deps)
@@ -453,10 +454,10 @@ class Optimization():
 
         # give different objective function depending on state
         if self.state == 'linear':
-            J_tot = self.J['total'](self.J['linear'](Ez), 0)
+            J_tot = self.J['total'](self.J['linear'](Ez, eps_r), 0)
 
         elif self.state == 'nonlinear':
-            J_tot = self.J['total'](0, self.J['nonlinear'](Ez_nl))
+            J_tot = self.J['total'](0, self.J['nonlinear'](Ez_nl, eps_r))
 
         else:
             J_lin = self.J['linear'](Ez, eps_r)
