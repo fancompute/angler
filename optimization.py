@@ -369,7 +369,26 @@ class Optimization():
         self.simulation.omega = omega_original
         self.simulation.eps_r = self.simulation.eps_r
 
-        return freqs, objs
+        # compute HM
+        objs_array = np.array(objs)
+        HM = np.max(objs_array)/2
+        above_HM = objs_array > HM
+
+        # does a scan up and down from the midpoint and counts number above HM in this peak
+        num_above_HM = 0
+        for i in range(int(Nf/2), Nf):
+            if not above_HM[i]:
+                break
+            num_above_HM += 1
+        for i in range(int(Nf/2)-1, -1, -1):
+            if not above_HM[i]:
+                break
+            num_above_HM += 1
+
+        # compute FWHM (Hz) using the number above HM and the freq difference
+        FWHM = num_above_HM*(freqs[1] - freqs[0])
+
+        return freqs, objs, FWHM
 
     def _update_permittivity(self, grad, design_region):
         # updates the permittivity with the gradient info
