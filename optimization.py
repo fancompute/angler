@@ -124,7 +124,7 @@ class Optimization():
                                                nonlinear_fn, nl_region, dnl_de, averaging=False)
 
                 # Restore just the linear permittivity
-                self.simulation.reset_eps(eps_lin)
+                self.simulation.eps_r = eps_lin
 
             # if the problem is purely linear
             else:
@@ -211,7 +211,7 @@ class Optimization():
 
             # make a copy of the current simulation
             sim_new = copy.deepcopy(simulation)
-            sim_new.reset_eps(eps_new)
+            sim_new.eps_r = eps_new
 
             # solve for the fields with this new permittivity
             (_, _, Ez_new) = sim_new.solve_fields()
@@ -271,7 +271,7 @@ class Optimization():
 
             # create a deep copy of the current simulation object with new eps
             sim_new = copy.deepcopy(simulation)
-            sim_new.reset_eps(eps_new)
+            sim_new.eps_new = eps_new
 
             # solve for the new nonlinear fields
             (_, _, Ez_new, _) = sim_new.solve_fields_nl(nonlinear_fn, nl_region,
