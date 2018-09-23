@@ -56,6 +56,9 @@ class Optimization():
         # make progressbar
         bar = progressbar.ProgressBar(max_value=self.Nsteps)
 
+        # Store the starting linear permittivity 
+        eps_lin = copy.deepcopy(self.simulation.eps_r)
+
         for i in range(self.Nsteps):
 
             # display progressbar
@@ -95,9 +98,6 @@ class Optimization():
 
             # if the problem has a nonlinear component
             if self.state == 'nonlinear' or self.state == 'both':
-
-                # Store the starting linear permittivity (it will be changed by the nonlinear solvers...)
-                eps_lin = copy.deepcopy(self.simulation.eps_r)
 
                 # error checking on the field_start parameter
                 if self.field_start not in ['linear', 'previous']:
@@ -157,7 +157,7 @@ class Optimization():
                     "opt_method must be one of {'descent', 'adam'}")
 
             # compute the objective function depending on what was supplied
-            obj_fn = self._compute_objectivefn(Ez, Ez_nl)
+            obj_fn = self._compute_objectivefn(Ez, Ez_nl, eps_lin)
 
             # want: some way to print the obj function in the progressbar
             # without adding new lines
@@ -189,10 +189,13 @@ class Optimization():
         # how much to perturb eps for numerical gradient
         d_eps = 1e-4
 
+        # make copy of original epsilon
+        eps_orig = copy.deepcopy(simulation.eps_r)
+
         # solve for the linear fields and gradient of the linear objective function
         (_, _, Ez) = simulation.solve_fields()
         grad_avm = dJdeps_linear(simulation, design_region, self.J['linear'], self.dJdE['linear'], averaging=False)
-        J_orig = self.J['linear'](Ez)
+        J_orig = self.J['linear'](Ez, eps_orig)
 
         avm_grads = []
         num_grads = []
@@ -215,7 +218,7 @@ class Optimization():
 
             # solve for the fields with this new permittivity
             (_, _, Ez_new) = sim_new.solve_fields()
-            J_new = self.J['linear'](Ez_new)
+            J_new = self.J['linear'](Ez_new, eps_orig)
 
             # compute the numerical gradient
             grad_num = (J_new - J_orig)/d_eps
@@ -252,7 +255,7 @@ class Optimization():
                                     nonlinear_fn, nl_region, dnl_de, averaging=False)
 
         # compute original objective function (to compare with numerical)
-        J_orig = self.J['nonlinear'](Ez)
+        J_orig = self.J['nonlinear'](Ez, eps_orig)
 
         avm_grads = []
         num_grads = []
@@ -281,7 +284,7 @@ class Optimization():
                                                         max_num_iter=50)
 
             # compute the new objective function
-            J_new = self.J['nonlinear'](Ez_new)
+            J_new = self.J['nonlinear'](Ez_new, eps_orig)
 
             # compute the numerical gradient
             grad_num = (J_new - J_orig)/d_eps
@@ -443,7 +446,7 @@ class Optimization():
 
         self.state = state
 
-    def _compute_objectivefn(self, Ez, Ez_nl):
+    def _compute_objectivefn(self, Ez, Ez_nl, eps_r):
         # does some error checking and returns the objective function
 
         assert self.state in ['linear', 'nonlinear', 'both']
@@ -456,8 +459,8 @@ class Optimization():
             J_tot = self.J['total'](0, self.J['nonlinear'](Ez_nl))
 
         else:
-            J_lin = self.J['linear'](Ez)
-            J_nl = self.J['nonlinear'](Ez_nl)
+            J_lin = self.J['linear'](Ez, eps_r)
+            J_nl = self.J['nonlinear'](Ez_nl, eps_r)
             J_tot = self.J['total'](J_lin, J_nl)
             self.objs_lin.append(J_lin)
             self.objs_nl.append(J_nl)
