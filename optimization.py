@@ -187,7 +187,7 @@ class Optimization():
         # checks the numerical derivative matches analytical.
 
         # how much to perturb eps for numerical gradient
-        d_eps = 1e-8
+        d_eps = 1e-4
 
         # solve for the linear fields and gradient of the linear objective function
         (_, _, Ez) = simulation.solve_fields()
@@ -230,7 +230,7 @@ class Optimization():
         """ checks whether the numerical derivative matches analytical """
 
         # how much to perturb epsilon for numerical gradient
-        d_eps = 1e-8
+        d_eps = 1e-4
 
         # make copy of original epsilon
         eps_orig = copy.deepcopy(simulation.eps_r)

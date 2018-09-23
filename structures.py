@@ -55,7 +55,7 @@ def three_port(L, H, w, d, dl, l, spc, NPML, eps_start):
 
     # define regions
     box    = lambda x, y: (np.abs(x) < L/2) * (np.abs(y) < H/2)
-    wg_in  = lambda x, y: (x < 0)           * (np.abs(y+0.1) < w/2)  # note, this slight offset is to fix gridding issues
+    wg_in  = lambda x, y: (x < 0)           * (np.abs(y+0.001) < w/2)  # note, this slight offset is to fix gridding issues
     wg_top = lambda x, y: (x > 0)           * (np.abs(y-d/2) < w/2)
     wg_bot = lambda x, y: (x > 0)           * (np.abs(y+d/2) < w/2)
 
