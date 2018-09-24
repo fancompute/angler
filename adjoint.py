@@ -31,7 +31,7 @@ def dJdeps_linear(simulation, design_region, dJdfield, dJdeps_explicit, averagin
 		b_aj = -dJdfield(Ez, simulation.eps_r)
 		Ez_aj = adjoint_linear(simulation, b_aj)
 
-		dJdeps = 2*np.real(Ez_aj*dAdeps*Ez) + dJdeps_explicit(Ez, simulation.eps_r)
+		dJdeps = 2*np.real(Ez_aj*dAdeps*Ez) + dJdeps_explicit(Ez, simulation.eps_r)*design_region
 
 	elif simulation.pol == 'Hz':
 		dAdeps = design_region*omega**2*EPSILON_0_    # Note: physical constants go here if need be!
@@ -122,9 +122,9 @@ def dJdeps_nonlinear(simulation, design_region, dJdfield, dJdeps_explicit, nonli
 		Ez = simulation.fields['Ez']
 		b_aj = -dJdfield(Ez, simulation.eps_r)
 		Ez_aj = adjoint_nonlinear(simulation, b_aj, nonlinear_fn, nl_region, dnl_de)
-		dAnldeps = dAdeps + omega**2*EPSILON_0_*dnl_deps(Ez*nl_region, simulation.eps_r)
+		dAnldeps = dAdeps + design_region*omega**2*EPSILON_0_*dnl_deps(Ez*nl_region, simulation.eps_r)
 
-		dJdeps = 2*np.real(Ez_aj*dAnldeps*Ez)
+		dJdeps = 2*np.real(Ez_aj*dAnldeps*Ez) + dJdeps_explicit(Ez, simulation.eps_r)*design_region
 
 		return dJdeps
 	else:

@@ -121,7 +121,7 @@ class Optimization():
                 self.convergences.append(float(conv[-1]))
 
                 # compute the gradient of the nonlinear objective function
-                grad_nonlin = dJdeps_nonlinear(simulation, design_region, self.dJdE['nonlinear'], self.dJdeps_explicit['linear'],
+                grad_nonlin = dJdeps_nonlinear(simulation, design_region, self.dJdE['nonlinear'], self.dJdeps_explicit['nonlinear'],
                                                nonlinear_fn, nl_region, dnl_de, dnl_deps, averaging=False)
 
                 # Restore just the linear permittivity
@@ -135,7 +135,12 @@ class Optimization():
                 grad_nonlin = np.zeros(self.simulation.eps_r.shape)
 
             # add the gradients together depending on problem
-            grad = self.dJdE['total'](grad_lin, grad_nonlin)
+
+            # compute the objective function depending on what was supplied
+            (J_lin, J_nonlin, J_tot) = self._compute_objectivefn(Ez, Ez_nl, eps_lin)
+
+            # compute the total gradient
+            grad = self.J['grad_total'](J_lin, J_nonlin, grad_lin, grad_nonlin)
 
             # update permittivity based on gradient
             if self.opt_method == 'descent':
@@ -157,8 +162,6 @@ class Optimization():
                 raise AssertionError(
                     "opt_method must be one of {'descent', 'adam'}")
 
-            # compute the objective function depending on what was supplied
-            obj_fn = self._compute_objectivefn(Ez, Ez_nl, eps_lin)
 
             # want: some way to print the obj function in the progressbar
             # without adding new lines
@@ -219,7 +222,7 @@ class Optimization():
 
             # solve for the fields with this new permittivity
             (_, _, Ez_new) = sim_new.solve_fields()
-            J_new = self.J['linear'](Ez_new, eps_orig)
+            J_new = self.J['linear'](Ez_new, eps_new)
 
             # compute the numerical gradient
             grad_num = (J_new - J_orig)/d_eps
@@ -253,7 +256,7 @@ class Optimization():
                                                    max_num_iter=50)
 
         # compute the gradient of the nonlinear objective function with AVM
-        grad_avm = dJdeps_nonlinear(simulation, design_region, self.dJdE['nonlinear'], self.dJdeps_explicit['linear'],
+        grad_avm = dJdeps_nonlinear(simulation, design_region, self.dJdE['nonlinear'], self.dJdeps_explicit['nonlinear'],
                                     nonlinear_fn, nl_region, dnl_de, dnl_deps, averaging=False)
 
         # compute original objective function (to compare with numerical)
@@ -286,7 +289,7 @@ class Optimization():
                                                         max_num_iter=50)
 
             # compute the new objective function
-            J_new = self.J['nonlinear'](Ez_new, eps_orig)
+            J_new = self.J['nonlinear'](Ez_new, eps_new)
 
             # compute the numerical gradient
             grad_num = (J_new - J_orig)/d_eps
@@ -430,17 +433,17 @@ class Optimization():
             state = 'nonlinear' if state == 'NA' else 'both'
 
         if state == 'both':
-            if 'total' not in self.J or self.J['total'] is None or 'total' not in self.dJdE or self.dJdE['total'] is None:
+            if 'total' not in self.J or self.J['total'] is None or 'total' not in self.dJdE or self.J['grad_total'] is None:
                 raise ValueError(
-                    "must supply functions in J['total'] and dJdE['total']")
+                    "must supply functions in J['total'] and J['grad_total']")
 
         elif state == 'linear':
             self.J['total'] = lambda J_lin, J_nonlin: J_lin
-            self.dJdE['total'] = lambda dJdE_lin, dJdE_nonlin: dJdE_lin
+            self.J['grad_total'] = lambda J_lin, J_nonlin, dJdE_lin, dJdE_nonlin: dJdE_lin
 
         elif state == 'nonlinear':
             self.J['total'] = lambda J_lin, J_nonlin: J_nonlin
-            self.dJdE['total'] = lambda dJdE_lin, dJdE_nonlin: dJdE_nonlin
+            self.J['grad_total'] = lambda J_lin, J_nonlin, dJdE_lin, dJdE_nonlin: dJdE_nonlin
 
         elif state == 'NA':
             raise ValueError(
@@ -455,10 +458,14 @@ class Optimization():
 
         # give different objective function depending on state
         if self.state == 'linear':
-            J_tot = self.J['total'](self.J['linear'](Ez), 0)
+            J_lin = self.J['linear'](Ez, eps_r)
+            J_nl  = 0
+            J_tot = self.J['total'](J_lin, J_nl)
 
         elif self.state == 'nonlinear':
-            J_tot = self.J['total'](0, self.J['nonlinear'](Ez_nl))
+            J_lin = 0
+            J_nl  = self.J['nonlinear'](Ez, eps_r)
+            J_tot = self.J['total'](J_lin, J_nl)
 
         else:
             J_lin = self.J['linear'](Ez, eps_r)
@@ -468,7 +475,7 @@ class Optimization():
             self.objs_nl.append(J_nl)
 
         self.objs_tot.append(J_tot)
-        return J_tot
+        return (J_lin, J_nl, J_tot)
 
     def _unpack_dicts(self):
         # does error checking on the regions and nonlin_fns dictionary and
