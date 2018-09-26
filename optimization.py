@@ -8,14 +8,14 @@ import matplotlib.pylab as plt
 
 class Optimization():
 
-    def __init__(self, Nsteps=100, eps_max=5, step_size=0.01, J=None, dJdE=None, dJdeps_explicit=None,
+    def __init__(self, Nsteps=100, eps_max=5, step_size=0.01, J=None, dJ=None,
                  field_start='linear', solver='born', opt_method='adam',
                  max_ind_shift=None):
 
         if J is None:
             J = {}
-        if dJdE is None:
-            dJdE = {}
+        if dJ is None:
+            dJ = {}
 
         # store all of the parameters associated with the optimization
 
@@ -26,22 +26,21 @@ class Optimization():
         self.solver = solver
         self.opt_method = opt_method
         self.J = J
-        self.dJdE = dJdE
-        self.dJdeps_explicit = dJdeps_explicit
+        self.dJ = dJ
         self.objs_tot = []
         self.objs_lin = []
         self.objs_nl = []
         self.convergences = []
         self.max_ind_shift = max_ind_shift
 
+        # determine problem state ('linear', 'nonlinear', or 'both') from J and dJ dictionaries
+        self._check_J_state()    # sets self.state
+
     def run(self, simulation, design_region):
 
         # store the parameters specific to this simulation
         self.simulation = simulation
         self.design_region = design_region
-
-        # determine problem state ('linear', 'nonlinear', or 'both') from J and dJdE dictionaries
-        self._check_J_state()    # sets self.state
 
         # make progressbar
         bar = progressbar.ProgressBar(max_value=self.Nsteps)
@@ -77,7 +76,7 @@ class Optimization():
                 # solve for the linear fields and gradient of the linear objective function
                 (Hx, Hy, Ez) = self.simulation.solve_fields()
                 grad_lin = dJdeps_linear(self.simulation, design_region,
-                                         self.dJdE['linear'], self.dJdeps_explicit['linear'], averaging=False)
+                                         self.dJ['dE_linear'], self.dJ['deps_linear'], averaging=False)
 
             # if the problem is purely nonlinear
             else:
@@ -109,7 +108,7 @@ class Optimization():
                 self.convergences.append(float(conv[-1]))
 
                 # compute the gradient of the nonlinear objective function
-                grad_nonlin = dJdeps_nonlinear(simulation, design_region, self.dJdE['nonlinear'], self.dJdeps_explicit['nonlinear'], averaging=False)
+                grad_nonlin = dJdeps_nonlinear(simulation, design_region, self.dJ['dE_nonlinear'], self.dJ['deps_nonlinear'], averaging=False)
 
                 # Restore just the linear permittivity
                 self.simulation.eps_r = eps_lin
@@ -127,7 +126,7 @@ class Optimization():
             (J_lin, J_nonlin, J_tot) = self._compute_objectivefn(Ez, Ez_nl, eps_lin)
 
             # compute the total gradient
-            grad = self.J['grad_total'](J_lin, J_nonlin, grad_lin, grad_nonlin)
+            grad = self.dJ['total'](J_lin, J_nonlin, grad_lin, grad_nonlin)
 
             # update permittivity based on gradient
             if self.opt_method == 'descent':
@@ -185,7 +184,7 @@ class Optimization():
 
         # solve for the linear fields and gradient of the linear objective function
         (_, _, Ez) = simulation.solve_fields()
-        grad_avm = dJdeps_linear(simulation, design_region, self.dJdE['linear'], self.dJdeps_explicit['linear'], averaging=False)
+        grad_avm = dJdeps_linear(simulation, design_region, self.dJ['dE_linear'], self.dJ['deps_linear'], averaging=False)
         J_orig = self.J['linear'](Ez, eps_orig)
 
         avm_grads = []
@@ -235,7 +234,7 @@ class Optimization():
                                                    max_num_iter=50)
 
         # compute the gradient of the nonlinear objective function with AVM
-        grad_avm = dJdeps_nonlinear(simulation, design_region, self.dJdE['nonlinear'], self.dJdeps_explicit['nonlinear'],
+        grad_avm = dJdeps_nonlinear(simulation, design_region, self.dJ['dE_nonlinear'], self.dJ['deps_nonlinear'],
                                     averaging=False)
 
         # compute original objective function (to compare with numerical)
@@ -384,32 +383,36 @@ class Optimization():
         for k in keys:
             if k not in self.J:
                 self.J[k] = None
-            if k not in self.dJdE:
-                self.dJdE[k] = None
+
+        keys = ['dE_linear', 'dE_nonlinear', 'total', 'deps_linear', 'deps_nonlinear']
+        for k in keys:
+            if k not in self.dJ:
+                self.dJ[k] = None
+
 
         # next, determine if linear problem, nonlinear problem, or both
         state = 'NA'
-        if self.J['linear'] is not None and self.dJdE['linear'] is not None:
+        if self.J['linear'] is not None and self.dJ['dE_linear'] is not None:
             state = 'linear'
-        if self.J['nonlinear'] is not None and self.dJdE['nonlinear'] is not None:
+        if self.J['nonlinear'] is not None and self.dJ['dE_nonlinear'] is not None:
             state = 'nonlinear' if state == 'NA' else 'both'
 
         if state == 'both':
-            if 'total' not in self.J or self.J['total'] is None or 'total' not in self.dJdE or self.J['grad_total'] is None:
+            if 'total' not in self.J or self.J['total'] is None or 'total' not in self.dJ or self.dJ['total'] is None:
                 raise ValueError(
-                    "must supply functions in J['total'] and J['grad_total']")
+                    "must supply functions in J['total'] and dJ['total']")
 
         elif state == 'linear':
             self.J['total'] = lambda J_lin, J_nonlin: J_lin
-            self.J['grad_total'] = lambda J_lin, J_nonlin, dJdE_lin, dJdE_nonlin: dJdE_lin
+            self.dJ['total'] = lambda J_lin, J_nonlin, dJdE_lin, dJdE_nonlin: dJdE_lin
 
         elif state == 'nonlinear':
             self.J['total'] = lambda J_lin, J_nonlin: J_nonlin
-            self.J['grad_total'] = lambda J_lin, J_nonlin, dJdE_lin, dJdE_nonlin: dJdE_nonlin
+            self.dJ['total'] = lambda J_lin, J_nonlin, dJdE_lin, dJdE_nonlin: dJdE_nonlin
 
         elif state == 'NA':
             raise ValueError(
-                "must supply both J and dJdE with functions for 'linear', 'nonlinear' or both")
+                "must supply both J and dJ with functions for 'linear', 'nonlinear' or both")
 
         self.state = state
 
