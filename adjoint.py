@@ -107,7 +107,7 @@ def adjoint_linear(simulation, b_aj, averaging=False, solver=DEFAULT_SOLVER, mat
 
 # TO DO:
 
-def dJdeps_nonlinear(simulation, design_region, dJdfield, dJdeps_explicit, nonlinear_fn, nl_region, dnl_de, dnl_deps,
+def dJdeps_nonlinear(simulation, design_region, dJdfield, dJdeps_explicit, 
 					 averaging=False):
 	# Note: written only for Ez!
 	# Note: we are assuming that the partial derivative of J w.r.t. e* is just (dJde)*
@@ -121,8 +121,8 @@ def dJdeps_nonlinear(simulation, design_region, dJdfield, dJdeps_explicit, nonli
 		dAdeps = design_region*omega**2*EPSILON_0_    # Note: physical constants go here if need be!
 		Ez = simulation.fields['Ez']
 		b_aj = -dJdfield(Ez, simulation.eps_r)
-		Ez_aj = adjoint_nonlinear(simulation, b_aj, nonlinear_fn, nl_region, dnl_de)
-		dAnldeps = dAdeps + design_region*omega**2*EPSILON_0_*dnl_deps(Ez*nl_region, simulation.eps_r)
+		Ez_aj = adjoint_nonlinear(simulation, b_aj)
+		dAnldeps = dAdeps + design_region*omega**2*EPSILON_0_*simulation.dnl_deps
 
 		dJdeps = 2*np.real(Ez_aj*dAnldeps*Ez) + dJdeps_explicit(Ez, simulation.eps_r)*design_region
 
@@ -131,7 +131,7 @@ def dJdeps_nonlinear(simulation, design_region, dJdfield, dJdeps_explicit, nonli
 		raise ValueError("Nonlinear adjoint works only for Ez polarization")
 
 
-def adjoint_nonlinear(simulation, b_aj, nonlinear_fn, nl_region, dnl_de,
+def adjoint_nonlinear(simulation, b_aj,
 					 averaging=False, solver=DEFAULT_SOLVER, matrix_format=DEFAULT_MATRIX_FORMAT):
 	# Compute the adjoint field for a nonlinear problem
 	# Note: written only for Ez!
@@ -145,9 +145,8 @@ def adjoint_nonlinear(simulation, b_aj, nonlinear_fn, nl_region, dnl_de,
 
 	if simulation.pol == 'Ez':
 		Ez = simulation.fields['Ez']
-		eps_lin = simulation.eps_r
-		Anl = simulation.A + sp.spdiags(omega**2*EPSILON_0_*nonlinear_fn(Ez*nl_region, eps_lin).reshape((-1,)), 0, M, M, format=matrix_format)
-		dAde = omega**2*EPSILON_0_*dnl_de(Ez*nl_region, eps_lin)
+		Anl = simulation.A
+		dAde = omega**2*EPSILON_0_*simulation.dnl_de
 
 		C11 = Anl + sp.spdiags((dAde*Ez).reshape((-1,)), 0, M, M, format=matrix_format)
 		C12 = sp.spdiags((np.conj(dAde)*Ez).reshape((-1)), 0, M, M, format=matrix_format)
