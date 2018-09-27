@@ -277,12 +277,16 @@ class Optimization():
 
         return avm_grads, num_grads
 
-    def compute_index_shift(self, simulation):
+    def compute_index_shift(self, simulation, full_nl=False):
         """ computes the max shift of refractive index caused by nonlinearity"""
 
-        # solve for the fields
-        (_, _, Ez) = self.simulation.solve_fields()
-        simulation.compute_nl(Ez)
+        if full_nl:
+            # true index shift with nonlinear solve            
+            (_, _, Ez) = self.simulation.solve_fields_nl()
+        else:
+            # linear approximation to index shift
+            (_, _, Ez) = self.simulation.solve_fields()
+            simulation.compute_nl(Ez)
 
         # index shift
         dn = np.sqrt(np.real(simulation.eps_nl))
