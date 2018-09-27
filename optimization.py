@@ -294,17 +294,14 @@ class Optimization():
         # could np.max() it here if you want.  Returning array for now
         return dn
 
-    def scan_frequency(self, freqs=None):
+    def scan_frequency(self, Nf=50, df=1/20):
+
         """ Scans the objective function vs. frequency """
 
-        # set the frequencies (Hz), if not specified as a list
-        if freqs is None:
-            Nf = 50
-            delta_f = self.simulation.omega/20
-            freqs = 1/2/np.pi*np.linspace(self.simulation.omega - delta_f/2,
+        # create frequencies (in Hz)
+        delta_f = self.simulation.omega*df
+        freqs = 1/2/np.pi*np.linspace(self.simulation.omega - delta_f/2,
                                           self.simulation.omega + delta_f/2,  Nf)
-        else:
-            Nf = len(freqs)
 
         bar = progressbar.ProgressBar(max_value=Nf)
 
@@ -339,7 +336,7 @@ class Optimization():
                 Ez = np.zeros(Ez_nl.shape)
 
             # compute objective function and append to list
-            obj_fn = self._compute_objectivefn(Ez, Ez_nl, self.simulation.eps_r)
+            _, _, obj_fn = self._compute_objectivefn(Ez, Ez_nl, self.simulation.eps_r)
             objs.append(obj_fn)
 
         # compute HM
