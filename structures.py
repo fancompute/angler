@@ -66,6 +66,39 @@ def three_port(L, H, w, d, dl, l, spc, NPML, eps_start):
     return eps_r
 
 
+def two_port(L, H, w, l, spc, dl, NPML, eps_start):
+
+
+    # CONSTRUCTS A ONE IN ONE OUT PORT DEVICE
+    # L         : design region length in L0
+    # H         : design region width  in L0
+    # w         : waveguide widths in L0
+    # l         : distance between waveguide and design region in L0 (x)
+    # spc       : spc bewtween PML and top/bottom of design region
+    # dl        : grid size in L0
+    # NPML      : number of PML grids in [x, y]
+    # eps_start : starting relative permittivity
+
+    Nx = 2*NPML[0] + int((2*l + L)/dl)       # num. grids in horizontal
+    Ny = 2*NPML[1] + int((H + 2*spc)/dl)   # num. grids in vertical
+    nx, ny = int(Nx/2), int(Ny/2)            # halfway grid points
+    shape = (Nx, Ny)                          # shape of domain (in num. grids)
+
+    # x and y coordinate arrays
+    xs, ys = get_grid(shape, dl)
+
+    # define regions
+    box = lambda x, y: (np.abs(x) < L/2) * (np.abs(y) < H/2)
+    wg  = lambda x, y: (np.abs(y) < w/2)
+
+    eps_r = apply_regions([wg], xs, ys, eps_start=eps_start)
+    design_region = apply_regions([box], xs, ys, eps_start=2)
+
+    design_region = design_region - 1
+
+    return eps_r, design_region
+
+
 def accelerator(beta, gap, lambda0, L, spc, dl, NPML, eps_start):
 
     # CONSTRUCTS A DIELECTRIC LASER ACCELERATOR STRUCTURE

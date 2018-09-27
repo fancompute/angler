@@ -280,6 +280,10 @@ class Optimization():
     def compute_index_shift(self, simulation):
         """ computes the max shift of refractive index caused by nonlinearity"""
 
+        # solve for the fields
+        (_, _, Ez) = self.simulation.solve_fields()
+        simulation.compute_nl(Ez)
+
         # index shift
         dn = np.sqrt(np.real(simulation.eps_nl))
 
@@ -331,7 +335,7 @@ class Optimization():
                 Ez = np.zeros(Ez_nl.shape)
 
             # compute objective function and append to list
-            obj_fn = self._compute_objectivefn(Ez, Ez_nl)
+            obj_fn = self._compute_objectivefn(Ez, Ez_nl, self.simulation.eps_r)
             objs.append(obj_fn)
 
         # compute HM
