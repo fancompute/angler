@@ -10,7 +10,7 @@ class Optimization():
 
     def __init__(self, Nsteps=100, eps_max=5, step_size=0.01, J=None, dJ=None,
                  field_start='linear', solver='born', opt_method='adam',
-                 max_ind_shift=None):
+                 max_ind_shift=None, end_scale=None):
 
         if J is None:
             J = {}
@@ -30,8 +30,11 @@ class Optimization():
         self.objs_tot = []
         self.objs_lin = []
         self.objs_nl = []
+        self.W_in = []
+        self.E2_in = []
         self.convergences = []
         self.max_ind_shift = max_ind_shift
+        self.end_scale = end_scale
 
         # determine problem state ('linear', 'nonlinear', or 'both') from J and dJ dictionaries
         self._check_J_state()    # sets self.state
@@ -69,6 +72,15 @@ class Optimization():
                     # if you've gone over the max count, we've lost our patience.  Just manually decrease it.
                     else:
                         simulation.src = simulation.src*0.98
+
+            # perform source scaling such that the final scale is end_scale times the initial scale
+            if self.state == 'both' and self.end_scale is not None:
+                if i==0:
+                    scale_fact = np.power(self.end_scale, 1/(self.Nsteps-1))
+                else:
+                    for modei in simulation.modes:
+                        modei.scale = modei.scale*scale_fact
+                        simulation.setup_modes()
 
             # if the problem has a linear component
             if self.state == 'linear' or self.state == 'both':
@@ -154,21 +166,33 @@ class Optimization():
 
         return new_eps
 
-    def plt_objs(self, ax=None):
+    def plt_objs(self, ax=None, scaled=None):
 
         iters = range(1, len(self.objs_tot) + 1)
+        objs_tot = np.asarray(self.objs_tot)
+        objs_lin = np.asarray(self.objs_lin)
+        objs_nl = np.asarray(self.objs_nl)
+
+        if scaled=='W_in':
+            objs_tot = objs_tot/np.asarray(self.W_in)
+            objs_lin = objs_lin/np.asarray(self.W_in)
+            objs_nl = objs_nl/np.asarray(self.W_in)
+        elif scaled=='E2_in':
+            objs_tot = objs_tot/np.asarray(self.E2_in)
+            objs_lin = objs_lin/np.asarray(self.E2_in)
+            objs_nl = objs_nl/np.asarray(self.E2_in)
 
         if ax is None:
             fig, ax = plt.subplots(1, constrained_layout=True)
 
-        ax.plot(iters, self.objs_tot)
+        ax.plot(iters, objs_tot)
         ax.set_xlabel('iteration number')
         ax.set_ylabel('objective function')
         ax.set_title('optimization results')
 
         if self.state == 'both':
-            ax.plot(iters, self.objs_lin)
-            ax.plot(iters, self.objs_nl)
+            ax.plot(iters, objs_lin)
+            ax.plot(iters, objs_nl)
             ax.legend(('total', 'linear', 'nonlinear'))
 
         return ax
@@ -448,6 +472,8 @@ class Optimization():
             self.objs_nl.append(J_nl)
 
         self.objs_tot.append(J_tot)
+        self.W_in.append(self.simulation.W_in)
+        self.E2_in.append(self.simulation.E2_in)
         return (J_lin, J_nl, J_tot)
 
     def _step_adam(self, grad, mopt_old, vopt_old, iteration_index, epsilon=1e-8, beta1=0.9, beta2=0.999):
