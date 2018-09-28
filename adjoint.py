@@ -4,19 +4,7 @@ from fdfdpy.linalg import solver_direct, grid_average
 from fdfdpy.derivatives import unpack_derivs
 from fdfdpy.constants import *
 
-
-def dJdeps(simulation, Ez_nl, nonlinear_fn, nl_region):
-	# computes the derivative of the objective function with respect to the permittivity
-
-	# note, just making a fake gradient that is 1 at the center of the space
-	grad = np.zeros(simulation.eps_r.shape)
-	grad[int(simulation.Nx/2), int(simulation.Ny/2)] = 1
-
-	return grad
-
-# ADJOINT FUNCTIONS BELOW! VVVVV (or above if you want)
-
-def dJdeps_linear(simulation, design_region, J, dJdfield, averaging=False):
+def dJdeps_linear(simulation, design_region, dJdfield, dJdeps_explicit, averaging=False):
 	# dJdfield is either dJdez or dJdhz
 	# Note: we are assuming that the partial derivative of J w.r.t. e* is just (dJde)* and same for h
 
@@ -28,10 +16,12 @@ def dJdeps_linear(simulation, design_region, J, dJdfield, averaging=False):
 	if simulation.pol == 'Ez':
 		dAdeps = design_region*omega**2*EPSILON_0_    # Note: physical constants go here if need be!
 		Ez = simulation.fields['Ez']
-		b_aj = -dJdfield(Ez)
+		b_aj = -dJdfield(Ez, simulation.eps_r)
 		Ez_aj = adjoint_linear(simulation, b_aj)
 
-		dJdeps = 2*np.real(Ez_aj*dAdeps*Ez)
+		dJdeps = 2*np.real(Ez_aj*dAdeps*Ez) 
+		if dJdeps_explicit is not None:
+			dJdeps = dJdeps + design_region*dJdeps_explicit(Ez, simulation.eps_r)
 
 	elif simulation.pol == 'Hz':
 		dAdeps = design_region*omega**2*EPSILON_0_    # Note: physical constants go here if need be!
@@ -39,7 +29,7 @@ def dJdeps_linear(simulation, design_region, J, dJdfield, averaging=False):
 		Ex = simulation.fields['Ex']
 		Ey = simulation.fields['Ey']
 
-		b_aj = -dJdfield(Hz)
+		b_aj = -dJdfield(Hz, simulation.eps_r)
 
 		if averaging:
 			(Ex_aj, Ey_aj) = adjoint_linear(simulation, b_aj, averaging=True)
@@ -53,6 +43,9 @@ def dJdeps_linear(simulation, design_region, J, dJdfield, averaging=False):
 		else:
 			(Ex_aj, Ey_aj) = adjoint_linear(simulation, b_aj, averaging=False)
 			dJdeps = 2*np.real(Ex_aj*dAdeps*Ex) + 2*np.real(Ey_aj*dAdeps*Ey)
+
+		if dJdeps_explicit is not None:
+			dJdeps = dJdeps + design_region*dJdeps_explicit(Hz, simulation.eps_r)
 
 	else:
 		raise ValueError('Invalid polarization: {}'.format(str(self.pol)))
@@ -107,7 +100,8 @@ def adjoint_linear(simulation, b_aj, averaging=False, solver=DEFAULT_SOLVER, mat
 
 # TO DO:
 
-def dJdeps_nonlinear(simulation, design_region, J, dJdfield, nonlinear_fn, nl_region, nl_de, averaging=False):
+def dJdeps_nonlinear(simulation, design_region, dJdfield, dJdeps_explicit, 
+					 averaging=False):
 	# Note: written only for Ez!
 	# Note: we are assuming that the partial derivative of J w.r.t. e* is just (dJde)*
 
@@ -119,17 +113,20 @@ def dJdeps_nonlinear(simulation, design_region, J, dJdfield, nonlinear_fn, nl_re
 	if simulation.pol == 'Ez':
 		dAdeps = design_region*omega**2*EPSILON_0_    # Note: physical constants go here if need be!
 		Ez = simulation.fields['Ez']
-		b_aj = -dJdfield(Ez)
-		Ez_aj = adjoint_nonlinear(simulation, b_aj, nonlinear_fn, nl_region, nl_de)
+		b_aj = -dJdfield(Ez, simulation.eps_r)
+		Ez_aj = adjoint_nonlinear(simulation, b_aj)
+		dAnldeps = dAdeps + design_region*omega**2*EPSILON_0_*simulation.dnl_deps
 
-		dJdeps = 2*np.real(Ez_aj*dAdeps*Ez)
+		dJdeps = 2*np.real(Ez_aj*dAnldeps*Ez)
+		if dJdeps_explicit is not None:
+			dJdeps = dJdeps + dJdeps_explicit(Ez, simulation.eps_r)*design_region
 
 		return dJdeps
 	else:
 		raise ValueError("Nonlinear adjoint works only for Ez polarization")
 
 
-def adjoint_nonlinear(simulation, b_aj, nonlinear_fn, nl_region, nl_de,
+def adjoint_nonlinear(simulation, b_aj,
 					 averaging=False, solver=DEFAULT_SOLVER, matrix_format=DEFAULT_MATRIX_FORMAT):
 	# Compute the adjoint field for a nonlinear problem
 	# Note: written only for Ez!
@@ -143,8 +140,8 @@ def adjoint_nonlinear(simulation, b_aj, nonlinear_fn, nl_region, nl_de,
 
 	if simulation.pol == 'Ez':
 		Ez = simulation.fields['Ez']
-		Anl = simulation.A + sp.spdiags(omega**2*EPSILON_0_*nonlinear_fn(Ez*nl_region).reshape((-1,)), 0, M, M, format=matrix_format)
-		dAde = omega**2*EPSILON_0_*nl_de(Ez*nl_region)
+		Anl = simulation.A + simulation.Anl
+		dAde = omega**2*EPSILON_0_*simulation.dnl_de
 
 		C11 = Anl + sp.spdiags((dAde*Ez).reshape((-1,)), 0, M, M, format=matrix_format)
 		C12 = sp.spdiags((np.conj(dAde)*Ez).reshape((-1)), 0, M, M, format=matrix_format)
