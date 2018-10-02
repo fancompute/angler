@@ -167,17 +167,20 @@ class Optimization():
 
         iters = range(1, len(self.objs_tot) + 1)
         objs_tot = np.asarray(self.objs_tot)
-        objs_lin = np.asarray(self.objs_lin)
-        objs_nl = np.asarray(self.objs_nl)
+        if self.state == 'both':
+            objs_lin = np.asarray(self.objs_lin)
+            objs_nl = np.asarray(self.objs_nl)
 
         if scaled=='W_in':
             objs_tot = objs_tot/np.asarray(self.W_in)
-            objs_lin = objs_lin/np.asarray(self.W_in)
-            objs_nl = objs_nl/np.asarray(self.W_in)
+            if self.state == 'both':
+                objs_lin = objs_lin/np.asarray(self.W_in)
+                objs_nl = objs_nl/np.asarray(self.W_in)
         elif scaled=='E2_in':
             objs_tot = objs_tot/np.asarray(self.E2_in)
-            objs_lin = objs_lin/np.asarray(self.E2_in)
-            objs_nl = objs_nl/np.asarray(self.E2_in)
+            if self.state == 'both':
+                objs_lin = objs_lin/np.asarray(self.E2_in)
+                objs_nl = objs_nl/np.asarray(self.E2_in)
 
         if ax is None:
             fig, ax = plt.subplots(1, constrained_layout=True)
