@@ -71,7 +71,7 @@ class Optimization():
                         count += 1
                     # if you've gone over the max count, we've lost our patience.  Just manually decrease it.
                     else:
-                        simulation.src = simulation.src*0.98
+                        simulation.src = simulation.src*0.99
 
             # perform source scaling such that the final scale is end_scale times the initial scale
             if self.state == 'both' and self.end_scale is not None:
@@ -204,7 +204,7 @@ class Optimization():
         eps_orig = copy.deepcopy(simulation.eps_r)
 
         # solve for the linear fields and gradient of the linear objective function
-        (_, _, Ez) = simulation.solve_fields()
+        (_, _, Ez,) = simulation.solve_fields()
         grad_avm = dJdeps_linear(simulation, design_region, self.dJ['dE_linear'], self.dJ['deps_linear'], averaging=False)
         J_orig = self.J['linear'](Ez, eps_orig)
 
@@ -298,12 +298,12 @@ class Optimization():
 
         return avm_grads, num_grads
 
-    def compute_index_shift(self, simulation, full_nl=False):
+    def compute_index_shift(self, simulation, full_nl=True):
         """ computes the max shift of refractive index caused by nonlinearity"""
 
         if full_nl:
             # true index shift with nonlinear solve            
-            (_, _, Ez) = self.simulation.solve_fields_nl()
+            (_, _, Ez, _) = self.simulation.solve_fields_nl()
         else:
             # linear approximation to index shift
             (_, _, Ez) = self.simulation.solve_fields()
@@ -466,6 +466,7 @@ class Optimization():
             self.objs_nl.append(J_nl)
 
         self.objs_tot.append(J_tot)
+        self.simulation.modes[0].compute_normalization(self.simulation)
         self.W_in.append(self.simulation.W_in)
         self.E2_in.append(self.simulation.E2_in)
         return (J_lin, J_nl, J_tot)
