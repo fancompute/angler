@@ -151,10 +151,7 @@ class Optimization():
                     mopt = np.zeros((grad.shape))
                     vopt = np.zeros((grad.shape))
 
-                (grad_adam, mopt, vopt) = self._step_adam(grad, mopt, vopt, i,
-                                                          epsilon=1e-8,
-                                                          beta1=0.9,
-                                                          beta2=0.999)
+                (grad_adam, mopt, vopt) = self._step_adam(grad, mopt, vopt, i)
                 new_eps = self._update_permittivity(grad_adam, design_region)
             else:
                 raise AssertionError(
@@ -473,7 +470,7 @@ class Optimization():
         self.E2_in.append(self.simulation.E2_in)
         return (J_lin, J_nl, J_tot)
 
-    def _step_adam(self, grad, mopt_old, vopt_old, iteration_index, epsilon=1e-8, beta1=0.9, beta2=0.999):
+    def _step_adam(self, grad, mopt_old, vopt_old, iteration_index, epsilon=1e-8, beta1=0.999, beta2=0.999):
         mopt = beta1 * mopt_old + (1 - beta1) * grad
         mopt_t = mopt / (1 - beta1**(iteration_index + 1))
         vopt = beta2 * vopt_old + (1 - beta2) * (np.square(grad))
