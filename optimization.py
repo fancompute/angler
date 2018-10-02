@@ -71,7 +71,7 @@ class Optimization():
                         count += 1
                     # if you've gone over the max count, we've lost our patience.  Just manually decrease it.
                     else:
-                        simulation.src = simulation.src*0.98
+                        simulation.src = simulation.src*0.99
 
             # perform source scaling such that the final scale is end_scale times the initial scale
             if self.state == 'both' and self.end_scale is not None:
@@ -151,10 +151,7 @@ class Optimization():
                     mopt = np.zeros((grad.shape))
                     vopt = np.zeros((grad.shape))
 
-                (grad_adam, mopt, vopt) = self._step_adam(grad, mopt, vopt, i,
-                                                          epsilon=1e-8,
-                                                          beta1=0.9,
-                                                          beta2=0.999)
+                (grad_adam, mopt, vopt) = self._step_adam(grad, mopt, vopt, i)
                 new_eps = self._update_permittivity(grad_adam, design_region)
             else:
                 raise AssertionError(
@@ -210,7 +207,7 @@ class Optimization():
         eps_orig = copy.deepcopy(simulation.eps_r)
 
         # solve for the linear fields and gradient of the linear objective function
-        (_, _, Ez) = simulation.solve_fields()
+        (_, _, Ez,) = simulation.solve_fields()
         grad_avm = dJdeps_linear(simulation, design_region, self.dJ['dE_linear'], self.dJ['deps_linear'], averaging=False)
         J_orig = self.J['linear'](Ez, eps_orig)
 
@@ -304,12 +301,12 @@ class Optimization():
 
         return avm_grads, num_grads
 
-    def compute_index_shift(self, simulation, full_nl=False):
+    def compute_index_shift(self, simulation, full_nl=True):
         """ computes the max shift of refractive index caused by nonlinearity"""
 
         if full_nl:
             # true index shift with nonlinear solve            
-            (_, _, Ez) = self.simulation.solve_fields_nl()
+            (_, _, Ez, _) = self.simulation.solve_fields_nl()
         else:
             # linear approximation to index shift
             (_, _, Ez) = self.simulation.solve_fields()
@@ -472,11 +469,12 @@ class Optimization():
             self.objs_nl.append(J_nl)
 
         self.objs_tot.append(J_tot)
+        self.simulation.modes[0].compute_normalization(self.simulation)
         self.W_in.append(self.simulation.W_in)
         self.E2_in.append(self.simulation.E2_in)
         return (J_lin, J_nl, J_tot)
 
-    def _step_adam(self, grad, mopt_old, vopt_old, iteration_index, epsilon=1e-8, beta1=0.9, beta2=0.999):
+    def _step_adam(self, grad, mopt_old, vopt_old, iteration_index, epsilon=1e-8, beta1=0.999, beta2=0.999):
         mopt = beta1 * mopt_old + (1 - beta1) * grad
         mopt_t = mopt / (1 - beta1**(iteration_index + 1))
         vopt = beta2 * vopt_old + (1 - beta2) * (np.square(grad))
