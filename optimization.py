@@ -1,9 +1,10 @@
-from adjoint import dJdeps_linear, dJdeps_nonlinear
+from nonlinear_avm.adjoint import dJdeps_linear, dJdeps_nonlinear
 
 import numpy as np
 import copy
 import progressbar
 import matplotlib.pylab as plt
+from scipy.optimize import minimize
 
 
 class Optimization():
@@ -38,6 +39,97 @@ class Optimization():
 
         # determine problem state ('linear', 'nonlinear', or 'both') from J and dJ dictionaries
         self._check_J_state()    # sets self.state
+
+    def run_scipy(self, simulation, design_region):
+        """Performs L-BGFS Optimization of objective function w.r.t. eps_r"""
+    
+        def _objfn_scipy(x, *argv):
+            """Returns objetive function given some permittivity distribution"""
+
+            simulation, design_region, J, dJ = argv
+
+            # set the permittivity within the design region
+            eps_array = copy.deepcopy(np.ndarray.flatten(simulation.eps_r))
+            des_array = np.ndarray.flatten(design_region)
+
+            eps_array[des_array == 1] = x
+
+            # set permittivity
+            eps_new = np.reshape(eps_array, simulation.eps_r.shape)
+            sim = copy.deepcopy(simulation)        
+            sim.eps_r = eps_new
+
+            # get linear objective function
+            (_, _, Ez) = sim.solve_fields()
+            J_lin = J['linear'](Ez, eps_new)
+
+            # get nonlinear objective function
+            (_, _, Ez_nl, _) = sim.solve_fields_nl()
+            J_nl = J['nonlinear'](Ez_nl, eps_new)
+
+            # get total objective function
+            J_tot = J['total'](J_lin, J_nl)
+
+            return -J_tot
+
+        def _jac_scipy(x,  *argv):
+            """Returns objetive function given some permittivity distribution"""
+
+            simulation, design_region, J, dJ = argv
+
+            # set the permittivity within the design region
+            eps_array = copy.deepcopy(np.ndarray.flatten(simulation.eps_r))
+            des_array = np.ndarray.flatten(design_region)
+            eps_array[des_array == 1] = x
+
+            # set permittivity
+            eps_new = np.reshape(eps_array, simulation.eps_r.shape)
+            sim = copy.deepcopy(simulation)        
+            sim.eps_r = eps_new
+
+            # get linear gradient
+            (_, _, Ez) = sim.solve_fields()
+            J_lin = J['linear'](Ez, eps_new)
+            grad_lin = dJdeps_linear(sim, design_region,
+                                     dJ['dE_linear'], dJ['deps_linear'])
+
+            # get nonlinear gradient
+            (_, _, Ez_nl, _) = sim.solve_fields_nl()
+            J_nl = J['nonlinear'](Ez_nl, eps_new)
+            grad_nonlin = dJdeps_nonlinear(sim, design_region,
+                                    dJ['dE_nonlinear'], dJ['deps_nonlinear'])
+
+            # get gradient
+            grad = dJ['total'](J_lin, J_nl, grad_lin, grad_nonlin)
+
+            # mask at design region and return
+
+            return np.ndarray.flatten(grad[design_region == 1])
+
+        # setup bounds on epsilon
+        eps_bounds = tuple([(1, self.eps_max) for _ in range(np.sum(design_region==1))])
+
+        # extra args
+        args = (simulation, design_region, self.J, self.dJ)
+
+        # starting eps within design region
+        x0 = np.ndarray.flatten(simulation.eps_r[design_region == 1])
+
+        # objective function at x0
+        J = _objfn_scipy(x0, *args)
+
+        # gradient at x0
+        grad = _jac_scipy(x0, *args)
+
+        res = minimize(_objfn_scipy, x0, args=args, method="L-BFGS-B", jac=_jac_scipy, 
+                       bounds=eps_bounds, options = {
+                            'disp' : 1,
+                            'maxiter' : 10
+                       })
+
+        eps_final = res.x
+
+
 
     def run(self, simulation, design_region):
 

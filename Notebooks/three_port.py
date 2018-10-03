@@ -1,6 +1,6 @@
 
 # note: fdfdpy and nonlinear_avm must be in PATH
-from fdfdpy.Fdfd import Fdfd
+from fdfdpy import Simulation
 from optimization import run_optimization
 from optimization_class import Optimization
 from structures import three_port
