@@ -1,16 +1,17 @@
 import unittest
 import numpy as np
 from numpy.testing import assert_allclose
-import copy
+
 import sys
-sys.path.append('..')
+sys.path.append("..")
+
 from fdfdpy import Simulation
 from nonlinear_avm.structures import three_port
 from nonlinear_avm.optimization_scipy import Optimization_Scipy as Optimization
 from nonlinear_avm.adjoint import dJdeps_linear, dJdeps_nonlinear
+import copy
 
-
-class TestGradient(unittest.TestCase):
+class TestScipy(unittest.TestCase):
 
     def setUp(self):
         # create a simulation to test just like in notebook
@@ -21,11 +22,12 @@ class TestGradient(unittest.TestCase):
         dl = 1.1e-1                 # grid size (L0)
         NPML = [15, 15]             # number of pml grid points on x and y borders
         pol = 'Ez'                  # polarization (either 'Hz' or 'Ez')
-        source_amp = 10             # amplitude of modal source (A/L0^2?)
+        source_amp = 50             # amplitude of modal source (A/L0^2?)
 
         # material constants
         n_index = 2.44              # refractive index
         eps_m = n_index**2          # relative permittivity
+        chi3 = 4.1*1e-19            # Al2S3 from Boyd (m^2/V^2)
         max_ind_shift = 5.8e-2      # maximum allowed nonlinear index shift
 
         # geometric parameters
@@ -58,45 +60,29 @@ class TestGradient(unittest.TestCase):
         bot.setup_modes()
         J_bot = np.abs(bot.src)
 
-        # define linear and nonlinear parts of objective function + the total objective function form
-        import autograd.numpy as npa
-        J = lambda e, e_nl, eps: npa.sum(npa.square(npa.abs(e))*J_top) + npa.sum(npa.square(npa.abs(e))*J_bot)
-
-        # define the design and nonlinear regions
+        # define the design
         self.design_region = np.array(eps_r > 1).astype(int)
         self.design_region[:nx-int(L/2/dl),:] = 0
         self.design_region[nx+int(L/2/dl):,:] = 0
-
-        self.optimization = Optimization(Nsteps=100, eps_max=5, J=J, field_start='linear', solver='newton')
-
-    def test_linear_gradient(self):
-
-        avm_grads, num_grads = self.optimization.check_deriv(self.simulation, self.design_region)
-
-        avm_grads = np.array(avm_grads)
-        num_grads = np.array(num_grads)
-
-        print('linear regime: \n\tanalytical: {}\n\tnumerical:  {}'.format(avm_grads, num_grads))
-
-        assert_allclose(avm_grads, num_grads, rtol=1e-03, atol=.1)
-
-    def test_nonlinear_gradient(self):
-
-        chi3 = 4.1*1e-19            # Al2S3 from Boyd (m^2/V^2)
+        self.simulation.eps_r[self.design_region == 1] = eps_m/2 + 1/2
 
         # add nonlinearity
         nl_region = copy.deepcopy(self.design_region)
         self.simulation.nonlinearity = []  # This is needed in case you re-run this cell, for example (or you can re-initialize simulation every time)
-        self.simulation.add_nl(chi3, nl_region, eps_scale=True, eps_max=self.optimization.eps_max)
+        self.simulation.add_nl(chi3, nl_region, eps_scale=True, eps_max=eps_m)
 
-        avm_grads, num_grads = self.optimization.check_deriv(self.simulation, self.design_region)
+        # define linear and nonlinear parts of objective function + the total objective function form
+        import autograd.numpy as npa
+        J = lambda e, e_nl, eps: npa.sum(npa.square(npa.abs(e))*J_top) + npa.sum(npa.square(npa.abs(e_nl))*J_bot)
 
-        avm_grads = np.array(avm_grads)
-        num_grads = np.array(num_grads)
+        self.optimization = Optimization(Nsteps=100, eps_max=5, J=J, field_start='linear', solver='newton')
 
-        print('nonlinear regime: \n\tanalytical: {}\n\tnumerical:  {}'.format(avm_grads, num_grads))
+    def test_scipy(self):
 
-        assert_allclose(avm_grads, num_grads, rtol=1e-03, atol=.1)
+        self.optimization.run_LBGFS(self.simulation, self.design_region)
+
 
 if __name__ == '__main__':
     unittest.main()
+
+
