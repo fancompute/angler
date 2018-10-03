@@ -109,21 +109,14 @@ class Optimization_Scipy():
         # starting eps within design region
         x0 = self._get_design_region(self.simulation.eps_r, self.design_region)
 
-        print(x0)
-        # objective function at x0
-        J = _objfn(x0)
-
-        # gradient at x0
-        grad = _grad(x0)
-
-        print(J)
-        print(np.sum(grad))
-
         res = minimize(_objfn, x0, args=None, method="L-BFGS-B", jac=_grad, 
                        bounds=eps_bounds, callback=None, options = {
                             'disp' : 1,
                             'maxiter' : 100
                        })
+
+        plt.plot(self.objfn_list)
+        plt.show()
 
         final_des = res.x
 
