@@ -1,4 +1,7 @@
-from nonlinear_avm.adjoint_scipy import gradient
+import sys
+sys.path.append(".")
+
+from adjoint_scipy import gradient
 
 import numpy as np
 import copy
@@ -9,21 +12,24 @@ from autograd import grad
 
 class Optimization_Scipy():
 
-    def __init__(self, Nsteps=100, eps_max=5, J=None, field_start='linear', solver='newton'):
+    def __init__(self, J=None, Nsteps=100, eps_max=5, field_start='linear', nl_solver='newton'):
 
         # store all of the parameters associated with the optimization
         self.Nsteps = Nsteps
         self.eps_max = eps_max
         self.field_start = field_start
-        self.solver = solver
+        self.nl_solver = nl_solver
         self._J = J
 
         # compute the jacobians of J and store these (note, might want to do this each time J changes)
         self.dJ = self._autograd_dJ(J)
 
     def __repr__(self):
-        return "Optimization_Scipy(Nsteps={}, eps_max={}, J={}, field_start={}, solver={})".format(
-            self.Nsteps, self.eps_max, self.J, self.field_start, self.solver)
+        return "Optimization_Scipy(Nsteps={}, eps_max={}, J={}, field_start={}, nl_solver={})".format(
+            self.Nsteps, self.eps_max, self.J, self.field_start, self.nl_solver)
+
+    def __str__(self):
+        return self.__repr__
 
     @property
     def J(self):
@@ -71,7 +77,15 @@ class Optimization_Scipy():
         x = spatial_vec[des_vec == 1]
         return x
 
-    def run_LBGFS(self, simulation, design_region):
+    def run(self, simulation, design_region, method='LBFGS'):
+        """Switches between different optimization methods"""
+        allowed = ['LBFGS']
+        if method == 'LBFGS':
+             self._run_LBFGS(simulation, design_region)
+        else:
+            raise ValueError("'method' must be in {}".format(allowed))
+
+    def _run_LBFGS(self, simulation, design_region):
         """Performs L-BGFS Optimization of objective function w.r.t. eps_r"""
         self.simulation = simulation
         self.design_region = design_region
@@ -112,7 +126,7 @@ class Optimization_Scipy():
         res = minimize(_objfn, x0, args=None, method="L-BFGS-B", jac=_grad, 
                        bounds=eps_bounds, callback=None, options = {
                             'disp' : 1,
-                            'maxiter' : 100
+                            'maxiter' : self.Nsteps
                        })
 
         plt.plot(self.objfn_list)
@@ -150,12 +164,8 @@ class Optimization_Scipy():
         ax3.set_title('|Ez| for linear - nonlinear')
         plt.show()
 
-
-    def check_deriv(self, simulation, design_region, Npts=5):
-        # checks the numerical derivative matches analytical.
-
-        # how much to perturb eps for numerical gradient
-        d_eps = 1e-4
+    def check_deriv(self, simulation, design_region, Npts=5, d_eps=1e-4):
+        """ returns a list of analytical and numerical derivatives to check gradient accuracy"""
 
         # make copy of original epsilon
         eps_orig = copy.deepcopy(simulation.eps_r)
@@ -195,269 +205,13 @@ class Optimization_Scipy():
 
         return avm_grads, num_grads
 
-
-
-    def run(self, simulation, design_region):
-
-        # store the parameters specific to this simulation
-        self.simulation = simulation
-        self.design_region = design_region
-
-        # make progressbar
-        bar = progressbar.ProgressBar(max_value=self.Nsteps)
-
-        for i in range(self.Nsteps):
-
-            # display progressbar
-            bar.update(i + 1)
-
-            # Store the starting linear permittivity 
-            eps_lin = copy.deepcopy(self.simulation.eps_r)
-
-            # perform src amplitude adjustment for index shift capping
-            if self.state == 'both' and self.max_ind_shift is not None:
-                ratio = np.inf     # ratio of actual index shift to allowed
-                epsilon = 5e-2     # extra bit to subtract from src
-                max_count = 30     # maximum amount to try
-                count = 0
-                while ratio > 1:
-                    dn = self.compute_index_shift(simulation)
-                    max_shift = np.max(dn)
-                    ratio = max_shift / self.max_ind_shift
-                    if count <= max_count:
-                        simulation.src = simulation.src*(np.sqrt(1/ratio) - epsilon)
-                        count += 1
-                    # if you've gone over the max count, we've lost our patience.  Just manually decrease it.
-                    else:
-                        simulation.src = simulation.src*0.99
-
-            # perform source scaling such that the final scale is end_scale times the initial scale
-            if self.state == 'both' and self.end_scale is not None:
-                if i==0:
-                    scale_fact = np.power(self.end_scale, 1/(self.Nsteps-1))
-                else:
-                    for modei in simulation.modes:
-                        modei.scale = modei.scale*scale_fact
-                        simulation.setup_modes()
-
-            # if the problem has a linear component
-            if self.state == 'linear' or self.state == 'both':
-
-                # solve for the linear fields and gradient of the linear objective function
-                (Hx, Hy, Ez) = self.simulation.solve_fields()
-                grad_lin = dJdeps_linear(self.simulation, design_region,
-                                         self.dJ['dE_linear'], self.dJ['deps_linear'], averaging=False)
-
-            # if the problem is purely nonlinear
-            else:
-
-                # just set the fields and gradients to zeros so they don't affect the nonlinear part
-                Ez = np.zeros(self.simulation.eps_r.shape)
-                grad_lin = np.zeros(self.simulation.eps_r.shape)
-
-            # if the problem has a nonlinear component
-            if self.state == 'nonlinear' or self.state == 'both':
-
-                # error checking on the field_start parameter
-                if self.field_start not in ['linear', 'previous']:
-                    raise AssertionError(
-                        "field_start must be one of {'linear', 'previous'}")
-
-                # construct the starting field for the linear solver based on field_start and the iteration
-                if self.field_start == 'linear' or i == 0:
-                    Estart = None
-                else:
-                    Estart = Ez
-
-                # solve for the nonlinear fields
-                (Hx_nl, Hy_nl, Ez_nl, conv) = self.simulation.solve_fields_nl(timing=False,
-                                                                              averaging=False, Estart=None,
-                                                                              solver_nl=self.solver, conv_threshold=1e-10,
-                                                                              max_num_iter=50)
-                # add final convergence to the optimization list
-                self.convergences.append(float(conv[-1]))
-
-                # compute the gradient of the nonlinear objective function
-                grad_nonlin = dJdeps_nonlinear(simulation, design_region, self.dJ['dE_nonlinear'], self.dJ['deps_nonlinear'], averaging=False)
-
-                # Restore just the linear permittivity
-                self.simulation.eps_r = eps_lin
-
-            # if the problem is purely linear
-            else:
-
-                # just set the fields and gradients to zero so they don't affect linear part.
-                Ez_nl = np.zeros(self.simulation.eps_r.shape)
-                grad_nonlin = np.zeros(self.simulation.eps_r.shape)
-
-            # add the gradients together depending on problem
-
-            # compute the objective function depending on what was supplied
-            (J_lin, J_nonlin, J_tot) = self._compute_objectivefn(Ez, Ez_nl, eps_lin)
-
-            # compute the total gradient
-            grad = self.dJ['total'](J_lin, J_nonlin, grad_lin, grad_nonlin)
-
-            # update permittivity based on gradient
-            if self.opt_method == 'descent':
-                # gradient descent update
-                new_eps = self._update_permittivity(grad, design_region)
-
-            elif self.opt_method == 'adam':
-                # adam update                
-                if i == 0:
-                    mopt = np.zeros((grad.shape))
-                    vopt = np.zeros((grad.shape))
-
-                (grad_adam, mopt, vopt) = self._step_adam(grad, mopt, vopt, i)
-                new_eps = self._update_permittivity(grad_adam, design_region)
-            else:
-                raise AssertionError(
-                    "opt_method must be one of {'descent', 'adam'}")
-
-
-            # want: some way to print the obj function in the progressbar
-            # without adding new lines
-
-        return new_eps
-
-    def plt_objs(self, ax=None, scaled=None):
-
-        iters = range(1, len(self.objs_tot) + 1)
-        objs_tot = np.asarray(self.objs_tot)
-        if self.state == 'both':
-            objs_lin = np.asarray(self.objs_lin)
-            objs_nl = np.asarray(self.objs_nl)
-
-        if scaled=='W_in':
-            objs_tot = objs_tot/np.asarray(self.W_in)
-            if self.state == 'both':
-                objs_lin = objs_lin/np.asarray(self.W_in)
-                objs_nl = objs_nl/np.asarray(self.W_in)
-        elif scaled=='E2_in':
-            objs_tot = objs_tot/np.asarray(self.E2_in)
-            if self.state == 'both':
-                objs_lin = objs_lin/np.asarray(self.E2_in)
-                objs_nl = objs_nl/np.asarray(self.E2_in)
-
-        if ax is None:
-            fig, ax = plt.subplots(1, constrained_layout=True)
-
-        ax.plot(iters, objs_tot)
+    def plt_objs(self, ax=None):
+        """Plot objective functions over iteration"""
+        ax.plot(range(1, len(self.objfn_list) + 1),  self.objfn_list)
         ax.set_xlabel('iteration number')
         ax.set_ylabel('objective function')
         ax.set_title('optimization results')
-
-        if self.state == 'both':
-            ax.plot(iters, objs_lin)
-            ax.plot(iters, objs_nl)
-            ax.legend(('total', 'linear', 'nonlinear'))
-
         return ax
-
-    # def check_deriv_lin(self, simulation, design_region, Npts=5):
-    #     # checks the numerical derivative matches analytical.
-
-    #     # how much to perturb eps for numerical gradient
-    #     d_eps = 1e-4
-
-    #     # make copy of original epsilon
-    #     eps_orig = copy.deepcopy(simulation.eps_r)
-
-    #     # solve for the linear fields and gradient of the linear objective function
-    #     (_, _, Ez,) = simulation.solve_fields()
-    #     grad_avm = dJdeps_linear(simulation, design_region, self.dJ['dE_linear'], self.dJ['deps_linear'], averaging=False)
-    #     J_orig = self.J['linear'](Ez, eps_orig)
-
-    #     avm_grads = []
-    #     num_grads = []
-
-    #     # for a number of points
-    #     for _ in range(Npts):
-
-    #         # pick a random point within the design region
-    #         x, y = np.where(design_region == 1)
-    #         i = np.random.randint(len(x))
-    #         pt = [x[i], y[i]]
-
-    #         # create a new, perturbed permittivity
-    #         eps_new = copy.deepcopy(simulation.eps_r)
-    #         eps_new[pt[0], pt[1]] += d_eps
-
-    #         # make a copy of the current simulation
-    #         sim_new = copy.deepcopy(simulation)
-    #         sim_new.eps_r = eps_new
-
-    #         # solve for the fields with this new permittivity
-    #         (_, _, Ez_new) = sim_new.solve_fields()
-    #         J_new = self.J['linear'](Ez_new, eps_new)
-
-    #         # compute the numerical gradient
-    #         grad_num = (J_new - J_orig)/d_eps
-
-    #         # append both gradients to lists
-    #         avm_grads.append(grad_avm[pt[0], pt[1]])
-    #         num_grads.append(grad_num)
-
-    #     return avm_grads, num_grads
-
-    # def check_deriv_nonlin(self, simulation, design_region, Npts=5):
-    #     """ checks whether the numerical derivative matches analytical """
-
-    #     # how much to perturb epsilon for numerical gradient
-    #     d_eps = 1e-4
-
-    #     # make copy of original epsilon
-    #     eps_orig = copy.deepcopy(simulation.eps_r)
-
-    #     (_, _, Ez, _) = simulation.solve_fields_nl(timing=False,
-    #                                                averaging=False, Estart=None,
-    #                                                solver_nl='newton', conv_threshold=1e-10,
-    #                                                max_num_iter=50)
-
-    #     # compute the gradient of the nonlinear objective function with AVM
-    #     grad_avm = dJdeps_nonlinear(simulation, design_region, self.dJ['dE_nonlinear'], self.dJ['deps_nonlinear'],
-    #                                 averaging=False)
-
-    #     # compute original objective function (to compare with numerical)
-    #     J_orig = self.J['nonlinear'](Ez, eps_orig)
-
-    #     avm_grads = []
-    #     num_grads = []
-
-    #     # for a number of points
-    #     for _ in range(Npts):
-
-    #         # pick a random point within design region
-    #         x, y = np.where(design_region == 1)
-    #         i = np.random.randint(len(x))
-    #         pt = [x[i], y[i]]
-
-    #         # perturb the permittivity and store in a new array
-    #         eps_new = copy.deepcopy(simulation.eps_r)
-    #         eps_new[pt[0], pt[1]] += d_eps
-
-    #         # create a deep copy of the current simulation object with new eps
-    #         sim_new = copy.deepcopy(simulation)
-    #         sim_new.eps_r = eps_new
-
-    #         # solve for the new nonlinear fields
-    #         (_, _, Ez_new, _) = sim_new.solve_fields_nl(timing=False,
-    #                                                     averaging=False, Estart=None,
-    #                                                     solver_nl='newton', conv_threshold=1e-10,
-    #                                                     max_num_iter=50)
-
-    #         # compute the new objective function
-    #         J_new = self.J['nonlinear'](Ez_new, eps_new)
-
-    #         # compute the numerical gradient
-    #         grad_num = (J_new - J_orig)/d_eps
-
-    #         # append both gradients to lists
-    #         avm_grads.append(grad_avm[pt[0], pt[1]])
-    #         num_grads.append(grad_num)
-
-    #     return avm_grads, num_grads
 
     def compute_index_shift(self, simulation, full_nl=True):
         """ computes the max shift of refractive index caused by nonlinearity"""

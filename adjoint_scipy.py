@@ -38,7 +38,7 @@ def grad_nonlinear(simulation, dJ, design_region, arguments):
     dAdeps = design_region*omega**2*EPSILON_0_
     dAnldeps = dAdeps + design_region*omega**2*EPSILON_0_*simulation.dnl_deps
 
-    return -1*np.real(Ez_aj*dAnldeps*Ez)
+    return -1*np.real(Ez_aj*dAnldeps*Ez_nl)
 
 
 def adjoint_linear(simulation, b_aj, averaging=False, solver=DEFAULT_SOLVER, matrix_format=DEFAULT_MATRIX_FORMAT):

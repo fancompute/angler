@@ -8,6 +8,7 @@ from fdfdpy import Simulation
 from nonlinear_avm.structures import three_port
 from nonlinear_avm.optimization_scipy import Optimization_Scipy as Optimization
 from nonlinear_avm.adjoint import dJdeps_linear, dJdeps_nonlinear
+import autograd.numpy as npa
 
 
 class TestGradient(unittest.TestCase):
@@ -21,7 +22,7 @@ class TestGradient(unittest.TestCase):
         dl = 1.1e-1                 # grid size (L0)
         NPML = [15, 15]             # number of pml grid points on x and y borders
         pol = 'Ez'                  # polarization (either 'Hz' or 'Ez')
-        source_amp = 10             # amplitude of modal source (A/L0^2?)
+        source_amp = 100             # amplitude of modal source (A/L0^2?)
 
         # material constants
         n_index = 2.44              # refractive index
@@ -59,15 +60,22 @@ class TestGradient(unittest.TestCase):
         J_bot = np.abs(bot.src)
 
         # define linear and nonlinear parts of objective function + the total objective function form
+        J = lambda e, e_nl, eps: npa.sum(npa.square(npa.abs(e))*J_top) + npa.sum(npa.square(npa.abs(e_nl))*J_bot)
         import autograd.numpy as npa
-        J = lambda e, e_nl, eps: npa.sum(npa.square(npa.abs(e))*J_top) + npa.sum(npa.square(npa.abs(e))*J_bot)
+        # def J(e, e_nl, eps):
+        #     linear_top = npa.sum(npa.square(npa.abs(e))*J_top)
+        #     linear_bot = npa.sum(npa.square(npa.abs(e))*J_bot)
+        #     nonlinear_top = npa.sum(npa.square(npa.abs(e_nl))*J_top)
+        #     nonlinear_bot = npa.sum(npa.square(npa.abs(e_nl))*J_bot)
+        #     objfn = linear_top - nonlinear_top + nonlinear_bot - linear_top
+        #     return objfn
 
         # define the design and nonlinear regions
         self.design_region = np.array(eps_r > 1).astype(int)
         self.design_region[:nx-int(L/2/dl),:] = 0
         self.design_region[nx+int(L/2/dl):,:] = 0
 
-        self.optimization = Optimization(Nsteps=100, eps_max=5, J=J, field_start='linear', solver='newton')
+        self.optimization = Optimization(J=J, Nsteps=100, eps_max=5, field_start='linear', nl_solver='newton')
 
     def test_linear_gradient(self):
 

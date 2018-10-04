@@ -6,9 +6,8 @@ import sys
 sys.path.append("..")
 
 from fdfdpy import Simulation
-from nonlinear_avm.structures import three_port
+from nonlinear_avm.structures import three_port, two_port
 from nonlinear_avm.optimization_scipy import Optimization_Scipy as Optimization
-from nonlinear_avm.adjoint import dJdeps_linear, dJdeps_nonlinear
 import copy
 
 class TestScipy(unittest.TestCase):
@@ -22,7 +21,7 @@ class TestScipy(unittest.TestCase):
         dl = 1.1e-1                 # grid size (L0)
         NPML = [15, 15]             # number of pml grid points on x and y borders
         pol = 'Ez'                  # polarization (either 'Hz' or 'Ez')
-        source_amp = 50             # amplitude of modal source (A/L0^2?)
+        source_amp = 1050             # amplitude of modal source (A/L0^2?)
 
         # material constants
         n_index = 2.44              # refractive index
@@ -56,11 +55,27 @@ class TestScipy(unittest.TestCase):
 
         # bottom modal profile
         bot = Simulation(omega, eps_r, dl, NPML, 'Ez')
-        bot.add_mode(np.sqrt(eps_m), 'x', [-NPML[0]-int(l/2/dl), ny-int(d/2/dl)], int(d/dl))
+        bot.add_mode(np.sqrt(eps_m), 'x', [-NPML[0]-int(l/2/dl), ny-int(d/2/dl)], int(H/2/dl))
         bot.setup_modes()
         J_bot = np.abs(bot.src)
 
-        # define the design
+        # compute straight line simulation
+        eps_r_wg, _ = two_port(L, H, w, l, spc, dl, NPML, eps_start=eps_m)
+        (Nx_wg, Ny_wg) = eps_r_wg.shape
+        nx_wg, ny_wg = int(Nx_wg/2), int(Ny_wg/2)            # halfway grid points     
+        simulation_wg = Simulation(omega, eps_r_wg, dl, NPML, 'Ez')
+        simulation_wg.add_mode(np.sqrt(eps_m), 'x', [NPML[0]+int(l/2/dl), ny_wg], int(H/2/dl), scale=source_amp)
+        simulation_wg.setup_modes()
+
+        # compute normalization
+        sim_out = Simulation(omega, eps_r_wg, dl, NPML, 'Ez')
+        sim_out.add_mode(np.sqrt(eps_m), 'x', [-NPML[0]-int(l/2/dl), ny], int(H/2/dl))
+        sim_out.setup_modes()
+        J_out = np.abs(sim_out.src)
+        (_, _, Ez_wg) = simulation_wg.solve_fields()
+        SCALE = np.sum(np.square(np.abs(Ez_wg))*J_out)
+
+        # define the design region
         self.design_region = np.array(eps_r > 1).astype(int)
         self.design_region[:nx-int(L/2/dl),:] = 0
         self.design_region[nx+int(L/2/dl):,:] = 0
@@ -73,14 +88,23 @@ class TestScipy(unittest.TestCase):
 
         # define linear and nonlinear parts of objective function + the total objective function form
         import autograd.numpy as npa
+        def J(e, e_nl, eps):
+            linear_top = npa.sum(npa.square(npa.abs(e))*J_top)
+            linear_bot = npa.sum(npa.square(npa.abs(e))*J_bot)
+            nonlinear_top = npa.sum(npa.square(npa.abs(e_nl))*J_top)
+            nonlinear_bot = npa.sum(npa.square(npa.abs(e_nl))*J_bot)
+            objfn = linear_top - nonlinear_top + nonlinear_bot - linear_top
+            return objfn / SCALE
+
+        # inline function simpler but less expressive
         J = lambda e, e_nl, eps: npa.sum(npa.square(npa.abs(e))*J_top) + npa.sum(npa.square(npa.abs(e_nl))*J_bot)
 
-        self.optimization = Optimization(Nsteps=100, eps_max=5, J=J, field_start='linear', solver='newton')
+        self.optimization = Optimization(J=J, Nsteps=10, eps_max=5, field_start='linear', nl_solver='newton')
 
     def test_scipy(self):
 
-        self.optimization.run_LBGFS(self.simulation, self.design_region)
-
+        self.optimization.run(self.simulation, self.design_region, method='LBFGS')
+        import pdb; pdb.set_trace()
 
 if __name__ == '__main__':
     unittest.main()
