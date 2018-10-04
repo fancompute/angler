@@ -161,7 +161,7 @@ class Optimization_Scipy():
             self._update_permittivity(gradient_adam, step_size)
 
     def _run_LBFGS(self):
-        """Performs L-BGFS Optimization of objective function w.r.t. eps_r"""
+        """Performs L-BFGS Optimization of objective function w.r.t. eps_r"""
 
         pbar = self._make_progressbar(self.Nsteps)
 
@@ -173,7 +173,6 @@ class Optimization_Scipy():
             self._set_design_region(x, sim, self.design_region)
 
             J = self.compute_J(sim)
-            pbar.update(iter_list[0], ObjectiveFn=J)
 
             # return minus J because we technically will minimize
             return -J
@@ -194,10 +193,12 @@ class Optimization_Scipy():
         # this simple callback function gets run each iteration
         # keeps track of the current iteration step for the progressbar
         # also resets eps on the simulation
-        iter_list = [1]
+        iter_list = [0]
         def _update_iter_count(x_current):
+            J = self.compute_J(self.simulation)
+            pbar.update(iter_list[0], ObjectiveFn=J)
             iter_list[0] += 1
-            self.objfn_list.append(self.compute_J(self.simulation))
+            self.objfn_list.append(J)
             self._set_design_region(x_current, self.simulation, self.design_region)
 
         # set up bounds on epsilon ((1, eps_m), (1, eps_m), ... ) for each grid in design region
@@ -209,8 +210,10 @@ class Optimization_Scipy():
         # minimize
         res = minimize(_objfn, x0, args=None, method="L-BFGS-B", jac=_grad,
                        bounds=eps_bounds, callback=_update_iter_count, options={
-                            'disp': 1,
-                            'maxiter': self.Nsteps
+                            'disp': 1,                # will print updates to STDOUT if True
+                            'maxiter': self.Nsteps,   # note: an 'iteration' in L-BFGS runs several mini evaluations
+                            # 'gtol': 1e-19,            # minimum max |gradient| before convergence (super small otherwise it returns)
+                            # 'ftol': 1e-19             # minimum change in objective function before convergence (super small otherwise it returns)
                        })
 
         # finally, set the simulation permittivity to that found via optimization

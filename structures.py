@@ -97,6 +97,43 @@ def two_port(L, H, w, l, spc, dl, NPML, eps_start):
     return eps_r, design_region
 
 
+def ortho_port(L, L2, H, H2, w, l, dl, NPML, eps_start):
+
+    # CONSTRUCTS A TOP DOWN, LEFT RIGHT OUT PORT DEVICE
+    # L         : waveguide design region length in L0
+    # L2        : width of design region in L0
+    # H         : waveguide design region height in L0
+    # H2        : design region height in L0
+    # w         : waveguide widths in L0
+    # l         : distance between waveguide and design region in L0 (x)
+    # spc       : spc bewtween PML and bottom of design region
+    # dl        : grid size in L0
+    # NPML      : number of PML grids in [x, y]
+    # eps_start : starting relative permittivity
+
+    Nx = 2*NPML[0] + int((2*l + L)/dl)       # num. grids in horizontal
+    Ny = 2*NPML[1] + int((2*l + H)/dl)     # num. grids in vertical
+    nx, ny = int(Nx/2), int(Ny/2)            # halfway grid points
+    shape = (Nx, Ny)                         # shape of domain (in num. grids)
+
+    # x and y coordinate arrays
+    xs, ys = get_grid(shape, dl)
+
+    # define regions\n",
+    box  = lambda x, y: (np.abs(x) < L/2) * (np.abs(y) < w/2)
+    box2 = lambda x, y: (np.abs(x) < L2/2) * (np.abs(y) < H2/2)
+    box3 = lambda x, y: (-w/2 < x < w/2+dl/2) * (-H2/2 < y < H/2)
+    wg   = lambda x, y: (np.abs(y) < w/2)
+    wg2  = lambda x, y: (-w/2 < x < w/2+dl/2) * (y > 0)
+
+    eps_r         = apply_regions([wg, wg2], xs, ys, eps_start=eps_start)
+    design_region = apply_regions([box, box2, box3], xs, ys, eps_start=2)
+
+    design_region = design_region - 1
+
+    return eps_r, design_region
+
+
 def accelerator(beta, gap, lambda0, L, spc, dl, NPML, eps_start):
 
     # CONSTRUCTS A DIELECTRIC LASER ACCELERATOR STRUCTURE
