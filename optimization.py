@@ -47,7 +47,9 @@ class Optimization():
 
         # make progressbar
         bar = progressbar.ProgressBar(widgets=[
-            ' ', progressbar.DynamicMessage('ObjFunc'),
+            ' ', progressbar.DynamicMessage('TotObjFunc'),
+            ' ', progressbar.DynamicMessage('LinObjFunc'),
+            ' ', progressbar.DynamicMessage('NonLinObjFunc'),
             ' Iteration: ',
             ' ', progressbar.Counter(), '/%d' % self.Nsteps, 
             ' ', progressbar.AdaptiveETA(),
@@ -160,7 +162,7 @@ class Optimization():
                     "opt_method must be one of {'descent', 'adam'}")
             
             # display progressbar
-            bar.update(i + 1, ObjFunc = self.objs_tot[-1])
+            bar.update(i + 1, TotObjFunc = self.objs_tot[-1], LinObjFunc = self.objs_lin[-1], NonLinObjFunc = self.objs_nl[-1])
             # want: some way to print the obj function in the progressbar
             # without adding new lines
 
