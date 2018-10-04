@@ -232,10 +232,20 @@ class Optimization():
 
             # solve for the fields with this new permittivity
             (_, _, Ez_new) = sim_new.solve_fields()
-            J_new = self.J['linear'](Ez_new, eps_new)
+            # compute the new objective function
+            J1 = self.J['linear'](Ez_new, eps_new)
+
+            eps_new[pt[0], pt[1]] -= 2*d_eps
+            sim_new.eps_r = eps_new
+
+            # solve for the new nonlinear fields
+            (_, _, Ez_new) = sim_new.solve_fields()
+
+            # compute the new objective function
+            J2 = self.J['linear'](Ez_new, eps_new)
 
             # compute the numerical gradient
-            grad_num = (J_new - J_orig)/d_eps
+            grad_num = (J1 - J2)/2/d_eps
 
             # append both gradients to lists
             avm_grads.append(grad_avm[pt[0], pt[1]])
@@ -288,12 +298,23 @@ class Optimization():
                                                         averaging=False, Estart=None,
                                                         solver_nl='newton', conv_threshold=1e-10,
                                                         max_num_iter=50)
+            # compute the new objective function
+            J1 = self.J['nonlinear'](Ez_new, eps_new)
+
+            eps_new[pt[0], pt[1]] -= 2*d_eps
+            sim_new.eps_r = eps_new
+
+            # solve for the new nonlinear fields
+            (_, _, Ez_new, _) = sim_new.solve_fields_nl(timing=False,
+                                                        averaging=False, Estart=None,
+                                                        solver_nl='newton', conv_threshold=1e-10,
+                                                        max_num_iter=50)
 
             # compute the new objective function
-            J_new = self.J['nonlinear'](Ez_new, eps_new)
+            J2 = self.J['nonlinear'](Ez_new, eps_new)
 
             # compute the numerical gradient
-            grad_num = (J_new - J_orig)/d_eps
+            grad_num = (J1 - J2)/2/d_eps
 
             # append both gradients to lists
             avm_grads.append(grad_avm[pt[0], pt[1]])
@@ -313,7 +334,7 @@ class Optimization():
             simulation.compute_nl(Ez)
 
         # index shift
-        dn = np.sqrt(np.real(simulation.eps_nl))
+        dn = np.sqrt(np.real(simulation.eps_r + simulation.eps_nl)) - np.sqrt(np.real(simulation.eps_r))
 
         # could np.max() it here if you want.  Returning array for now
         return dn
@@ -474,7 +495,7 @@ class Optimization():
         self.E2_in.append(self.simulation.E2_in)
         return (J_lin, J_nl, J_tot)
 
-    def _step_adam(self, grad, mopt_old, vopt_old, iteration_index, epsilon=1e-8, beta1=0.999, beta2=0.999):
+    def _step_adam(self, grad, mopt_old, vopt_old, iteration_index, epsilon=1e-8, beta1=0.99, beta2=0.999):
         mopt = beta1 * mopt_old + (1 - beta1) * grad
         mopt_t = mopt / (1 - beta1**(iteration_index + 1))
         vopt = beta2 * vopt_old + (1 - beta2) * (np.square(grad))

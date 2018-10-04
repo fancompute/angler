@@ -89,7 +89,7 @@ def two_port(L, H, w, l, spc, dl, NPML, eps_start):
 
     # define regions
     box = lambda x, y: (np.abs(x) < L/2) * (np.abs(y) < H/2)
-    wg  = lambda x, y: (np.abs(y) < w/2)
+    wg  = lambda x, y: (np.abs(y) < w/2 + 1e-2)
 
     eps_r = apply_regions([wg], xs, ys, eps_start=eps_start)
     design_region = apply_regions([box], xs, ys, eps_start=2)
