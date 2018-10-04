@@ -62,13 +62,13 @@ class TestGradient(unittest.TestCase):
         # define linear and nonlinear parts of objective function + the total objective function form
         J = lambda e, e_nl, eps: npa.sum(npa.square(npa.abs(e))*J_top) + npa.sum(npa.square(npa.abs(e_nl))*J_bot)
         import autograd.numpy as npa
-        # def J(e, e_nl, eps):
-        #     linear_top = npa.sum(npa.square(npa.abs(e))*J_top)
-        #     linear_bot = npa.sum(npa.square(npa.abs(e))*J_bot)
-        #     nonlinear_top = npa.sum(npa.square(npa.abs(e_nl))*J_top)
-        #     nonlinear_bot = npa.sum(npa.square(npa.abs(e_nl))*J_bot)
-        #     objfn = linear_top - nonlinear_top + nonlinear_bot - linear_top
-        #     return objfn
+        def J(e, e_nl, eps):
+            linear_top    =  1*npa.sum(npa.square(npa.abs(e))*J_top)
+            linear_bot    = -1*npa.sum(npa.square(npa.abs(e))*J_bot)
+            nonlinear_top = -1*npa.sum(npa.square(npa.abs(e_nl))*J_top)
+            nonlinear_bot =  1*npa.sum(npa.square(npa.abs(e_nl))*J_bot)
+            objfn = linear_top + nonlinear_top + nonlinear_bot + linear_top
+            return objfn
 
         # define the design and nonlinear regions
         self.design_region = np.array(eps_r > 1).astype(int)
