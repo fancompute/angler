@@ -46,12 +46,14 @@ class Optimization():
         self.design_region = design_region
 
         # make progressbar
-        bar = progressbar.ProgressBar(max_value=self.Nsteps)
+        bar = progressbar.ProgressBar(widgets=[
+            ' ', progressbar.DynamicMessage('ObjFunc'),
+            ' Iteration: ',
+            ' ', progressbar.Counter(), '/%d' % self.Nsteps, 
+            ' ', progressbar.AdaptiveETA(),
+        ], max_value=self.Nsteps)
 
         for i in range(self.Nsteps):
-
-            # display progressbar
-            bar.update(i + 1)
 
             # Store the starting linear permittivity 
             eps_lin = copy.deepcopy(self.simulation.eps_r)
@@ -156,8 +158,9 @@ class Optimization():
             else:
                 raise AssertionError(
                     "opt_method must be one of {'descent', 'adam'}")
-
-
+            
+            # display progressbar
+            bar.update(i + 1, ObjFunc = self.objs_tot[-1])
             # want: some way to print the obj function in the progressbar
             # without adding new lines
 
