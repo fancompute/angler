@@ -10,11 +10,11 @@ import matplotlib.pylab as plt
 from scipy.optimize import minimize
 from autograd import grad
 
+
 class Optimization_Scipy():
 
     def __init__(self, J=None, Nsteps=100, eps_max=5, field_start='linear', nl_solver='newton'):
 
-        # store all of the parameters associated with the optimization
         self.Nsteps = Nsteps
         self.eps_max = eps_max
         self.field_start = field_start
@@ -34,14 +34,16 @@ class Optimization_Scipy():
     @property
     def J(self):
         return self._J
-    
+
     @J.setter
     def J(self, J):
         self._J = J
         self.dJ = self._autograd_dJ(J)
 
     def _autograd_dJ(self, J):
-        """Uses autograd to compute jacobians of J with respect to each argument"""
+        """ Uses autograd to automatically compute Jacobians of J with respect to each argument"""
+
+        # note: eventually want to check whether J has eps_nl argument, then switch between linear and nonlinear depending.
         dJ = {}
         dJ['lin'] = grad(J, 0)
         dJ['nl']  = grad(J, 1)
@@ -49,91 +51,121 @@ class Optimization_Scipy():
         return dJ
 
     def compute_J(self, simulation):
-        """Returns the current objective function of a simulation"""
+        """ Returns the current objective function of a simulation"""
+
         (_, _, Ez) = simulation.solve_fields()
         (_, _, Ez_nl, _) = simulation.solve_fields_nl()
         eps = simulation.eps_r
         return self.J(Ez, Ez_nl, eps)
 
     def compute_dJ(self, simulation, design_region):
-        """Returns the current objective function of a simulation"""
+        """ Returns the current gradient of a simulation"""
+
         (_, _, Ez) = simulation.solve_fields()
-        (_, _, Ez_nl, _) = simulation.solve_fields_nl()   
-        arguments = (Ez, Ez_nl, simulation.eps_r) 
+        (_, _, Ez_nl, _) = simulation.solve_fields_nl()
+        arguments = (Ez, Ez_nl, simulation.eps_r)
         return gradient(simulation, self.dJ, design_region, arguments)
 
     def _set_design_region(self, x, simulation, design_region):
-        """Takes a vector x and inserts it into the design region of simulation's permittivity"""
+        """ Inserts a vector x into the design_region of simulation.eps_r"""
+
         eps_vec = copy.deepcopy(np.ndarray.flatten(simulation.eps_r))
         des_vec = np.ndarray.flatten(design_region)
         eps_vec[des_vec == 1] = x
-        eps_new = np.reshape(eps_vec, simulation.eps_r.shape)        
+        eps_new = np.reshape(eps_vec, simulation.eps_r.shape)
         simulation.eps_r = eps_new
 
     def _get_design_region(self, spatial_array, design_region):
-        """returns a vector of a spatial array"""
+        """ Returns a vector of the elements of spatial_array that are in design_region"""
+
         spatial_vec = copy.deepcopy(np.ndarray.flatten(spatial_array))
         des_vec = np.ndarray.flatten(design_region)
         x = spatial_vec[des_vec == 1]
         return x
 
+    def _make_progressbar(self, N=None):
+        """ Returns a progressbar to use during optimization"""
+
+        if N is not None:
+            bar = progressbar.ProgressBar(widgets=[
+                ' ', progressbar.DynamicMessage('ObjectiveFn'),
+                ' Iteration: ',
+                ' ', progressbar.Counter(), '/%d' % N,
+                ' ', progressbar.AdaptiveETA(),
+            ], max_value=N)
+        else:
+            bar = progressbar.ProgressBar(widgets=[
+                ' ', progressbar.DynamicMessage('ObjectiveFn'),
+                ' Iteration: ',
+                ' ', progressbar.Counter(), '/?',
+                ' ', progressbar.AdaptiveETA(),
+            ])
+        return bar
+
     def run(self, simulation, design_region, method='LBFGS'):
-        """Switches between different optimization methods"""
+        """ Runs an optimization."""
+
+        self.simulation = simulation
+        self.design_region = design_region
+        self.objfn_list = []
+
         allowed = ['LBFGS']
         if method == 'LBFGS':
-             self._run_LBFGS(simulation, design_region)
+            self._run_LBFGS()
         else:
             raise ValueError("'method' must be in {}".format(allowed))
 
-    def _run_LBFGS(self, simulation, design_region):
+    def _run_LBFGS(self):
         """Performs L-BGFS Optimization of objective function w.r.t. eps_r"""
-        self.simulation = simulation
-        self.design_region = design_region
-        self.objfn_list = []        
+
+        maxcor = 10  # how many objfn evaluations per 'iteration' of LBGFS
+        pbar = self._make_progressbar(self.Nsteps*maxcor)
 
         def _objfn(x, *argv):
-            """Returns objetive function given some permittivity distribution"""
+            """ Returns objective function given some permittivity distribution"""
 
             # make a simulation copy
             sim = copy.deepcopy(self.simulation)
             self._set_design_region(x, sim, self.design_region)
-            
+
             J = self.compute_J(sim)
             self.objfn_list.append(J)
+            pbar.update(len(self.objfn_list), ObjectiveFn=J)
 
             # return minus J because we technically will minimize
             return -J
 
         def _grad(x,  *argv):
-            """Returns objetive function given some permittivity distribution"""
+            """ Returns full gradient given some permittivity distribution"""
 
             # make a simulation copy
-            sim = copy.deepcopy(simulation)
+            sim = copy.deepcopy(self.simulation)
             self._set_design_region(x, sim, self.design_region)
 
             # compute gradient, extract design region, turn into vector, return
-            gradient = self.compute_dJ(sim, self.design_region)                    
+            gradient = self.compute_dJ(sim, self.design_region)
             gradient_vec = self._get_design_region(gradient, self.design_region)
 
             return -gradient_vec
 
         # set up bounds on epsilon
-        eps_bounds = tuple([(1, self.eps_max) for _ in range(np.sum(design_region==1))])
+        eps_bounds = tuple([(1, self.eps_max) for _ in range(np.sum(self.design_region==1))])
 
         # start eps off with the one currently within design region
         x0 = self._get_design_region(self.simulation.eps_r, self.design_region)
 
         # minimize
-        res = minimize(_objfn, x0, args=None, method="L-BFGS-B", jac=_grad, 
+        res = minimize(_objfn, x0, args=None, method="L-BFGS-B", jac=_grad,
                        bounds=eps_bounds, callback=None, options = {
                             'disp' : 1,
                             'maxiter' : self.Nsteps
                        })
 
-        self._set_design_region(res.x, simulation, design_region)
+        # finally, set the simulation permittivity to that found via optimization
+        self._set_design_region(res.x, self.simulation, self.design_region)
 
     def check_deriv(self, simulation, design_region, Npts=5, d_eps=1e-4):
-        """ returns a list of analytical and numerical derivatives to check gradient accuracy"""
+        """ Returns a list of analytical and numerical derivatives to check gradient accuracy"""
 
         # make copy of original epsilon
         eps_orig = copy.deepcopy(simulation.eps_r)
@@ -174,7 +206,8 @@ class Optimization_Scipy():
         return avm_grads, num_grads
 
     def plt_objs(self, ax=None):
-        """Plot objective functions over iteration"""
+        """ Plots objective function vs. iteration"""
+
         ax.plot(range(1, len(self.objfn_list) + 1),  self.objfn_list)
         ax.set_xlabel('iteration number')
         ax.set_ylabel('objective function')
@@ -182,13 +215,14 @@ class Optimization_Scipy():
         return ax
 
     def compute_index_shift(self, simulation):
-        """ computes array of nonlinear refractive index shift"""           
+        """ Computes array of nonlinear refractive index shift"""
+
+        # note, this should be moved to simulation class             
         _ = self.simulation.solve_fields_nl()
         dn = np.sqrt(np.real(simulation.eps_nl))
         return dn
 
     def scan_frequency(self, Nf=50, df=1/20):
-
         """ Scans the objective function vs. frequency """
 
         # create frequencies (in Hz)
@@ -241,7 +275,7 @@ class Optimization_Scipy():
         return freqs, objs, FWHM
 
     def _update_permittivity(self, grad, design_region):
-        # updates the permittivity with the gradient info
+        """ Manually updates the permittivity with the gradient info """
 
         # deep copy original permittivity (deep for safety)
         eps_old = copy.deepcopy(self.simulation.eps_r)
@@ -259,6 +293,8 @@ class Optimization_Scipy():
         return eps_new
 
     def _step_adam(self, grad, mopt_old, vopt_old, iteration_index, epsilon=1e-8, beta1=0.999, beta2=0.999):
+        """ Performs one step of adam optimization"""
+
         mopt = beta1 * mopt_old + (1 - beta1) * grad
         mopt_t = mopt / (1 - beta1**(iteration_index + 1))
         vopt = beta2 * vopt_old + (1 - beta2) * (np.square(grad))
