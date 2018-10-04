@@ -103,7 +103,7 @@ class Optimization_Scipy():
         return bar
 
     def run(self, simulation, design_region, method='LBFGS', step_size=0.1,
-            beta1=0.9, beta2=0.99):
+            beta1=0.9, beta2=0.999):
         """ Runs an optimization."""
 
         self.simulation = simulation
@@ -112,7 +112,7 @@ class Optimization_Scipy():
 
         allowed = ['LBFGS', 'GD', 'ADAM']
 
-        if method.lower() == 'lbfgs':
+        if method.lower() in ['lbfgs']:
             self._run_LBFGS()
 
         elif method.lower() == 'gd':
@@ -173,7 +173,6 @@ class Optimization_Scipy():
             self._set_design_region(x, sim, self.design_region)
 
             J = self.compute_J(sim)
-            self.objfn_list.append(J)
             pbar.update(iter_list[0], ObjectiveFn=J)
 
             # return minus J because we technically will minimize
@@ -198,6 +197,7 @@ class Optimization_Scipy():
         iter_list = [1]
         def _update_iter_count(x_current):
             iter_list[0] += 1
+            self.objfn_list.append(self.compute_J(self.simulation))
             self._set_design_region(x_current, self.simulation, self.design_region)
 
         # set up bounds on epsilon ((1, eps_m), (1, eps_m), ... ) for each grid in design region
@@ -300,7 +300,7 @@ class Optimization_Scipy():
 
         # note, this should be moved to simulation class
         _ = self.simulation.solve_fields_nl()
-        dn = np.sqrt(np.real(simulation.eps_nl))
+        dn = np.sqrt(np.real(simulation.eps_r + simulation.eps_nl))  - np.sqrt(np.real(simulation.eps_r))
         return dn
 
     def scan_frequency(self, Nf=50, df=1/20):
