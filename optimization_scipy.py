@@ -117,12 +117,13 @@ class Optimization_Scipy():
 
             return -gradient_vec
 
-        # setup bounds on epsilon
+        # set up bounds on epsilon
         eps_bounds = tuple([(1, self.eps_max) for _ in range(np.sum(design_region==1))])
 
-        # starting eps within design region
+        # start eps off with the one currently within design region
         x0 = self._get_design_region(self.simulation.eps_r, self.design_region)
 
+        # minimize
         res = minimize(_objfn, x0, args=None, method="L-BFGS-B", jac=_grad, 
                        bounds=eps_bounds, callback=None, options = {
                             'disp' : 1,
