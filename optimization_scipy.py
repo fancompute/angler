@@ -102,24 +102,68 @@ class Optimization_Scipy():
             ])
         return bar
 
-    def run(self, simulation, design_region, method='LBFGS'):
+    def run(self, simulation, design_region, method='LBFGS', step_size=0.1,
+            beta1=0.9, beta2=0.99):
         """ Runs an optimization."""
 
         self.simulation = simulation
         self.design_region = design_region
         self.objfn_list = []
 
-        allowed = ['LBFGS']
-        if method == 'LBFGS':
+        allowed = ['LBFGS', 'GD', 'ADAM']
+
+        if method.lower() == 'lbfgs':
             self._run_LBFGS()
+
+        elif method.lower() == 'gd':
+            self._run_GD(step_size=step_size)
+
+        elif method.lower() == 'adam':
+            self._run_ADAM(step_size=step_size, beta1=beta1, beta2=beta2)
+
         else:
             raise ValueError("'method' must be in {}".format(allowed))
+
+    def _run_GD(self, step_size):
+        """ Performs simple gradient descent optimization"""
+
+        pbar = self._make_progressbar(self.Nsteps)
+
+        for iteration in range(self.Nsteps):
+
+            J = self.compute_J(self.simulation)
+            self.objfn_list.append(J)
+            pbar.update(iteration, ObjectiveFn=J)
+
+            gradient = self.compute_dJ(self.simulation, self.design_region)
+
+            self._update_permittivity(gradient, step_size)
+
+    def _run_ADAM(self, step_size, beta1, beta2):
+        """ Performs simple gradient descent optimization"""
+
+        pbar = self._make_progressbar(self.Nsteps)
+
+        for iteration in range(self.Nsteps):
+
+            J = self.compute_J(self.simulation)
+            self.objfn_list.append(J)
+            pbar.update(iteration, ObjectiveFn=J)
+
+            gradient = self.compute_dJ(self.simulation, self.design_region)
+
+            if iteration == 0:
+                mopt = np.zeros(gradient.shape)
+                vopt = np.zeros(gradient.shape)
+
+            (gradient_adam, mopt, vopt) = self._step_adam(gradient, mopt, vopt, iteration, beta1, beta2,)
+
+            self._update_permittivity(gradient_adam, step_size)
 
     def _run_LBFGS(self):
         """Performs L-BGFS Optimization of objective function w.r.t. eps_r"""
 
-        maxcor = 10  # how many objfn evaluations per 'iteration' of LBGFS
-        pbar = self._make_progressbar(self.Nsteps*maxcor)
+        pbar = self._make_progressbar(self.Nsteps)
 
         def _objfn(x, *argv):
             """ Returns objective function given some permittivity distribution"""
@@ -130,7 +174,7 @@ class Optimization_Scipy():
 
             J = self.compute_J(sim)
             self.objfn_list.append(J)
-            pbar.update(len(self.objfn_list), ObjectiveFn=J)
+            pbar.update(iter_list[0], ObjectiveFn=J)
 
             # return minus J because we technically will minimize
             return -J
@@ -148,21 +192,58 @@ class Optimization_Scipy():
 
             return -gradient_vec
 
-        # set up bounds on epsilon
-        eps_bounds = tuple([(1, self.eps_max) for _ in range(np.sum(self.design_region==1))])
+        # this simple callback function gets run each iteration
+        # keeps track of the current iteration step for the progressbar
+        # also resets eps on the simulation
+        iter_list = [1]
+        def _update_iter_count(x_current):
+            iter_list[0] += 1
+            self._set_design_region(x_current, self.simulation, self.design_region)
+
+        # set up bounds on epsilon ((1, eps_m), (1, eps_m), ... ) for each grid in design region
+        eps_bounds = tuple([(1, self.eps_max) for _ in range(np.sum(self.design_region == 1))])
 
         # start eps off with the one currently within design region
         x0 = self._get_design_region(self.simulation.eps_r, self.design_region)
 
         # minimize
         res = minimize(_objfn, x0, args=None, method="L-BFGS-B", jac=_grad,
-                       bounds=eps_bounds, callback=None, options = {
-                            'disp' : 1,
-                            'maxiter' : self.Nsteps
+                       bounds=eps_bounds, callback=_update_iter_count, options={
+                            'disp': 1,
+                            'maxiter': self.Nsteps
                        })
 
         # finally, set the simulation permittivity to that found via optimization
         self._set_design_region(res.x, self.simulation, self.design_region)
+
+    def _update_permittivity(self, gradient, step_size):
+        """ Manually updates the permittivity with the gradient info """
+
+        # deep copy original permittivity (deep for safety)
+        eps_old = copy.deepcopy(self.simulation.eps_r)
+
+        # update the old eps to get a new eps with the gradient
+        eps_new = eps_old + self.design_region * step_size * gradient
+
+        # push back inside bounds
+        eps_new[eps_new < 1] = 1
+        eps_new[eps_new > self.eps_max] = self.eps_max
+
+        # reset the epsilon of the simulation
+        self.simulation.eps_r = eps_new
+
+        return eps_new
+
+    def _step_adam(self, gradient, mopt_old, vopt_old, iteration, beta1, beta2, epsilon=1e-8):
+        """ Performs one step of adam optimization"""
+
+        mopt = beta1 * mopt_old + (1 - beta1) * gradient
+        mopt_t = mopt / (1 - beta1**(iteration + 1))
+        vopt = beta2 * vopt_old + (1 - beta2) * (np.square(gradient))
+        vopt_t = vopt / (1 - beta2**(iteration + 1))
+        grad_adam = mopt_t / (np.sqrt(vopt_t) + epsilon)
+
+        return (grad_adam, mopt, vopt)
 
     def check_deriv(self, simulation, design_region, Npts=5, d_eps=1e-4):
         """ Returns a list of analytical and numerical derivatives to check gradient accuracy"""
@@ -217,7 +298,7 @@ class Optimization_Scipy():
     def compute_index_shift(self, simulation):
         """ Computes array of nonlinear refractive index shift"""
 
-        # note, this should be moved to simulation class             
+        # note, this should be moved to simulation class
         _ = self.simulation.solve_fields_nl()
         dn = np.sqrt(np.real(simulation.eps_nl))
         return dn
@@ -273,32 +354,3 @@ class Optimization_Scipy():
         FWHM = num_above_HM*(freqs[1] - freqs[0])
 
         return freqs, objs, FWHM
-
-    def _update_permittivity(self, grad, design_region):
-        """ Manually updates the permittivity with the gradient info """
-
-        # deep copy original permittivity (deep for safety)
-        eps_old = copy.deepcopy(self.simulation.eps_r)
-
-        # update the old eps to get a new eps with the gradient
-        eps_new = eps_old + self.design_region * self.step_size * grad
-
-        # push back inside bounds
-        eps_new[eps_new < 1] = 1
-        eps_new[eps_new > self.eps_max] = self.eps_max
-
-        # reset the epsilon of the simulation
-        self.simulation.eps_r = eps_new
-
-        return eps_new
-
-    def _step_adam(self, grad, mopt_old, vopt_old, iteration_index, epsilon=1e-8, beta1=0.999, beta2=0.999):
-        """ Performs one step of adam optimization"""
-
-        mopt = beta1 * mopt_old + (1 - beta1) * grad
-        mopt_t = mopt / (1 - beta1**(iteration_index + 1))
-        vopt = beta2 * vopt_old + (1 - beta2) * (np.square(grad))
-        vopt_t = vopt / (1 - beta2**(iteration_index + 1))
-        grad_adam = mopt_t / (np.sqrt(vopt_t) + epsilon)
-
-        return (grad_adam, mopt, vopt)
