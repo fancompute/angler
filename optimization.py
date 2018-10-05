@@ -325,11 +325,10 @@ class Optimization():
         iter_range = range(1, len(self.objfn_list) + 1)
         if norm == 'field':
             obj_scaled = [o/a for o, a in zip(self.objfn_list, self.src_amplitudes)]
-            ax.set_ylabel('objective function / field')                        
+            ax.set_ylabel('objective function / field')
         elif norm == 'power':
-            import pdb; pdb.set_trace()
             obj_scaled = [o/a**2 for o, a in zip(self.objfn_list, self.src_amplitudes)]
-            ax.set_ylabel('objective function / power')            
+            ax.set_ylabel('objective function / power')
         else:
             obj_scaled = self.objfn_list
             ax.set_ylabel('objective function')
