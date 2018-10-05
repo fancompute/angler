@@ -29,7 +29,7 @@ class Optimization():
             self.Nsteps, self.eps_max, self.J, self.field_start, self.nl_solver)
 
     def __str__(self):
-        return self.__repr__
+        return self.__repr__()
 
     @property
     def J(self):
