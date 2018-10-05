@@ -1,13 +1,14 @@
 import unittest
 import numpy as np
 from numpy.testing import assert_allclose
+import autograd.numpy as npa
 
 import sys
 sys.path.append("..")
 
 from fdfdpy import Simulation
 from nonlinear_avm.structures import three_port, two_port
-from nonlinear_avm.optimization_scipy import Optimization_Scipy as Optimization
+from nonlinear_avm.optimization import Optimization
 import copy
 
 class TestScipy(unittest.TestCase):
@@ -18,10 +19,10 @@ class TestScipy(unittest.TestCase):
         lambda0 = 2e-6              # free space wavelength (m)
         c0 = 3e8                    # speed of light in vacuum (m/s)
         omega = 2*np.pi*c0/lambda0  # angular frequency (2pi/s)
-        dl = 1.1e-1                 # grid size (L0)
+        dl = 2e-1                 # grid size (L0)
         NPML = [15, 15]             # number of pml grid points on x and y borders
         pol = 'Ez'                  # polarization (either 'Hz' or 'Ez')
-        source_amp = 1050             # amplitude of modal source (A/L0^2?)
+        source_amp = 10             # amplitude of modal source (A/L0^2?)
 
         # material constants
         n_index = 2.44              # refractive index
@@ -38,7 +39,7 @@ class TestScipy(unittest.TestCase):
         spc = 2       # space between box and PML (L0)
 
         # define permittivity of three port system
-        eps_r = three_port(L, H, w, d, dl, l, spc, NPML, eps_start=eps_m)
+        eps_r, design_region = three_port(L, H, w, d, l, spc, dl, NPML, eps_start=eps_m)
         (Nx, Ny) = eps_r.shape
         nx, ny = int(Nx/2), int(Ny/2)            # halfway grid points
 
@@ -51,13 +52,13 @@ class TestScipy(unittest.TestCase):
         top = Simulation(omega, eps_r, dl, NPML, 'Ez')
         top.add_mode(np.sqrt(eps_m), 'x', [-NPML[0]-int(l/2/dl), ny+int(d/2/dl)], int(H/2/dl))
         top.setup_modes()
-        J_top = np.abs(top.src)
+        self.J_top = np.abs(top.src)
 
         # bottom modal profile
         bot = Simulation(omega, eps_r, dl, NPML, 'Ez')
         bot.add_mode(np.sqrt(eps_m), 'x', [-NPML[0]-int(l/2/dl), ny-int(d/2/dl)], int(H/2/dl))
         bot.setup_modes()
-        J_bot = np.abs(bot.src)
+        self.J_bot = np.abs(bot.src)
 
         # compute straight line simulation
         eps_r_wg, _ = two_port(L, H, w, l, spc, dl, NPML, eps_start=eps_m)
@@ -76,9 +77,7 @@ class TestScipy(unittest.TestCase):
         SCALE = np.sum(np.square(np.abs(Ez_wg))*J_out)
 
         # define the design region
-        self.design_region = np.array(eps_r > 1).astype(int)
-        self.design_region[:nx-int(L/2/dl),:] = 0
-        self.design_region[nx+int(L/2/dl):,:] = 0
+        self.design_region = design_region
         self.simulation.eps_r[self.design_region == 1] = eps_m/2 + 1/2
 
         # add nonlinearity
@@ -87,24 +86,22 @@ class TestScipy(unittest.TestCase):
         self.simulation.add_nl(chi3, nl_region, eps_scale=True, eps_max=eps_m)
 
         # define linear and nonlinear parts of objective function + the total objective function form
-        import autograd.numpy as npa
         def J(e, e_nl, eps):
-            linear_top = npa.sum(npa.square(npa.abs(e))*J_top)
-            linear_bot = npa.sum(npa.square(npa.abs(e))*J_bot)
-            nonlinear_top = npa.sum(npa.square(npa.abs(e_nl))*J_top)
-            nonlinear_bot = npa.sum(npa.square(npa.abs(e_nl))*J_bot)
+            linear_top = npa.sum(npa.square(npa.abs(e))*self.J_top)
+            linear_bot = npa.sum(npa.square(npa.abs(e))*self.J_bot)
+            nonlinear_top = npa.sum(npa.square(npa.abs(e_nl))*self.J_top)
+            nonlinear_bot = npa.sum(npa.square(npa.abs(e_nl))*self.J_bot)
             objfn = linear_top - nonlinear_top + nonlinear_bot - linear_top
-            return objfn / SCALE
+            return objfn
 
-        # inline function simpler but less expressive
-        J = lambda e, e_nl, eps: npa.sum(npa.square(npa.abs(e))*J_top) + npa.sum(npa.square(npa.abs(e_nl))*J_bot)
-
-        self.optimization = Optimization(J=J, Nsteps=10, eps_max=5, field_start='linear', nl_solver='newton')
+        self.optimization = Optimization(J=J, Nsteps=4, eps_max=eps_m, field_start='linear', nl_solver='newton')
 
     def test_scipy(self):
+        pass
+        # self.optimization.run(self.simulation, self.design_region, method='LBFGS')
 
-        self.optimization.run(self.simulation, self.design_region, method='LBFGS')
-        import pdb; pdb.set_trace()
+
+
 
 if __name__ == '__main__':
     unittest.main()
