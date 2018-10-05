@@ -13,15 +13,18 @@ from autograd import grad
 
 class Optimization():
 
-    def __init__(self, J=None, Nsteps=100, eps_max=5, field_start='linear', nl_solver='newton'):
+    def __init__(self, J=None, Nsteps=100, eps_max=5, field_start='linear', nl_solver='newton',
+                 max_ind_shift=None):
 
+        self._J = J
         self.Nsteps = Nsteps
         self.eps_max = eps_max
         self.field_start = field_start
         self.nl_solver = nl_solver
-        self._J = J
+        self.max_ind_shift = max_ind_shift
+        self.src_amplitudes = []
 
-        # compute the jacobians of J and store these (note, might want to do this each time J changes)
+        # compute the jacobians of J and store these
         self.dJ = self._autograd_dJ(J)
 
     def __repr__(self):
@@ -135,6 +138,8 @@ class Optimization():
             self.objfn_list.append(J)
             pbar.update(iteration, ObjectiveFn=J)
 
+            self._set_source_amplitude()
+
             gradient = self.compute_dJ(self.simulation, self.design_region)
 
             self._update_permittivity(gradient, step_size)
@@ -149,6 +154,8 @@ class Optimization():
             J = self.compute_J(self.simulation)
             self.objfn_list.append(J)
             pbar.update(iteration, ObjectiveFn=J)
+
+            self._set_source_amplitude()
 
             gradient = self.compute_dJ(self.simulation, self.design_region)
 
@@ -200,6 +207,7 @@ class Optimization():
             iter_list[0] += 1
             self.objfn_list.append(J)
             self._set_design_region(x_current, self.simulation, self.design_region)
+            self._set_source_amplitude()
 
         # set up bounds on epsilon ((1, eps_m), (1, eps_m), ... ) for each grid in design region
         eps_bounds = tuple([(1, self.eps_max) for _ in range(np.sum(self.design_region == 1))])
@@ -218,6 +226,28 @@ class Optimization():
 
         # finally, set the simulation permittivity to that found via optimization
         self._set_design_region(res.x, self.simulation, self.design_region)
+
+    def _set_source_amplitude(self, epsilon=1e-2, N=5):
+        """ If max_index_shift specified, sets the self.simulation.src amplitude 
+            low enough so that this is satisfied.
+            'epsilon' is the amount to subtract from source to get it under.
+        """
+
+        # keep a running list of the source amplitudes
+        self.src_amplitudes.append(np.max(np.abs(self.simulation.src)))
+
+        # if a max index shift is specified
+        if self.max_ind_shift is not None:
+
+            # for a number of iterations
+            for _ in range(N):
+
+                # compute the index shift and update the source according to the ratio
+                dn = self.compute_index_shift(self.simulation)
+                max_dn = np.max(dn)
+                ratio = self.max_ind_shift / max_dn
+
+                self.simulation.src = self.simulation.src * (np.sqrt(ratio) - epsilon)
 
     def _update_permittivity(self, gradient, step_size):
         """ Manually updates the permittivity with the gradient info """
@@ -289,22 +319,36 @@ class Optimization():
 
         return avm_grads, num_grads
 
-    def plt_objs(self, ax=None):
+    def plt_objs(self, norm=None, ax=None):
         """ Plots objective function vs. iteration"""
 
-        ax.plot(range(1, len(self.objfn_list) + 1),  self.objfn_list)
+        iter_range = range(1, len(self.objfn_list) + 1)
+        if norm == 'field':
+            obj_scaled = [o/a for o, a in zip(self.objfn_list, self.src_amplitudes)]
+            ax.set_ylabel('objective function / field')                        
+        elif norm == 'power':
+            import pdb; pdb.set_trace()
+            obj_scaled = [o/a**2 for o, a in zip(self.objfn_list, self.src_amplitudes)]
+            ax.set_ylabel('objective function / power')            
+        else:
+            obj_scaled = self.objfn_list
+            ax.set_ylabel('objective function')
+
+
+        ax.plot(iter_range,  obj_scaled)
         ax.set_xlabel('iteration number')
-        ax.set_ylabel('objective function')
         ax.set_title('optimization results')
         return ax
 
     def compute_index_shift(self, simulation):
         """ Computes array of nonlinear refractive index shift"""
 
-        # note, this should be moved to simulation class
+        # note, this should be moved to simulation class as it doesn't need optimization
+        _ = self.simulation.solve_fields()
         _ = self.simulation.solve_fields_nl()
-        dn = np.sqrt(np.real(simulation.eps_r + simulation.eps_nl))  - np.sqrt(np.real(simulation.eps_r))
-        return dn
+        index_nl = np.sqrt(np.real(simulation.eps_r + simulation.eps_nl))
+        index_lin = np.sqrt(np.real(simulation.eps_r))
+        return np.abs(index_nl - index_lin)
 
     def scan_frequency(self, Nf=50, df=1/20):
         """ Scans the objective function vs. frequency """
