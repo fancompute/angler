@@ -11,7 +11,7 @@ from scipy.optimize import minimize
 from autograd import grad
 
 
-class Optimization_Scipy():
+class Optimization():
 
     def __init__(self, J=None, Nsteps=100, eps_max=5, field_start='linear', nl_solver='newton'):
 
