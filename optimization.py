@@ -227,7 +227,7 @@ class Optimization():
         # finally, set the simulation permittivity to that found via optimization
         self._set_design_region(res.x, self.simulation, self.design_region)
 
-    def _set_source_amplitude(self, epsilon=1e-2, N=5):
+    def _set_source_amplitude(self, epsilon=1e-2, N=1):
         """ If max_index_shift specified, sets the self.simulation.src amplitude 
             low enough so that this is satisfied.
             'epsilon' is the amount to subtract from source to get it under.
@@ -243,7 +243,7 @@ class Optimization():
             for _ in range(N):
 
                 # compute the index shift and update the source according to the ratio
-                dn = self.compute_index_shift(self.simulation)
+                dn = self.simulation.compute_index_shift()
                 max_dn = np.max(dn)
                 ratio = self.max_ind_shift / max_dn
 
@@ -339,16 +339,6 @@ class Optimization():
         ax.set_title('optimization results')
         return ax
 
-    def compute_index_shift(self, simulation):
-        """ Computes array of nonlinear refractive index shift"""
-
-        # note, this should be moved to simulation class as it doesn't need optimization
-        _ = self.simulation.solve_fields()
-        _ = self.simulation.solve_fields_nl()
-        index_nl = np.sqrt(np.real(simulation.eps_r + simulation.eps_nl))
-        index_lin = np.sqrt(np.real(simulation.eps_r))
-        return np.abs(index_nl - index_lin)
-
     def scan_frequency(self, Nf=50, df=1/20):
         """ Scans the objective function vs. frequency """
 
@@ -400,3 +390,40 @@ class Optimization():
         FWHM = num_above_HM*(freqs[1] - freqs[0])
 
         return freqs, objs, FWHM
+
+    def binarize_J(self, J, bin_type='squared_diff'):
+        """ Applies a binarization penalty term to J and returns a new objective function
+            Can be done as:
+                J_prime = binarize_J(J, bin_type='squared_diff')
+            or:
+                @binarize_J(bin_type='squared_diff')
+                def J(e, e_nl, eps):
+                    # define normal J here
+        """
+
+        if bin_type == 'squared_diff':
+
+            def J_bin(eps):
+                A = np.sqrt((self.eps_max - 1) / 2)
+                N = np.sum(self.design_region)
+                eps_masked = eps * design_region
+                eps_0 = (self.eps_max + 1) / 2 * design_region
+                squared_diff = A * np.square(eps_masked - eps_0) / N
+                import pdb; pdb.set_trace()
+                return np.sum(squared_diff)
+
+        # this is the new objective function being returned.
+        # *args is a list of the original arguments ([E, E_nl, eps] in this case)
+        # **kwargs is a dictionary of keyword arguments (empty in this case)
+        def J_prime(*args, **kwargs):
+
+            # eps is just the third of the arugments
+            eps = args[2]
+
+
+            if application == 'subtract':
+                return J(*args, **kwargs) - J_bin(eps)
+
+            elif application == 'multiply':
+                return J(*args, **kwargs) * J_bin(eps)
+
