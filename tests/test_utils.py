@@ -22,7 +22,7 @@ class TestUtils(unittest.TestCase):
         lambda0 = 2e-6              # free space wavelength (m)
         c0 = 3e8                    # speed of light in vacuum (m/s)
         omega = 2*np.pi*c0/lambda0  # angular frequency (2pi/s)
-        dl = 2e-1                 # grid size (L0)
+        dl = 1.1e-1                 # grid size (L0)
         NPML = [15, 15]             # number of pml grid points on x and y borders
         pol = 'Ez'                  # polarization (either 'Hz' or 'Ez')
         source_amp = 10             # amplitude of modal source (A/L0^2?)
@@ -82,7 +82,7 @@ class TestUtils(unittest.TestCase):
 
         # define the design region
         self.design_region = design_region
-        self.simulation.eps_r[self.design_region == 1] = eps_m/2 + 1/2
+        self.simulation.init_design_region(design_region, eps_m, style='random')
 
         # add nonlinearity
         nl_region = copy.deepcopy(self.design_region)
@@ -103,6 +103,8 @@ class TestUtils(unittest.TestCase):
     def test_binarize(self):
 
         binarizer = Binarizer(self.design_region, self.eps_m)
+
+        # Test Binarizer.density
 
         def J(e, e_nl, eps):
             linear_top = npa.sum(npa.square(npa.abs(e))*self.J_top)
@@ -131,6 +133,31 @@ class TestUtils(unittest.TestCase):
         J2 = J_bin(Ez, Ez_nl, eps)
         J3 = J_bin_decorator(Ez, Ez_nl, eps)
 
+        print('for density binarizer:\n\tJ1 = {}\n\tJ2 = {}\n\tJ3 = {}'.format(J1, J2, J3))
+        assert J1 > J2
+        assert J2 == J3
+
+        # Test Binarizer.smoothness
+
+        J_bin = binarizer.smoothness(J)
+
+        @binarizer.smoothness
+        def J_bin_decorator(e, e_nl, eps):
+            linear_top = npa.sum(npa.square(npa.abs(e))*self.J_top)
+            linear_bot = npa.sum(npa.square(npa.abs(e))*self.J_bot)
+            nonlinear_top = npa.sum(npa.square(npa.abs(e_nl))*self.J_top)
+            nonlinear_bot = npa.sum(npa.square(npa.abs(e_nl))*self.J_bot)
+            objfn = linear_top - nonlinear_top + nonlinear_bot - linear_top           
+            return objfn
+
+        (_, _, Ez) = self.simulation.solve_fields()
+        (_, _, Ez_nl, _) = self.simulation.solve_fields_nl()
+        eps = self.simulation.eps_r
+
+        J2 = J_bin(Ez, Ez_nl, eps)
+        J3 = J_bin_decorator(Ez, Ez_nl, eps)
+
+        print('for smoothness binarizer:\n\tJ1 = {}\n\tJ2 = {}\n\tJ3 = {}'.format(J1, J2, J3))
         assert J2 == J3
         assert J1 > J2
 
