@@ -50,14 +50,19 @@ def three_port(L, H, w, d, l, spc, dl, NPML, eps_start):
     nx, ny = int(Nx/2), int(Ny/2)            # halfway grid points
     shape = (Nx, Ny)                          # shape of domain (in num. grids)
 
+    y_mid = dl*int(Ny/2-ny)
+    y_bot = dl*int(Ny/2-ny-d/2/dl)
+    y_top = dl*int(Ny/2-ny+d/2/dl)
+    wg_width_px = int(w/dl)
+
     # x and y coordinate arrays
     xs, ys = get_grid(shape, dl)
 
     # define regions
-    box    = lambda x, y: (np.abs(x) < L/2) * (np.abs(y) < H/2)
-    wg_in  = lambda x, y: (x < 0)           * (np.abs(y+0.001) < w/2)  # note, this slight offset is to fix gridding issues
-    wg_top = lambda x, y: (x > 0)           * (np.abs(y-d/2) < w/2)
-    wg_bot = lambda x, y: (x > 0)           * (np.abs(y+d/2) < w/2)
+    box    = lambda x, y: (np.abs(x) < L/2) * (np.abs(y-y_mid) < H/2)
+    wg_in  = lambda x, y: (x < 0)           * (np.abs(y-y_mid) < dl*wg_width_px/2)  # note, this slight offset is to fix gridding issues
+    wg_top = lambda x, y: (x > 0)           * (np.abs(y-y_bot) < dl*wg_width_px/2)
+    wg_bot = lambda x, y: (x > 0)           * (np.abs(y-y_top) < dl*wg_width_px/2)
 
     reg_list = [box, wg_in, wg_top, wg_bot]
 

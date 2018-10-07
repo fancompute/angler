@@ -7,7 +7,7 @@ import numpy as np
 import copy
 import progressbar
 import matplotlib.pylab as plt
-from scipy.optimize import minimize
+from scipy.optimize import minimize, fmin_l_bfgs_b
 from autograd import grad
 
 
@@ -23,6 +23,7 @@ class Optimization():
         self.nl_solver = nl_solver
         self.max_ind_shift = max_ind_shift
         self.src_amplitudes = []
+        self.objfn_list = []
 
         # compute the jacobians of J and store these
         self.dJ = self._autograd_dJ(J)
@@ -86,24 +87,37 @@ class Optimization():
         x = spatial_vec[des_vec == 1]
         return x
 
-    def _make_progressbar(self, N=None):
+    def _make_progressbar(self, N):
         """ Returns a progressbar to use during optimization"""
 
-        if N is not None:
+        if self.max_ind_shift is not None:
+
+            bar = progressbar.ProgressBar(widgets=[
+                ' ', progressbar.DynamicMessage('ObjectiveFn'),
+                ' ', progressbar.DynamicMessage('ObjectiveFn_Normalized'),
+                ' Iteration: ',
+                ' ', progressbar.Counter(), '/%d' % N,
+                ' ', progressbar.AdaptiveETA(),
+            ], max_value=N)
+
+        else:
+
             bar = progressbar.ProgressBar(widgets=[
                 ' ', progressbar.DynamicMessage('ObjectiveFn'),
                 ' Iteration: ',
                 ' ', progressbar.Counter(), '/%d' % N,
                 ' ', progressbar.AdaptiveETA(),
             ], max_value=N)
-        else:
-            bar = progressbar.ProgressBar(widgets=[
-                ' ', progressbar.DynamicMessage('ObjectiveFn'),
-                ' Iteration: ',
-                ' ', progressbar.Counter(), '/?',
-                ' ', progressbar.AdaptiveETA(),
-            ])
+
         return bar
+
+    def _update_progressbar(self, pbar, iteration, J):
+
+        if self.max_ind_shift is not None:
+            objfn_norm = J/np.max(np.square(np.abs(self.simulation.src)))
+            pbar.update(iteration, ObjectiveFn=J, ObjectiveFn_Normalized=objfn_norm)
+        else:
+            pbar.update(iteration, ObjectiveFn=J)
 
     def run(self, simulation, design_region, method='LBFGS', step_size=0.1,
             beta1=0.9, beta2=0.999):
@@ -111,7 +125,6 @@ class Optimization():
 
         self.simulation = simulation
         self.design_region = design_region
-        self.objfn_list = []
 
         allowed = ['LBFGS', 'GD', 'ADAM']
 
@@ -136,7 +149,8 @@ class Optimization():
 
             J = self.compute_J(self.simulation)
             self.objfn_list.append(J)
-            pbar.update(iteration, ObjectiveFn=J)
+            # pbar.update(iteration, ObjectiveFn=J)
+            self._update_progressbar(pbar, iteration, J)
 
             self._set_source_amplitude()
 
@@ -153,7 +167,8 @@ class Optimization():
 
             J = self.compute_J(self.simulation)
             self.objfn_list.append(J)
-            pbar.update(iteration, ObjectiveFn=J)
+            # pbar.update(iteration, ObjectiveFn=J)
+            self._update_progressbar(pbar, iteration, J)
 
             self._set_source_amplitude()
 
@@ -201,9 +216,12 @@ class Optimization():
         # keeps track of the current iteration step for the progressbar
         # also resets eps on the simulation
         iter_list = [0]
+
         def _update_iter_count(x_current):
             J = self.compute_J(self.simulation)
-            pbar.update(iter_list[0], ObjectiveFn=J)
+            # pbar.update(iter_list[0], ObjectiveFn=J)
+            self._update_progressbar(pbar, iter_list[0], J)
+
             iter_list[0] += 1
             self.objfn_list.append(J)
             self._set_design_region(x_current, self.simulation, self.design_region)
@@ -216,19 +234,17 @@ class Optimization():
         x0 = self._get_design_region(self.simulation.eps_r, self.design_region)
 
         # minimize
-        res = minimize(_objfn, x0, args=None, method="L-BFGS-B", jac=_grad,
-                       bounds=eps_bounds, callback=_update_iter_count, options={
-                            'disp': 1,                # will print updates to STDOUT if True
-                            'maxiter': self.Nsteps,   # note: an 'iteration' in L-BFGS runs several mini evaluations
-                            # 'gtol': 1e-19,            # minimum max |gradient| before convergence (super small otherwise it returns)
-                            # 'ftol': 1e-19             # minimum change in objective function before convergence (super small otherwise it returns)
-                       })
+        (x, _, _) = fmin_l_bfgs_b(_objfn, x0, fprime=_grad, args=(), approx_grad=0,
+                            bounds=eps_bounds, m=10, factr=100,
+                            pgtol=1e-08, epsilon=1e-08, iprint=-1,
+                            maxfun=15000, maxiter=self.Nsteps, disp=True,
+                            callback=_update_iter_count, maxls=20)
 
         # finally, set the simulation permittivity to that found via optimization
-        self._set_design_region(res.x, self.simulation, self.design_region)
+        self._set_design_region(x, self.simulation, self.design_region)
 
     def _set_source_amplitude(self, epsilon=1e-2, N=1):
-        """ If max_index_shift specified, sets the self.simulation.src amplitude 
+        """ If max_index_shift specified, sets the self.simulation.src amplitude
             low enough so that this is satisfied.
             'epsilon' is the amount to subtract from source to get it under.
         """
@@ -278,7 +294,7 @@ class Optimization():
 
         return (grad_adam, mopt, vopt)
 
-    def check_deriv(self, simulation, design_region, Npts=5, d_eps=1e-4):
+    def check_deriv(self, simulation, design_region, Npts=5, d_eps=1e-3):
         """ Returns a list of analytical and numerical derivatives to check gradient accuracy"""
 
         # make copy of original epsilon
