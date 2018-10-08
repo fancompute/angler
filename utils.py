@@ -47,21 +47,20 @@ class Binarizer():
                 pixel is to being binarized, used to multiply with J()
             """
 
-            A = npa.power((self.eps_m - 1) / 2, -2)
+            # material density in design region
+            rho = (eps - 1) / (self.eps_m - 1) * self.design_region
 
-            # number of cells to average over
+            # number of cells in design region
             N = npa.sum(self.design_region)
 
-            # eps in design region
-            eps_masked = eps * self.design_region
+            # gray level map
+            M_nd = 4 * rho * (1 - rho)
 
-            # midpoint permittivity map
-            eps_mid = (self.eps_m + 1) / 2 * self.design_region
-
-            f_eps = A * npa.square(eps_masked - eps_mid)
+            # gray level indicator
+            M_nd_scalar = npa.sum(M_nd) / N
 
             # average over each cell
-            return npa.sum(f_eps) / N
+            return 1 - M_nd_scalar
 
         # note, this is the actual generator being returned
         # defines how to combine J_bin (binarization function) with original J

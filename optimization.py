@@ -120,11 +120,12 @@ class Optimization():
             pbar.update(iteration, ObjectiveFn=J)
 
     def run(self, simulation, design_region, method='LBFGS', step_size=0.1,
-            beta1=0.9, beta2=0.999):
+            beta1=0.9, beta2=0.999, verbose=True):
         """ Runs an optimization."""
 
         self.simulation = simulation
         self.design_region = design_region
+        self.verbose = verbose
 
         allowed = ['LBFGS', 'GD', 'ADAM']
 
@@ -237,7 +238,7 @@ class Optimization():
         (x, _, _) = fmin_l_bfgs_b(_objfn, x0, fprime=_grad, args=(), approx_grad=0,
                             bounds=eps_bounds, m=10, factr=100,
                             pgtol=1e-08, epsilon=1e-08, iprint=-1,
-                            maxfun=15000, maxiter=self.Nsteps, disp=True,
+                            maxfun=15000, maxiter=self.Nsteps, disp=self.verbose,
                             callback=_update_iter_count, maxls=20)
 
         # finally, set the simulation permittivity to that found via optimization
@@ -378,9 +379,9 @@ class Optimization():
             sim_new.omega = 2*np.pi*f
             sim_new.eps_r = self.simulation.eps_r
 
-            # compute the fields
-            (_, _, Ez) = sim_new.solve_fields()
-            (_, _, Ez_nl, _) = sim_new.solve_fields_nl()
+            # # compute the fields
+            # (_, _, Ez) = sim_new.solve_fields()
+            # (_, _, Ez_nl, _) = sim_new.solve_fields_nl()
 
             # compute objective function and append to list
             obj_fn = self.compute_J(sim_new)
@@ -406,3 +407,54 @@ class Optimization():
         FWHM = num_above_HM*(freqs[1] - freqs[0])
 
         return freqs, objs, FWHM
+
+    def scan_power(self, probes=None, Ns=50, s_max=10):
+        """ Scans the source amplitude and computes the objective function
+            probes is a list of functions for computing the power, for example:
+            [lambda simulation: simulation.flux_probe('x', [-NPML[0]-int(l/2/dl), ny + int(d/2/dl)], int(H/2/dl))]
+        """
+
+        if probes is None:
+            raise ValueError("need to specify 'probes' kwarg as a list of functions for computing the power in each port.")
+        num_probes = len(probes)
+
+        # create src_amplitudes
+        s_list = np.logspace(-6, np.log10(s_max), Ns)        
+
+        bar = progressbar.ProgressBar(max_value=Ns)
+
+        # transmission
+        transmissions = [[] for _ in num_probes]
+
+        for i, s in enumerate(s_list):
+
+            bar.update(i + 1)
+
+            # make a new simulation object
+            sim_new = copy.deepcopy(self.simulation)
+
+            # reset the simulation to compute new A (hacky way of doing it)
+            sim_new.src = s * sim_new.src / np.max(np.abs(sim_new.src))
+
+            # compute the fields
+            _ = sim_new.solve_fields_nl()
+
+            # compute power transmission using each probe
+            for probe_index, probe in probes:
+                W_out = probe(sim_new)
+                sim_new.modes[0].compute_normalization(sim_new)                
+                transmissions[probe_index][i] = W_out / W_in
+        return transmissions
+
+    def plot_transmissions(self, transmissions, legend=None):
+        """ Plots the results of the power scan """
+
+        for p in transmissions:
+            plt.plot(p)
+        plt.xscale('log')
+        plt.xlabel('input source amplitude')
+        plt.ylabel('power transmission')
+        if legend is not None:
+            plt.legend(legend)
+        plt.show()
+
