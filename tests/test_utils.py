@@ -22,7 +22,7 @@ class TestUtils(unittest.TestCase):
         lambda0 = 2e-6              # free space wavelength (m)
         c0 = 3e8                    # speed of light in vacuum (m/s)
         omega = 2*np.pi*c0/lambda0  # angular frequency (2pi/s)
-        dl = 1.1e-1                 # grid size (L0)
+        dl = 0.5e-1                 # grid size (L0)
         NPML = [15, 15]             # number of pml grid points on x and y borders
         pol = 'Ez'                  # polarization (either 'Hz' or 'Ez')
         source_amp = 10             # amplitude of modal source (A/L0^2?)
@@ -104,8 +104,6 @@ class TestUtils(unittest.TestCase):
 
         binarizer = Binarizer(self.design_region, self.eps_m)
 
-        # Test Binarizer.density
-
         def J(e, e_nl, eps):
             linear_top = npa.sum(npa.square(npa.abs(e))*self.J_top)
             linear_bot = npa.sum(npa.square(npa.abs(e))*self.J_bot)
@@ -114,6 +112,58 @@ class TestUtils(unittest.TestCase):
             objfn = linear_top + nonlinear_bot
             return objfn
 
+        self.simulation.init_design_region(self.design_region, self.eps_m, style='full')
+
+        # Test Binarizer.smoothness
+
+        J_bin = binarizer.smoothness(J)
+
+        @binarizer.smoothness
+        def J_bin_decorator(e, e_nl, eps):
+            linear_top = npa.sum(npa.square(npa.abs(e))*self.J_top)
+            linear_bot = npa.sum(npa.square(npa.abs(e))*self.J_bot)
+            nonlinear_top = npa.sum(npa.square(npa.abs(e_nl))*self.J_top)
+            nonlinear_bot = npa.sum(npa.square(npa.abs(e_nl))*self.J_bot)
+            objfn = linear_top + nonlinear_bot       
+            return objfn
+
+        (_, _, Ez) = self.simulation.solve_fields()
+        (_, _, Ez_nl, _) = self.simulation.solve_fields_nl()
+        eps = self.simulation.eps_r
+
+        J1 = J(Ez, Ez_nl, eps)
+        J2 = J_bin(Ez, Ez_nl, eps)
+        J3 = J_bin_decorator(Ez, Ez_nl, eps)
+        print('for smoothness binarizer with full cells:\n\tJ1 = {}\n\tJ2 = {}\n\tJ3 = {}'.format(J1, J2, J3))
+
+
+        self.simulation.init_design_region(self.design_region, self.eps_m, style='random')
+
+        # Test Binarizer.smoothness
+        print('\n\ntesting smoothness binarizer')
+
+        J_bin = binarizer.smoothness(J)
+
+        @binarizer.smoothness
+        def J_bin_decorator(e, e_nl, eps):
+            linear_top = npa.sum(npa.square(npa.abs(e))*self.J_top)
+            linear_bot = npa.sum(npa.square(npa.abs(e))*self.J_bot)
+            nonlinear_top = npa.sum(npa.square(npa.abs(e_nl))*self.J_top)
+            nonlinear_bot = npa.sum(npa.square(npa.abs(e_nl))*self.J_bot)
+            objfn = linear_top + nonlinear_bot        
+            return objfn
+
+        (_, _, Ez) = self.simulation.solve_fields()
+        (_, _, Ez_nl, _) = self.simulation.solve_fields_nl()
+        eps = self.simulation.eps_r
+
+        J1 = J(Ez, Ez_nl, eps)
+        J2 = J_bin(Ez, Ez_nl, eps)
+        J3 = J_bin_decorator(Ez, Ez_nl, eps)
+        print('for smoothness binarizer with random cells:\n\tJ1 = {}\n\tJ2 = {}\n\tJ3 = {}'.format(J1, J2, J3))
+
+        # Test Binarizer.density
+        print('\n\ntesting density binarizer')
         J_bin = binarizer.density(J)
 
         @binarizer.density
@@ -179,45 +229,9 @@ class TestUtils(unittest.TestCase):
         assert J1 == J2
         assert J2 == J3
 
-        # Test Binarizer.smoothness
-
-        # J_bin = binarizer.smoothness(J)
-
-        # @binarizer.smoothness
-        # def J_bin_decorator(e, e_nl, eps):
-        #     linear_top = npa.sum(npa.square(npa.abs(e))*self.J_top)
-        #     linear_bot = npa.sum(npa.square(npa.abs(e))*self.J_bot)
-        #     nonlinear_top = npa.sum(npa.square(npa.abs(e_nl))*self.J_top)
-        #     nonlinear_bot = npa.sum(npa.square(npa.abs(e_nl))*self.J_bot)
-        #     objfn = linear_top - nonlinear_top + nonlinear_bot - linear_top           
-        #     return objfn
-
-        # (_, _, Ez) = self.simulation.solve_fields()
-        # (_, _, Ez_nl, _) = self.simulation.solve_fields_nl()
-        # eps = self.simulation.eps_r
-
-        # J2 = J_bin(Ez, Ez_nl, eps)
-        # J3 = J_bin_decorator(Ez, Ez_nl, eps)
-
         # print('for smoothness binarizer:\n\tJ1 = {}\n\tJ2 = {}\n\tJ3 = {}'.format(J1, J2, J3))
         # assert J2 == J3
         # assert J1 > J2
-
-
-    # def test_J_bin_density(self):
-
-    #     # create a fake permittivity
-    #     eps_m = 6
-    #     N = 1000
-    #     eps = random((N, N))*(eps_m - 1) + 1.0
-    #     design_region = np.zeros((N, N))
-    #     design_region[N//4:3*N//4, N//4:3*N//4] = 1
-
-    #     # compute the binarization penalty
-    #     penalty = J_bin_density(eps, eps_m, design_region)
-
-    #     # ensure it's normalized
-    #     assert (0 < penalty and penalty < 1)
 
 if __name__ == '__main__':
     unittest.main()
