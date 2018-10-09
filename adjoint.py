@@ -16,21 +16,21 @@ def grad_linear(simulation, dJ, design_region, arguments):
     """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
     (Ez, Ez_nl, eps) = arguments
 
-    b_aj = dJ['lin'](Ez, Ez_nl, eps)
+    b_aj = -dJ['lin'](Ez, Ez_nl, eps)
     Ez_aj = adjoint_linear(simulation, b_aj)
 
     EPSILON_0_ = EPSILON_0*simulation.L0
     omega = simulation.omega    
     dAdeps = design_region*omega**2*EPSILON_0_
 
-    return -1*np.real(Ez_aj*dAdeps*Ez) 
+    return 1*np.real(Ez_aj*dAdeps*Ez) 
 
 
 def grad_nonlinear(simulation, dJ, design_region, arguments):
     """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
     (Ez, Ez_nl, eps) = arguments
 
-    b_aj = dJ['nl'](Ez, Ez_nl, eps)
+    b_aj = -dJ['nl'](Ez, Ez_nl, eps)
     Ez_aj = adjoint_nonlinear(simulation, b_aj)
 
     EPSILON_0_ = EPSILON_0*simulation.L0
@@ -38,7 +38,7 @@ def grad_nonlinear(simulation, dJ, design_region, arguments):
     dAdeps = design_region*omega**2*EPSILON_0_
     dAnldeps = dAdeps + design_region*omega**2*EPSILON_0_*simulation.dnl_deps
 
-    return -1*np.real(Ez_aj*dAnldeps*Ez_nl)
+    return 1*np.real(Ez_aj*dAnldeps*Ez_nl)
 
 
 def adjoint_linear(simulation, b_aj, averaging=False, solver=DEFAULT_SOLVER, matrix_format=DEFAULT_MATRIX_FORMAT):
