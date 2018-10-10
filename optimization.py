@@ -56,16 +56,32 @@ class Optimization():
     def compute_J(self, simulation):
         """ Returns the current objective function of a simulation"""
 
-        (_, _, Ez) = simulation.solve_fields()
-        (_, _, Ez_nl, _) = simulation.solve_fields_nl()
+        if simulation.fields['Ez'] is None:
+            (_, _, Ez) = simulation.solve_fields()
+        else:
+            Ez = simulation.fields['Ez']
+
+        if simulation.fields_nl['Ez'] is None:  
+            (_, _, Ez_nl, _) = simulation.solve_fields_nl()
+        else:
+            Ez_nl = simulation.fields_nl['Ez']
+
         eps = simulation.eps_r
         return self.J(Ez, Ez_nl, eps)
 
     def compute_dJ(self, simulation, design_region):
         """ Returns the current gradient of a simulation"""
 
-        (_, _, Ez) = simulation.solve_fields()
-        (_, _, Ez_nl, _) = simulation.solve_fields_nl()
+        if simulation.fields['Ez'] is None:
+            (_, _, Ez) = simulation.solve_fields()
+        else:
+            Ez = simulation.fields['Ez']
+
+        if simulation.fields_nl['Ez'] is None:  
+            (_, _, Ez_nl, _) = simulation.solve_fields_nl()
+        else:
+            Ez_nl = simulation.fields_nl['Ez']
+
         arguments = (Ez, Ez_nl, simulation.eps_r)
         return gradient(simulation, self.dJ, design_region, arguments)
 
@@ -74,9 +90,14 @@ class Optimization():
 
         eps_vec = copy.deepcopy(np.ndarray.flatten(simulation.eps_r))
         des_vec = np.ndarray.flatten(design_region)
-        eps_vec[des_vec == 1] = x
-        eps_new = np.reshape(eps_vec, simulation.eps_r.shape)
-        simulation.eps_r = eps_new
+
+        # Only update the permittivity if it actually differs from the current one 
+        # If it doesn't, we don't want to erase the stored fields
+
+        if np.linalg.norm(x - eps_vec[des_vec == 1])/np.linalg.norm(x) > 1e-10:
+            eps_vec[des_vec == 1] = x
+            eps_new = np.reshape(eps_vec, simulation.eps_r.shape)
+            simulation.eps_r = eps_new
 
     def _get_design_region(self, spatial_array, design_region):
         """ Returns a vector of the elements of spatial_array that are in design_region"""
@@ -189,25 +210,19 @@ class Optimization():
 
         def _objfn(x, *argv):
             """ Returns objective function given some permittivity distribution"""
-
-            # make a simulation copy
-            sim = copy.deepcopy(self.simulation)
-            self._set_design_region(x, sim, self.design_region)
-
-            J = self.compute_J(sim)
+            self._set_design_region(x, self.simulation, self.design_region)
+            J = self.compute_J(self.simulation)
 
             # return minus J because we technically will minimize
             return -J
 
         def _grad(x,  *argv):
             """ Returns full gradient given some permittivity distribution"""
-
             # make a simulation copy
-            sim = copy.deepcopy(self.simulation)
-            self._set_design_region(x, sim, self.design_region)
+            self._set_design_region(x, self.simulation, self.design_region)
 
             # compute gradient, extract design region, turn into vector, return
-            gradient = self.compute_dJ(sim, self.design_region)
+            gradient = self.compute_dJ(self.simulation, self.design_region)
             gradient_vec = self._get_design_region(gradient, self.design_region)
 
             return -gradient_vec
