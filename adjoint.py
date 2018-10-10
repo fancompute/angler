@@ -70,7 +70,7 @@ def adjoint_nonlinear(simulation, b_aj,
     (Nx,Ny) = (simulation.Nx, simulation.Ny)
     M = Nx*Ny
 
-    Ez = simulation.fields['Ez']
+    Ez = simulation.fields_nl['Ez']
     Anl = simulation.A + simulation.Anl
     dAde = omega**2*EPSILON_0_*simulation.dnl_de
 
