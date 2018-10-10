@@ -10,7 +10,6 @@ import matplotlib.pylab as plt
 from scipy.optimize import minimize, fmin_l_bfgs_b
 from autograd import grad
 
-
 class Optimization():
 
     def __init__(self, J=None, Nsteps=100, eps_max=5, field_start='linear', nl_solver='newton',
@@ -29,7 +28,7 @@ class Optimization():
         self.dJ = self._autograd_dJ(J)
 
     def __repr__(self):
-        return "Optimization_Scipy(Nsteps={}, eps_max={}, J={}, field_start={}, nl_solver={})".format(
+        return "Optimization(Nsteps={}, eps_max={}, J={}, field_start={}, nl_solver={})".format(
             self.Nsteps, self.eps_max, self.J, self.field_start, self.nl_solver)
 
     def __str__(self):
