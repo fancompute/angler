@@ -32,13 +32,11 @@ class Binarizer():
     In this case, J is changed in place with the decorator @binarizer.density
     """
 
-    def __init__(self, design_region, eps_m, strength=1):
+    def __init__(self, design_region, eps_m, exp_const=1):
 
         self.design_region = design_region
         self.eps_m = eps_m
-
-        # some methods below may require a tunable strength parameter
-        self.strength = strength
+        self.exp_const = exp_const
 
     def density(self, J):
         """ Multiplies objective function by the density of eps_pixels near boundaries"""
@@ -62,6 +60,37 @@ class Binarizer():
 
             # average over each cell
             return 1 - M_nd_scalar
+
+        # note, this is the actual generator being returned
+        # defines how to combine J_bin (binarization function) with original J
+        def J_new(*args, **kwargs):
+
+            eps = args[2]
+            return J(*args) * J_bin(eps)
+
+        return J_new
+
+    def density_exp(self, J):
+        """ Multiplies objective function by the density of eps_pixels near boundaries"""
+
+        def J_bin(eps):
+            """ Gives a number between 0 and 1 incidating how close each eps_r
+                pixel is to being binarized, used to multiply with J()
+            """
+            # material density in design region
+            rho = (eps - 1) / (self.eps_m - 1) * self.design_region
+
+            # number of cells in design region
+            N = npa.sum(self.design_region)
+
+            # gray level map
+            M_nd = 4 * rho * (1 - rho)
+
+            # gray level indicator
+            M_nd_scalar = npa.sum(M_nd) / N
+
+            # average over each cell
+            return npa.exp(-self.exp_const*npa.abs(M_nd_scalar))
 
         # note, this is the actual generator being returned
         # defines how to combine J_bin (binarization function) with original J
