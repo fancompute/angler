@@ -6,6 +6,7 @@ import copy
 
 import sys
 sys.path.append("..")
+sys.path.append("../fdfdpy")
 
 from structures import three_port, two_port
 from fdfdpy import Simulation
@@ -232,6 +233,77 @@ class TestUtils(unittest.TestCase):
         # print('for smoothness binarizer:\n\tJ1 = {}\n\tJ2 = {}\n\tJ3 = {}'.format(J1, J2, J3))
         # assert J2 == J3
         # assert J1 > J2
+
+
+        # Test Binarizer.density
+
+        binarizer = Binarizer(self.design_region, self.eps_m, exp_const=10)
+
+        print('\n\ntesting exponential density binarizer')
+        J_bin = binarizer.density_exp(J)
+
+        @binarizer.density
+        def J_bin_decorator(e, e_nl, eps):
+            linear_top = npa.sum(npa.square(npa.abs(e))*self.J_top)
+            linear_bot = npa.sum(npa.square(npa.abs(e))*self.J_bot)
+            nonlinear_top = npa.sum(npa.square(npa.abs(e_nl))*self.J_top)
+            nonlinear_bot = npa.sum(npa.square(npa.abs(e_nl))*self.J_bot)
+            objfn = linear_top + nonlinear_bot      
+            return objfn
+
+        (_, _, Ez) = self.simulation.solve_fields()
+        (_, _, Ez_nl, _) = self.simulation.solve_fields_nl()
+        eps = self.simulation.eps_r
+
+        J1 = J(Ez, Ez_nl, eps)
+        J2 = J_bin(Ez, Ez_nl, eps)
+        J3 = J_bin_decorator(Ez, Ez_nl, eps)
+
+        print('for exponential density binarizer with random cells:\n\tJ1 = {}\n\tJ2 = {}\n\tJ3 = {}'.format(J1, J2, J3))
+        assert J1 > J2
+        assert J2 == J3
+
+        self.simulation.init_design_region(self.design_region, self.eps_m, style='empty')
+
+        (_, _, Ez) = self.simulation.solve_fields()
+        (_, _, Ez_nl, _) = self.simulation.solve_fields_nl()
+        eps = self.simulation.eps_r
+
+        J1 = J(Ez, Ez_nl, eps)
+        J2 = J_bin(Ez, Ez_nl, eps)
+        J3 = J_bin_decorator(Ez, Ez_nl, eps)
+
+        print('for exponential density binarizer with empty cells:\n\tJ1 = {}\n\tJ2 = {}\n\tJ3 = {}'.format(J1, J2, J3))
+        assert J1 == J2
+        assert J2 == J3
+
+        self.simulation.init_design_region(self.design_region, self.eps_m, style='halfway')
+
+        (_, _, Ez) = self.simulation.solve_fields()
+        (_, _, Ez_nl, _) = self.simulation.solve_fields_nl()
+        eps = self.simulation.eps_r
+
+        J1 = J(Ez, Ez_nl, eps)
+        J2 = J_bin(Ez, Ez_nl, eps)
+        J3 = J_bin_decorator(Ez, Ez_nl, eps)
+
+        print('for exponential density binarizer with halfway cells:\n\tJ1 = {}\n\tJ2 = {}\n\tJ3 = {}'.format(J1, J2, J3))
+        assert J2 == 0
+        assert J2 == J3
+
+        self.simulation.init_design_region(self.design_region, self.eps_m, style='full')
+
+        (_, _, Ez) = self.simulation.solve_fields()
+        (_, _, Ez_nl, _) = self.simulation.solve_fields_nl()
+        eps = self.simulation.eps_r
+
+        J1 = J(Ez, Ez_nl, eps)
+        J2 = J_bin(Ez, Ez_nl, eps)
+        J3 = J_bin_decorator(Ez, Ez_nl, eps)
+
+        print('for exponential density binarizer with full cells:\n\tJ1 = {}\n\tJ2 = {}\n\tJ3 = {}'.format(J1, J2, J3))
+        assert J1 == J2
+        assert J2 == J3
 
 if __name__ == '__main__':
     unittest.main()
