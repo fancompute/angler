@@ -77,6 +77,7 @@ class Binarizer():
             """ Gives a number between 0 and 1 incidating how close each eps_r
                 pixel is to being binarized, used to multiply with J()
             """
+
             # material density in design region
             rho = (eps - 1) / (self.eps_m - 1) * self.design_region
 
@@ -90,7 +91,9 @@ class Binarizer():
             M_nd_scalar = npa.sum(M_nd) / N
 
             # average over each cell
-            return npa.exp(-self.exp_const*npa.abs(1 - M_nd_scalar))
+            # return 1 - M_nd_scalar
+            # average over each cell
+            return npa.exp(-self.exp_const*npa.abs(M_nd_scalar))
 
         # note, this is the actual generator being returned
         # defines how to combine J_bin (binarization function) with original J

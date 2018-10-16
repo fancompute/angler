@@ -240,10 +240,10 @@ class TestUtils(unittest.TestCase):
         binarizer = Binarizer(self.design_region, self.eps_m, exp_const=10)
 
         print('\n\ntesting exponential density binarizer')
-        J_bin = binarizer.density_exp(J)
+        J_bin2 = binarizer.density_exp(J)
 
-        @binarizer.density
-        def J_bin_decorator(e, e_nl, eps):
+        @binarizer.density_exp
+        def J_bin2_decorator(e, e_nl, eps):
             linear_top = npa.sum(npa.square(npa.abs(e))*self.J_top)
             linear_bot = npa.sum(npa.square(npa.abs(e))*self.J_bot)
             nonlinear_top = npa.sum(npa.square(npa.abs(e_nl))*self.J_top)
@@ -251,13 +251,15 @@ class TestUtils(unittest.TestCase):
             objfn = linear_top + nonlinear_bot      
             return objfn
 
+        self.simulation.init_design_region(self.design_region, self.eps_m, style='random')
+
         (_, _, Ez) = self.simulation.solve_fields()
         (_, _, Ez_nl, _) = self.simulation.solve_fields_nl()
         eps = self.simulation.eps_r
 
         J1 = J(Ez, Ez_nl, eps)
-        J2 = J_bin(Ez, Ez_nl, eps)
-        J3 = J_bin_decorator(Ez, Ez_nl, eps)
+        J2 = J_bin2(Ez, Ez_nl, eps)
+        J3 = J_bin2_decorator(Ez, Ez_nl, eps)
 
         print('for exponential density binarizer with random cells:\n\tJ1 = {}\n\tJ2 = {}\n\tJ3 = {}'.format(J1, J2, J3))
         assert J1 > J2
