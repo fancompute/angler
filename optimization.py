@@ -1,7 +1,7 @@
 import sys
 sys.path.append(".")
 
-from adjoint import gradient
+from adjoint import gradient, rho_bar2eps, rho2rho_bar, eps2rho_bar
 
 import numpy as np
 import copy
@@ -70,7 +70,7 @@ class Optimization():
         return self.J(Ez, Ez_nl, eps)
 
     def compute_dJ(self, simulation, design_region):
-        """ Returns the current gradient of a simulation"""
+        """ Returns the current grad of a simulation"""
 
         if simulation.fields['Ez'] is None:
             (_, _, Ez) = simulation.solve_fields()
@@ -83,7 +83,7 @@ class Optimization():
             Ez_nl = simulation.fields_nl['Ez']
 
         arguments = (Ez, Ez_nl, simulation.eps_r)
-        return gradient(simulation, self.dJ, design_region, arguments)
+        return gradient(simulation, self.dJ, design_region, arguments, eps_m=self.eps_max)
 
     def _set_design_region(self, x, simulation, design_region):
         """ Inserts a vector x into the design_region of simulation.eps_r"""
@@ -162,7 +162,7 @@ class Optimization():
             raise ValueError("'method' must be in {}".format(allowed))
 
     def _run_GD(self, step_size):
-        """ Performs simple gradient descent optimization"""
+        """ Performs simple grad descent optimization"""
 
         pbar = self._make_progressbar(self.Nsteps)
 
@@ -175,12 +175,12 @@ class Optimization():
 
             self._set_source_amplitude()
 
-            gradient = self.compute_dJ(self.simulation, self.design_region)
+            grad = self.compute_dJ(self.simulation, self.design_region)
 
-            self._update_permittivity(gradient, step_size)
+            self._update_permittivity(grad, step_size)
 
     def _run_ADAM(self, step_size, beta1, beta2):
-        """ Performs simple gradient descent optimization"""
+        """ Performs simple grad descent optimization"""
 
         pbar = self._make_progressbar(self.Nsteps)
 
@@ -193,15 +193,15 @@ class Optimization():
 
             self._set_source_amplitude()
 
-            gradient = self.compute_dJ(self.simulation, self.design_region)
+            grad = self.compute_dJ(self.simulation, self.design_region)
 
             if iteration == 0:
-                mopt = np.zeros(gradient.shape)
-                vopt = np.zeros(gradient.shape)
+                mopt = np.zeros(grad.shape)
+                vopt = np.zeros(grad.shape)
 
-            (gradient_adam, mopt, vopt) = self._step_adam(gradient, mopt, vopt, iteration, beta1, beta2,)
+            (grad_adam, mopt, vopt) = self._step_adam(grad, mopt, vopt, iteration, beta1, beta2,)
 
-            self._update_permittivity(gradient_adam, step_size)
+            self._update_permittivity(grad_adam, step_size)
 
     def _run_LBFGS(self):
         """Performs L-BFGS Optimization of objective function w.r.t. eps_r"""
@@ -210,22 +210,30 @@ class Optimization():
 
         def _objfn(x, *argv):
             """ Returns objective function given some permittivity distribution"""
-            self._set_design_region(x, self.simulation, self.design_region)
+
+            rho_bar = rho2rho_bar(x)
+            eps = rho_bar2eps(rho_bar, self.eps_max)
+
+            self._set_design_region(eps, self.simulation, self.design_region)
             J = self.compute_J(self.simulation)
 
             # return minus J because we technically will minimize
             return -J
 
         def _grad(x,  *argv):
-            """ Returns full gradient given some permittivity distribution"""
+            """ Returns full grad given some permittivity distribution"""
             # make a simulation copy
-            self._set_design_region(x, self.simulation, self.design_region)
 
-            # compute gradient, extract design region, turn into vector, return
-            gradient = self.compute_dJ(self.simulation, self.design_region)
-            gradient_vec = self._get_design_region(gradient, self.design_region)
+            rho_bar = rho2rho_bar(x)
+            eps = rho_bar2eps(rho_bar, self.eps_max)
 
-            return -gradient_vec
+            self._set_design_region(eps, self.simulation, self.design_region)
+
+            # compute grad, extract design region, turn into vector, return
+            grad = self.compute_dJ(self.simulation, self.design_region)
+            grad_vec = self._get_design_region(grad, self.design_region)
+
+            return -grad_vec
 
         # this simple callback function gets run each iteration
         # keeps track of the current iteration step for the progressbar
@@ -244,9 +252,12 @@ class Optimization():
 
         # set up bounds on epsilon ((1, eps_m), (1, eps_m), ... ) for each grid in design region
         eps_bounds = tuple([(1, self.eps_max) for _ in range(np.sum(self.design_region == 1))])
+        rho_bounds = tuple([(0, 1) for _ in range(np.sum(self.design_region == 1))])
 
         # start eps off with the one currently within design region
-        x0 = self._get_design_region(self.simulation.eps_r, self.design_region)
+        eps0 = self._get_design_region(self.simulation.eps_r, self.design_region)
+        rho_bar0 = eps2rho_bar(eps0, eps_m)
+        eps0 = rho_bar2eps(rho_bar, self.eps_max)
 
         # minimize
         (x, _, _) = fmin_l_bfgs_b(_objfn, x0, fprime=_grad, args=(), approx_grad=0,
@@ -280,14 +291,14 @@ class Optimization():
 
                 self.simulation.src = self.simulation.src * (np.sqrt(ratio) - epsilon)
 
-    def _update_permittivity(self, gradient, step_size):
-        """ Manually updates the permittivity with the gradient info """
+    def _update_permittivity(self, grad, step_size):
+        """ Manually updates the permittivity with the grad info """
 
         # deep copy original permittivity (deep for safety)
         eps_old = copy.deepcopy(self.simulation.eps_r)
 
-        # update the old eps to get a new eps with the gradient
-        eps_new = eps_old + self.design_region * step_size * gradient
+        # update the old eps to get a new eps with the grad
+        eps_new = eps_old + self.design_region * step_size * grad
 
         # push back inside bounds
         eps_new[eps_new < 1] = 1
@@ -298,24 +309,25 @@ class Optimization():
 
         return eps_new
 
-    def _step_adam(self, gradient, mopt_old, vopt_old, iteration, beta1, beta2, epsilon=1e-8):
+    def _step_adam(self, grad, mopt_old, vopt_old, iteration, beta1, beta2, epsilon=1e-8):
         """ Performs one step of adam optimization"""
 
-        mopt = beta1 * mopt_old + (1 - beta1) * gradient
+        mopt = beta1 * mopt_old + (1 - beta1) * grad
         mopt_t = mopt / (1 - beta1**(iteration + 1))
-        vopt = beta2 * vopt_old + (1 - beta2) * (np.square(gradient))
+        vopt = beta2 * vopt_old + (1 - beta2) * (np.square(grad))
         vopt_t = vopt / (1 - beta2**(iteration + 1))
         grad_adam = mopt_t / (np.sqrt(vopt_t) + epsilon)
 
         return (grad_adam, mopt, vopt)
 
-    def check_deriv(self, simulation, design_region, Npts=5, d_eps=1e-3):
-        """ Returns a list of analytical and numerical derivatives to check gradient accuracy"""
+    def check_deriv(self, simulation, design_region, Npts=5, d_rho=1e-3):
+        """ Returns a list of analytical and numerical derivatives to check grad accuracy"""
 
         # make copy of original epsilon
         eps_orig = copy.deepcopy(simulation.eps_r)
+        rho_orig = 
 
-        # solve for the linear fields and gradient of the linear objective function
+        # solve for the linear fields and grad of the linear objective function
         grad_avm = self.compute_dJ(simulation, design_region)
         J_orig = self.compute_J(simulation)
 
@@ -341,10 +353,10 @@ class Optimization():
             # solve for the fields with this new permittivity
             J_new = self.compute_J(sim_new)
 
-            # compute the numerical gradient
+            # compute the numerical grad
             grad_num = (J_new - J_orig)/d_eps
 
-            # append both gradients to lists
+            # append both grads to lists
             avm_grads.append(grad_avm[pt[0], pt[1]])
             num_grads.append(grad_num)
 

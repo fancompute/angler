@@ -8,6 +8,26 @@ from autograd.scipy.signal import convolve
     help with the optimization
 """
 
+def eps2rho_bar(eps, eps_m):
+    return (eps - 1) / (eps_m - 1)
+
+def rho_bar2eps(rho_bar, eps_m):
+    return rho_bar * (eps_m - 1) + 1
+
+def deps_drho_bar(eps, eps_m):
+    return 1 / (eps_m - 1)
+
+def rho_bar(rho, eta=0.5, beta=100):
+    num = npa.tanh(beta*eta) + npa.tanh(beta*(rho - eta))
+    den = npa.tanh(beta*eta) + npa.tanh(beta*(1 - eta))
+    return num / den
+
+def drho_bar_drho(rho, eta=0.5, beta=100):
+    rho_bar = partial(rho_bar, eta=eta, beta=beta)
+    grad_rho_bar = grad(rho_bar)
+    grad_rho_bar = np.vectorize(grad_rho_bar)
+    return grad_rho_bar(rho)
+
 
 class Binarizer():
     """
