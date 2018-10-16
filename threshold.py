@@ -78,15 +78,15 @@ def J(e, e_nl, eps):
 
 Nb = 100
 Js = []
-eps_range = np.linspace(1,eps_m,Nb)
+eps_range = np.linspace(1, eps_m, Nb)
 for e in eps_range:
     eps_test = copy.deepcopy(simulation.eps_r)
     eps_test[simulation.eps_r<e] = 1
     eps_test[simulation.eps_r>=e] = eps_m
     sim_test = copy.deepcopy(simulation)
     sim_test.eps_r = eps_test
-    (_,_,Ez) = sim_test.solve_fields()
-    (_,_,Ez_nl,_) = sim_test.solve_fields_nl()
+    (_, _, Ez) = sim_test.solve_fields()
+    (_, _, Ez_nl, _) = sim_test.solve_fields_nl()
     objfn = J(Ez, Ez_nl, eps_test)
     print("threshold: {:.2f} -> {:.2f}".format(e, objfn))
     Js.append(objfn)
