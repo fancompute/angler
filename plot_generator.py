@@ -3,7 +3,6 @@ from matplotlib.colors import LogNorm
 import matplotlib.patches as mpatches
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 import matplotlib.font_manager as fm
-
 import numpy as np
 import copy
 
@@ -71,6 +70,11 @@ def gen_fig1(eps):
     simulation.add_mode(np.sqrt(eps_m), 'x', [NPML[0]+int(l/2/dl), ny], int(H/2/dl), scale=source_amp)
     simulation.setup_modes()
 
+    sim_start = copy.deepcopy(simulation)
+    sim_start.init_design_region(design_region, eps_m, style='empty')
+    eps_disp = sim_start.eps_r
+
+
     # add nonlinearity
     nl_region = copy.deepcopy(design_region)
     simulation.nonlinearity = []  # This is needed in case you re-run this cell, for example (or you can re-initialize simulation every time)
@@ -82,8 +86,8 @@ def gen_fig1(eps):
     f, (ax_top, ax_bot) = plt.subplots(2, 2, figsize=(7, 5), constrained_layout=True)
 
     # empty
-    eps_display = copy.deepcopy(eps)
-    eps_display[design_region==1] = eps_m
+    eps_display = copy.deepcopy(eps_disp)
+
     ax_drawing = ax_top[0]
     im = ax_drawing.pcolormesh(x_range, y_range, eps_display.T, cmap='Greys')
     ax_drawing.set_xlabel('x position ($\mu$m)')
@@ -92,20 +96,29 @@ def gen_fig1(eps):
     y_dist = 1.6
     base_in = 7
     tip_in = 3
-    arrow_in = mpatches.FancyArrowPatch((-base_in, 0), (-tip_in, 0),
+    y_shift = 0.01
+    arrow_in = mpatches.FancyArrowPatch((-base_in, +y_shift), (-tip_in, y_shift),
                                      mutation_scale=20, facecolor='#cc99ff')
     ax_drawing.add_patch(arrow_in)
-    arrow_top = mpatches.FancyArrowPatch((tip_in, y_dist+0.1), (base_in, y_dist+0.1),
-                                     mutation_scale=20, facecolor='#3366ff')
+    arrow_top = mpatches.FancyArrowPatch((tip_in, y_dist+0.1+y_shift), (base_in, y_dist+0.1+y_shift),
+                                     mutation_scale=20, facecolor='#3366ff',
+                                     edgecolor='k')
     ax_drawing.add_patch(arrow_top)
-    arrow_bot = mpatches.FancyArrowPatch((tip_in, -y_dist), (base_in, -y_dist),
+    arrow_bot = mpatches.FancyArrowPatch((tip_in, -y_dist+y_shift), (base_in, -y_dist+y_shift),
                                      mutation_scale=20, facecolor='#ff5050')
     ax_drawing.add_patch(arrow_bot)
+
+    design_box = mpatches.Rectangle(xy=(-L/2, -H/2), width=L, height=H,
+                                    alpha=0.5,
+                                    edgecolor='k',
+                                    linestyle='--')
+    ax_drawing.add_patch(design_box)
+
     ax_drawing.annotate('design\nregion', (0.5, 0.5), xytext=(0.0, 0.0),
                     xycoords='axes fraction',
                     textcoords='data',
                     size='small',
-                    color='w',
+                    color='k',
                     horizontalalignment='center',
                     verticalalignment='center')
     ax_drawing.annotate('linear', (0, 0), xytext=(3.5, 0.8),
@@ -124,6 +137,7 @@ def gen_fig1(eps):
                     verticalalignment='center')
 
 
+
     ax_drawing.get_xaxis().set_visible(False)
     ax_drawing.get_yaxis().set_visible(False)
     scalebar = AnchoredSizeBar(ax_drawing.transData,
@@ -134,6 +148,13 @@ def gen_fig1(eps):
                                size_vertical=0.3,
                                fontproperties=fontprops)
     ax_drawing.add_artist(scalebar)
+    ax_drawing.annotate('optimization definition', xy=(0.5, 0.5), xytext=(0.5, 0.94),
+                    xycoords='axes fraction',
+                    textcoords='axes fraction',
+                    size='medium',
+                    color='k',
+                    horizontalalignment='center',
+                    verticalalignment='center')
 
     # permittivity
     ax_eps = ax_top[1]
@@ -263,7 +284,7 @@ def gen_fig2(eps):
     # poor man's binarization
     # eps = eps_m*(eps > (eps_m/2 + 1/2)) + 1*(eps <= (eps_m/2 + 1/2))
 
-    _, design_region = two_port(L, H, w, l, spc, dl, NPML, eps_m)
+    eps_disp, design_region = two_port(L, H, w, l, spc, dl, NPML, eps_m)
 
     (Nx, Ny) = eps.shape
 
@@ -288,8 +309,8 @@ def gen_fig2(eps):
 
 
     # empty
-    eps_display = copy.deepcopy(eps)
-    eps_display[design_region==1] = eps_m
+    eps_display = copy.deepcopy(eps_disp)
+    # eps_display[design_region==1] = eps_m
     ax_drawing = ax_top[0]
     im = ax_drawing.pcolormesh(x_range, y_range, eps_display.T, cmap='Greys')
     ax_drawing.set_xlabel('x position ($\mu$m)')
@@ -305,15 +326,21 @@ def gen_fig2(eps):
     arrow_top = mpatches.FancyArrowPatch((tip_in, y_shift), (base_in, y_shift),
                                      mutation_scale=20, facecolor='#3366ff')
     ax_drawing.add_patch(arrow_top)
-    arrow_bot = mpatches.FancyArrowPatch((tip_in, -y_dist), (base_in-1.5, -y_dist),
+    arrow_bot = mpatches.FancyArrowPatch((tip_in, -y_dist), (base_in, -y_dist),
                                      mutation_scale=20, facecolor='#ff5050')
     ax_drawing.add_patch(arrow_bot)
 
-    ax_drawing.annotate('design\nregion', (0.5, 0.5), xytext=(0.0, 0.0),
+    design_box = mpatches.Rectangle(xy=(-L/2, -H/2), width=L, height=H,
+                                    alpha=0.5,
+                                    edgecolor='k',
+                                    linestyle='--')
+    ax_drawing.add_patch(design_box)
+
+    ax_drawing.annotate('design region', (0.5, 0.5), xytext=(0.0, 1.5),
                     xycoords='axes fraction',
                     textcoords='data',
                     size='small',
-                    color='w',
+                    color='k',
                     horizontalalignment='center',
                     verticalalignment='center')
     ax_drawing.annotate('linear', (0.5, 0.5), xytext=(5, 1),
@@ -331,10 +358,10 @@ def gen_fig2(eps):
                     horizontalalignment='left',
                     verticalalignment='center')
 
-    ax_drawing.annotate('X', (0.5, 0.5), xytext=(base_in-1.5, -y_dist-0.1),
+    ax_drawing.annotate('X', (0.5, 0.5), xytext=(base_in-2.5, -y_dist-0.1),
                     xycoords='axes fraction',
                     textcoords='data',
-                    size='small',
+                    size='large',
                     color='k',
                     fontweight='extra bold',
                     horizontalalignment='left',
@@ -350,6 +377,13 @@ def gen_fig2(eps):
                                size_vertical=0.3,
                                fontproperties=fontprops)
     ax_drawing.add_artist(scalebar)
+    ax_drawing.annotate('optimization definition', xy=(0.5, 0.5), xytext=(0.5, 0.94),
+                    xycoords='axes fraction',
+                    textcoords='axes fraction',
+                    size='medium',
+                    color='k',
+                    horizontalalignment='center',
+                    verticalalignment='center')
 
     # permittivity
     ax_eps = ax_top[1]
@@ -453,8 +487,8 @@ if __name__ == '__main__':
     fontprops = fm.FontProperties(size=scale_bar_font_size)
 
     # eps_3 = np.load('data/figs/data/3port_eps.npy')
-    # eps_3 = np.load('data/eps_r_final.npy')    
-    # gen_fig1(eps_3)
+    eps_3 = np.load('data/eps_r_final.npy')    
+    gen_fig1(eps_3)
 
     eps_2 = np.load('data/figs/data/2port_eps.npy')
     gen_fig2(eps_2)
