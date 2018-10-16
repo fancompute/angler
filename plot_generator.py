@@ -18,7 +18,6 @@ def apply_sublabels(axs, invert_color_inds, x=19, y=-5, size='large', ha='right'
             color='w'
         else:
             color='k'
-
         ax.annotate(prefix + ascii_lowercase[n] + postfix,
                     xy=(0, 1),
                     xytext=(x, y),
