@@ -270,8 +270,9 @@ def gen_fig2(eps):
     pol = 'Ez'                  # polarization (either 'Hz' or 'Ez')
     source_amp = 1.6            # amplitude of modal source (A/L0^2?)    L = 7           # length of box (L0)
 
-    L = 8         # length of box (L0)
-    H = 5         # height of box (L0)
+    # geometric parameters
+    L = 10         # length of box (L0)
+    H =  3         # height of box (L0)
     w = .3        # width of waveguides (L0)
     d = H/2.44    # distance between waveguides (L0)
     l = 4         # length of waveguide from PML to box (L0)
@@ -292,7 +293,7 @@ def gen_fig2(eps):
 
     # set the modal source and probes
     simulation = Simulation(omega, eps, dl, NPML, 'Ez')
-    simulation.add_mode(np.sqrt(eps_m), 'x', [NPML[0]+int(l/2/dl), ny], int(H/2/dl), scale=source_amp)
+    simulation.add_mode(np.sqrt(eps_m), 'x', [NPML[0]+int(l/2/dl), ny], int(3*H/dl), scale=source_amp)
     simulation.setup_modes()
 
     # add nonlinearity
@@ -316,9 +317,9 @@ def gen_fig2(eps):
     ax_drawing.set_xlabel('x position ($\mu$m)')
     ax_drawing.set_ylabel('y position ($\mu$m)')
     # ax_drawing.set_title('optimization setup')
-    base_in = 8.5
-    tip_in = 4.5
-    y_shift = 0.01
+    base_in = 9.5
+    tip_in = 5.5
+    y_shift = 0.05
     y_dist = 1.5
     arrow_in = mpatches.FancyArrowPatch((-base_in, y_shift), (-tip_in, y_shift),
                                      mutation_scale=20, facecolor='#cc99ff')
@@ -336,21 +337,21 @@ def gen_fig2(eps):
                                     linestyle='--')
     ax_drawing.add_patch(design_box)
 
-    ax_drawing.annotate('design region', (0.5, 0.5), xytext=(0.0, 1.5),
+    ax_drawing.annotate('design region', (0.5, 0.5), xytext=(0.0, 0.75),
                     xycoords='axes fraction',
                     textcoords='data',
                     size='small',
                     color='k',
                     horizontalalignment='center',
                     verticalalignment='center')
-    ax_drawing.annotate('linear', (0.5, 0.5), xytext=(5, 1),
+    ax_drawing.annotate('linear', (0.5, 0.5), xytext=(6, 1),
                     xycoords='axes fraction',
                     textcoords='data',
                     size='small',
                     color='k',
                     horizontalalignment='left',
                     verticalalignment='center')
-    ax_drawing.annotate('nonlinear', (0.5, 0.5), xytext=(5, -y_dist - 1),
+    ax_drawing.annotate('nonlinear', (0.5, 0.5), xytext=(6, -y_dist - 1),
                     xycoords='axes fraction',
                     textcoords='data',
                     size='small',
@@ -413,7 +414,7 @@ def gen_fig2(eps):
                     horizontalalignment='center',
                     verticalalignment='center')
 
-    vmin = 0.25
+    vmin = 0.6
     vmax = 100
 
     # linear fields
@@ -487,8 +488,8 @@ if __name__ == '__main__':
     fontprops = fm.FontProperties(size=scale_bar_font_size)
 
     # eps_3 = np.load('data/figs/data/3port_eps.npy')
-    eps_3 = np.load('data/eps_r_final.npy')    
-    gen_fig1(eps_3)
+    # eps_3 = np.load('data/eps_r_final.npy')    
+    # gen_fig1(eps_3)
 
     eps_2 = np.load('data/figs/data/2port_eps.npy')
     gen_fig2(eps_2)
