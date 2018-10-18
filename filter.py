@@ -113,7 +113,7 @@ def rho2eps(rho, eps_m, W, eta=0.5, beta=100):
 """" DERIVATIVE OPERATORS """
 
 
-def drhot_drho(W,):
+def drhot_drho(W):
     # derivative of filtered density with respect to design density
     return W
 
@@ -156,7 +156,9 @@ if __name__ == '__main__':
 
 
     RTs = np.linspace(0,1,1000)
+    num_grad = np.gradient(rhot2rhob(RTs, eta=0.5, beta=10), RTs[1]-RTs[0])
     plt.plot(RTs, drhob_drhot(RTs, eta=0.5, beta=10))
+    plt.plot(RTs, num_grad)
     plt.plot(RTs, rhot2rhob(RTs, eta=0.5, beta=10))
     plt.xlabel('\tilde{\rho}')
     plt.ylabel('\bar{\rho}')  
@@ -166,7 +168,7 @@ if __name__ == '__main__':
     # change in projected density with respect to filtered density
 
 
-    def draw_circle(Nx, Ny, R=10):
+    def circle(Nx, Ny, R=10):
 
         diffs = range(-R, R+1)
         N = Nx*Ny
@@ -197,45 +199,50 @@ if __name__ == '__main__':
                             val = R - dist(r1, r2)
 
                             if val > 0:
-                                circ[i2,j2] = val
-        plt.imshow(circ)
-        plt.show()
+                                circ[i2, j2] = val
+        return circ
 
-    draw_circle(Nx, Ny)
+    circ = circle(Nx, Ny, R=10)
+    im = plt.imshow(circ, cmap='inferno')
+    plt.colorbar()
+    plt.title('filter response on one central point')
+    plt.show()
 
-    # f1, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(5)
-    # im1 = ax1.imshow(rho)
-    # plt.colorbar(im1, ax=ax1)
-    # im2 = ax2.imshow(rhot)
-    # plt.colorbar(im2, ax=ax2)
-    # im3 = ax3.imshow(rhob)
-    # plt.colorbar(im3, ax=ax3)
-    # im4 = ax4.imshow(eps)
+    plt.clf()
+
+    f1, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(5)
+    im1 = ax1.imshow(rho)
+    plt.colorbar(im1, ax=ax1)
+    im2 = ax2.imshow(rhot)
+    plt.colorbar(im2, ax=ax2)
+    im3 = ax3.imshow(rhob)
+    plt.colorbar(im3, ax=ax3)
+    im4 = ax4.imshow(eps)
+    plt.colorbar(im4, ax=ax4)
+
+    eps_r = rho2eps(rho, eps_m, W, eta=0.5, beta=100)
+
+    im5 = ax5.imshow(eps_r)
+    plt.colorbar(im5, ax=ax5)
+    plt.show()
+
+    R = np.random.random((100, 100))
+    # R = np.zeros((Nx, Ny))
+    # R[Nx//2:Nx//2+5, Ny//2:Ny//2+5] = 1
+    eps = rho2eps(R, eps_m=eps_m, W=W, eta=0.5, beta=100)
+    plt.imshow(eps)
+    plt.show()
+
+    rhob = eps2rhob(eps, eps_m=eps_m)
+    rhot = rhob2rhot(rhob, eta=eta, beta=beta)
+
+    f1, (ax1, ax2, ax3, ax4) = plt.subplots(4)
+    im1 = ax1.imshow(eps)
+    plt.colorbar(im1, ax=ax1)
+    im2 = ax2.imshow(rhob)
+    plt.colorbar(im2, ax=ax2)
+    im3 = ax3.imshow(rhot)
+    plt.colorbar(im3, ax=ax3)
+    # im4 = ax4.imshow(rho)
     # plt.colorbar(im4, ax=ax4)
-
-    # eps_r = rho2eps(rho, eps_m, W, eta=0.5, beta=100)
-
-    # im5 = ax5.imshow(eps_r)
-    # plt.colorbar(im5, ax=ax5)
-    # plt.show()
-
-    # R = np.random.random((100, 100))
-    # # R = np.zeros((Nx, Ny))
-    # # R[Nx//2:Nx//2+5, Ny//2:Ny//2+5] = 1
-    # eps = rho2eps(R, eps_m=eps_m, W=W, eta=0.5, beta=100)
-    # plt.imshow(eps)
-    # plt.show()
-
-    # rhob = eps2rhob(eps, eps_m=eps_m)
-    # rhot = rhob2rhot(rhob, eta=eta, beta=beta)
-
-    # f1, (ax1, ax2, ax3, ax4) = plt.subplots(4)
-    # im1 = ax1.imshow(eps)
-    # plt.colorbar(im1, ax=ax1)
-    # im2 = ax2.imshow(rhob)
-    # plt.colorbar(im2, ax=ax2)
-    # im3 = ax3.imshow(rhot)
-    # plt.colorbar(im3, ax=ax3)
-    # # im4 = ax4.imshow(rho)
-    # # plt.colorbar(im4, ax=ax4)
-    # plt.show()    
+    plt.show()    

@@ -91,7 +91,7 @@ class Optimization():
         else:
             Ez_nl = simulation.fields_nl['Ez']
 
-        return self._grad_linear(Ez, Ez_nl)# + self._grad_nonlinear(Ez, Ez_nl)
+        return self._grad_linear(Ez, Ez_nl) + self._grad_nonlinear(Ez, Ez_nl)
 
     def _grad_linear(self, Ez, Ez_nl):
         """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
@@ -106,8 +106,8 @@ class Optimization():
         rho = self.simulation.rho
         rho_t = rho2rhot(rho, self.W)
         rho_b = rhot2rhob(rho_t, eta=self.eta, beta=self.beta)
-        eps_mat = (self.eps_m - 1)
 
+        eps_mat = (self.eps_m - 1)
         filt_mat = drhot_drho(self.W)
         proj_mat = drhob_drhot(rho_t, eta=self.eta, beta=self.beta)
 
@@ -116,7 +116,6 @@ class Optimization():
         Ez_proj = np.reshape(Ez_proj_vec, Ez.shape)
 
         return 1*np.real(Ez_aj * dAdeps * Ez_proj)
-
 
     def _grad_nonlinear(self, Ez, Ez_nl):
         """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
@@ -132,17 +131,16 @@ class Optimization():
         rho = self.simulation.rho
         rho_t = rho2rhot(rho, self.W)
         rho_b = rhot2rhob(rho_t, eta=self.eta, beta=self.beta)
-        eps_mat = (self.eps_m - 1)
 
+        eps_mat = (self.eps_m - 1)
         filt_mat = drhot_drho(self.W)
         proj_mat = drhob_drhot(rho_t, eta=self.eta, beta=self.beta)
 
-        Ez_vec = np.reshape(Ez, (-1,))
-        Ez_proj_vec = eps_mat * proj_mat * filt_mat.dot(Ez_vec)
-        Ez_proj = np.reshape(Ez_proj_vec, Ez.shape)
+        Ez_nl_vec = np.reshape(Ez_nl, (-1,))
+        Ez_nl_proj_vec = eps_mat * proj_mat * filt_mat.dot(Ez_nl_vec)
+        Ez_nl_proj = np.reshape(Ez_nl_proj_vec, Ez_nl.shape)
 
-        return 1*np.real(Ez_aj * dAnldeps * eps_mat * Ez_proj)
-
+        return 1*np.real(Ez_aj * dAnldeps * Ez_nl_proj)
 
     def check_deriv(self, Npts=5, d_rho=1e-3):
         """ Returns a list of analytical and numerical derivatives to check grad accuracy"""
