@@ -189,29 +189,6 @@ class Optimization():
 
         return avm_grads, num_grads
 
-
-    def _set_design_region(self, x, simulation, design_region):
-        """ Inserts a vector x into the design_region of simulation.eps_r"""
-
-        eps_vec = copy.deepcopy(np.ndarray.flatten(simulation.eps_r))
-        des_vec = np.ndarray.flatten(design_region)
-
-        # Only update the permittivity if it actually differs from the current one 
-        # If it doesn't, we don't want to erase the stored fields
-
-        if np.linalg.norm(x - eps_vec[des_vec == 1])/np.linalg.norm(x) > 1e-10:
-            eps_vec[des_vec == 1] = x
-            eps_new = np.reshape(eps_vec, simulation.eps_r.shape)
-            simulation.eps_r = eps_new
-
-    def _get_design_region(self, spatial_array, design_region):
-        """ Returns a vector of the elements of spatial_array that are in design_region"""
-
-        spatial_vec = copy.deepcopy(np.ndarray.flatten(spatial_array))
-        des_vec = np.ndarray.flatten(design_region)
-        x = spatial_vec[des_vec == 1]
-        return x
-
     def _make_progressbar(self, N):
         """ Returns a progressbar to use during optimization"""
 
@@ -317,30 +294,23 @@ class Optimization():
 
         pbar = self._make_progressbar(self.Nsteps)
 
-        def _objfn(x, *argv):
+        def _objfn(rho, *argv):
             """ Returns objective function given some permittivity distribution"""
 
-            rho_bar = rho2rho_bar(x)
-            eps = rho_bar2eps(rho_bar, self.eps_max)
-
-            self._set_design_region(eps, self.simulation, self.design_region)
+            self._set_design_region(rho)
             J = self.compute_J(self.simulation)
 
             # return minus J because we technically will minimize
             return -J
 
-        def _grad(x,  *argv):
+        def _grad(rho,  *argv):
             """ Returns full grad given some permittivity distribution"""
-            # make a simulation copy
 
-            rho_bar = rho2rho_bar(x)
-            eps = rho_bar2eps(rho_bar, self.eps_max)
-
-            self._set_design_region(eps, self.simulation, self.design_region)
+            self._set_design_region(rho)
 
             # compute grad, extract design region, turn into vector, return
             grad = self.compute_dJ(self.simulation, self.design_region)
-            grad_vec = self._get_design_region(grad, self.design_region)
+            grad_vec = self._get_design_region(grad)
 
             return -grad_vec
 
@@ -351,32 +321,54 @@ class Optimization():
 
         def _update_iter_count(x_current):
             J = self.compute_J(self.simulation)
-            # pbar.update(iter_list[0], ObjectiveFn=J)
             self._update_progressbar(pbar, iter_list[0], J)
-
             iter_list[0] += 1
             self.objfn_list.append(J)
-            self._set_design_region(x_current, self.simulation, self.design_region)
+            self._set_design_region(x_current)
             self._set_source_amplitude()
 
-        # set up bounds on epsilon ((1, eps_m), (1, eps_m), ... ) for each grid in design region
-        eps_bounds = tuple([(1, self.eps_max) for _ in range(np.sum(self.design_region == 1))])
-        rho_bounds = tuple([(0, 1) for _ in range(np.sum(self.design_region == 1))])
+        N_des = np.sum(self.design_region == 1)              # num points in design region
+        rho_bounds = tuple([(0, 1) for _ in range(N_des)])   # bounds on rho {0, 1}
 
         # start eps off with the one currently within design region
-        eps0 = self._get_design_region(self.simulation.eps_r, self.design_region)
-        rho_bar0 = eps2rho_bar(eps0, eps_m)
-        eps0 = rho_bar2eps(rho_bar, self.eps_max)
+        rho = copy.deepcopy(self.simulation.rho)
+        rho0 = self._get_design_region(rho)
+        rho0 = np.reshape(rho0, (-1,))
 
         # minimize
-        (x, _, _) = fmin_l_bfgs_b(_objfn, x0, fprime=_grad, args=(), approx_grad=0,
-                            bounds=eps_bounds, m=10, factr=100,
-                            pgtol=1e-08, epsilon=1e-08, iprint=-1,
+        (rho_final, _, _) = fmin_l_bfgs_b(_objfn, rho0, fprime=_grad, args=(), approx_grad=0,
+                            bounds=rho_bounds, m=10, factr=10,
+                            pgtol=1e-15, epsilon=1e-08, iprint=-1,
                             maxfun=15000, maxiter=self.Nsteps, disp=self.verbose,
                             callback=_update_iter_count, maxls=20)
 
         # finally, set the simulation permittivity to that found via optimization
-        self._set_design_region(x, self.simulation, self.design_region)
+        self._set_design_region(rho_final)
+
+    def _set_design_region(self, x):
+        """ Inserts a vector x into design region of simulation.rho """
+
+        rho_vec = np.reshape(copy.deepcopy(self.simulation.rho), (-1,))
+        des_vec = np.reshape(self.design_region, (-1,))
+
+        # Only update the rho if it actually differs from the current one
+        # If it doesn't, we don't want to erase the stored fields
+
+        if np.linalg.norm(x - rho_vec[des_vec == 1])/np.linalg.norm(x) > 1e-10:
+            rho_vec[des_vec == 1] = x
+            rho_new = np.reshape(rho_vec, self.simulation.rho.shape)
+            self.simulation.rho = rho_new
+            eps_new = rho2eps(rho=rho_new, eps_m=self.eps_m, W=self.W,
+                              eta=self.eta, beta=self.beta)
+            self.simulation.eps_r = eps_new
+
+    def _get_design_region(self, spatial_array):
+        """ Returns a vector of the elements of spatial_array that are in design_region"""
+
+        spatial_vec = copy.deepcopy(np.ndarray.flatten(spatial_array))
+        des_vec = np.ndarray.flatten(self.design_region)
+        x = spatial_vec[des_vec == 1]
+        return x
 
     def _set_source_amplitude(self, epsilon=1e-2, N=1):
         """ If max_index_shift specified, sets the self.simulation.src amplitude
