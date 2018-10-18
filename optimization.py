@@ -1,38 +1,49 @@
 import sys
 sys.path.append(".")
 
-from adjoint import gradient, rho_bar2eps, rho2rho_bar, eps2rho_bar
+from adjoint import adjoint_linear, adjoint_nonlinear
 
 import numpy as np
 import copy
 import progressbar
 import matplotlib.pylab as plt
 from scipy.optimize import minimize, fmin_l_bfgs_b
+from fdfdpy.constants import *
 from autograd import grad
+from filter import (eps2rho, rho2eps, get_W, deps_drhob, drhob_drhot,
+                    drhot_drho, rho2rhot, drhot_drho, rhot2rhob)
+
 
 class Optimization():
 
-    def __init__(self, J=None, Nsteps=100, eps_max=5, field_start='linear', nl_solver='newton',
-                 max_ind_shift=None):
+    def __init__(self, J=None, simulation=None, design_region=None, eps_m=5,
+                 R=5, eta=0.5, beta=100,
+                 field_start='linear', nl_solver='newton', max_ind_shift=None):
 
         self._J = J
-        self.Nsteps = Nsteps
-        self.eps_max = eps_max
+        self.simulation = simulation
+        self.design_region = design_region
+
+        self.eps_m = eps_m
+        self.R = R
+
+        (Nx, Ny) = self.simulation.eps_r.shape
+        self.W = get_W(Nx, Ny, self.design_region, self.R)
+        self.eta = eta
+        self.beta = beta
+
         self.field_start = field_start
         self.nl_solver = nl_solver
         self.max_ind_shift = max_ind_shift
+
         self.src_amplitudes = []
         self.objfn_list = []
 
+        self.mopt = np.zeros((Nx, Ny))
+        self.vopt = np.zeros((Nx, Ny))
+
         # compute the jacobians of J and store these
         self.dJ = self._autograd_dJ(J)
-
-    def __repr__(self):
-        return "Optimization(Nsteps={}, eps_max={}, J={}, field_start={}, nl_solver={})".format(
-            self.Nsteps, self.eps_max, self.J, self.field_start, self.nl_solver)
-
-    def __str__(self):
-        return self.__repr__()
 
     @property
     def J(self):
@@ -49,8 +60,7 @@ class Optimization():
         # note: eventually want to check whether J has eps_nl argument, then switch between linear and nonlinear depending.
         dJ = {}
         dJ['lin'] = grad(J, 0)
-        dJ['nl']  = grad(J, 1)
-        dJ['eps'] = grad(J, 2)
+        dJ['nl'] = grad(J, 1)
         return dJ
 
     def compute_J(self, simulation):
@@ -61,13 +71,12 @@ class Optimization():
         else:
             Ez = simulation.fields['Ez']
 
-        if simulation.fields_nl['Ez'] is None:  
+        if simulation.fields_nl['Ez'] is None:
             (_, _, Ez_nl, _) = simulation.solve_fields_nl()
         else:
             Ez_nl = simulation.fields_nl['Ez']
 
-        eps = simulation.eps_r
-        return self.J(Ez, Ez_nl, eps)
+        return self.J(Ez, Ez_nl)
 
     def compute_dJ(self, simulation, design_region):
         """ Returns the current grad of a simulation"""
@@ -77,13 +86,117 @@ class Optimization():
         else:
             Ez = simulation.fields['Ez']
 
-        if simulation.fields_nl['Ez'] is None:  
+        if simulation.fields_nl['Ez'] is None:
             (_, _, Ez_nl, _) = simulation.solve_fields_nl()
         else:
             Ez_nl = simulation.fields_nl['Ez']
 
-        arguments = (Ez, Ez_nl, simulation.eps_r)
-        return gradient(simulation, self.dJ, design_region, arguments, eps_m=self.eps_max)
+        return self._grad_linear(Ez, Ez_nl)# + self._grad_nonlinear(Ez, Ez_nl)
+
+    def _grad_linear(self, Ez, Ez_nl):
+        """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
+
+        b_aj = -self.dJ['lin'](Ez, Ez_nl)
+        Ez_aj = adjoint_linear(self.simulation, b_aj)
+
+        EPSILON_0_ = EPSILON_0*self.simulation.L0
+        omega = self.simulation.omega
+        dAdeps = self.design_region*omega**2*EPSILON_0_
+
+        rho = self.simulation.rho
+        rho_t = rho2rhot(rho, self.W)
+        rho_b = rhot2rhob(rho_t, eta=self.eta, beta=self.beta)
+        eps_mat = (self.eps_m - 1)
+
+        filt_mat = drhot_drho(self.W)
+        proj_mat = drhob_drhot(rho_t, eta=self.eta, beta=self.beta)
+
+        Ez_vec = np.reshape(Ez, (-1,))
+        Ez_proj_vec = eps_mat * proj_mat * filt_mat.dot(Ez_vec)
+        Ez_proj = np.reshape(Ez_proj_vec, Ez.shape)
+
+        return 1*np.real(Ez_aj * dAdeps * Ez_proj)
+
+
+    def _grad_nonlinear(self, Ez, Ez_nl):
+        """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
+
+        b_aj = -self.dJ['nl'](Ez, Ez_nl)
+        Ez_aj = adjoint_nonlinear(self.simulation, b_aj)
+
+        EPSILON_0_ = EPSILON_0*self.simulation.L0
+        omega = self.simulation.omega
+        dAdeps = self.design_region*omega**2*EPSILON_0_
+        dAnldeps = dAdeps + self.design_region*omega**2*EPSILON_0_*self.simulation.dnl_deps
+
+        rho = self.simulation.rho
+        rho_t = rho2rhot(rho, self.W)
+        rho_b = rhot2rhob(rho_t, eta=self.eta, beta=self.beta)
+        eps_mat = (self.eps_m - 1)
+
+        filt_mat = drhot_drho(self.W)
+        proj_mat = drhob_drhot(rho_t, eta=self.eta, beta=self.beta)
+
+        Ez_vec = np.reshape(Ez, (-1,))
+        Ez_proj_vec = eps_mat * proj_mat * filt_mat.dot(Ez_vec)
+        Ez_proj = np.reshape(Ez_proj_vec, Ez.shape)
+
+        return 1*np.real(Ez_aj * dAnldeps * eps_mat * Ez_proj)
+
+
+    def check_deriv(self, Npts=5, d_rho=1e-3):
+        """ Returns a list of analytical and numerical derivatives to check grad accuracy"""
+
+        self.simulation.eps_r = self.simulation.eps_r
+        self.simulation.solve_fields()
+        self.simulation.solve_fields_nl()
+
+        # solve for the linear fields and grad of the linear objective function
+        grad_avm = self.compute_dJ(self.simulation, self.design_region)
+        J_orig = self.compute_J(self.simulation)
+
+        avm_grads = []
+        num_grads = []
+
+        # for a number of points
+        for _ in range(Npts):
+
+            # pick a random point within the design region
+            x, y = np.where(self.design_region == 1)
+            i = np.random.randint(len(x))
+            pt = [x[i], y[i]]
+
+            # create a new, perturbed permittivity
+            rho_new = copy.deepcopy(self.simulation.rho)
+            rho_new[pt[0], pt[1]] += d_rho
+
+            # make a copy of the current simulation
+            sim_new = copy.deepcopy(self.simulation)
+            eps_new = rho2eps(rho=rho_new, eps_m=self.eps_m, W=self.W,
+                              eta=self.eta, beta=self.beta)
+
+            sim_new.rho = rho_new
+            sim_new.eps_r = eps_new
+
+            sim_new.solve_fields()
+            sim_new.solve_fields_nl()
+
+            # plt.imshow(np.abs(sim_new.fields['Ez']))
+            # plt.imshow(eps_new)
+            # plt.show()
+
+            # solve for the fields with this new permittivity
+            J_new = self.compute_J(sim_new)
+
+            # compute the numerical grad
+            grad_num = (J_new - J_orig) / d_rho
+
+            # append both grads to lists
+            avm_grads.append(grad_avm[pt[0], pt[1]])
+            num_grads.append(grad_num)
+
+        return avm_grads, num_grads
+
 
     def _set_design_region(self, x, simulation, design_region):
         """ Inserts a vector x into the design_region of simulation.eps_r"""
@@ -139,13 +252,17 @@ class Optimization():
         else:
             pbar.update(iteration, ObjectiveFn=J)
 
-    def run(self, simulation, design_region, method='LBFGS', step_size=0.1,
-            beta1=0.9, beta2=0.999, verbose=True):
+    def run(self, method='LBFGS', Nsteps=100, step_size=0.1,
+            beta1=0.9, beta2=0.999, eta=0.5, beta=100, R=5, verbose=True):
         """ Runs an optimization."""
 
-        self.simulation = simulation
-        self.design_region = design_region
+        self.Nsteps = Nsteps
         self.verbose = verbose
+
+        # get the material density from the simulation if only the first time being run
+        if self.simulation.rho is None:
+            eps = copy.deepcopy(self.simulation.eps_r)
+            self.simulation.rho = eps2rho(eps)
 
         allowed = ['LBFGS', 'GD', 'ADAM']
 
@@ -170,14 +287,14 @@ class Optimization():
 
             J = self.compute_J(self.simulation)
             self.objfn_list.append(J)
-            # pbar.update(iteration, ObjectiveFn=J)
+
             self._update_progressbar(pbar, iteration, J)
 
             self._set_source_amplitude()
 
             grad = self.compute_dJ(self.simulation, self.design_region)
 
-            self._update_permittivity(grad, step_size)
+            self._update_rho(grad, step_size)
 
     def _run_ADAM(self, step_size, beta1, beta2):
         """ Performs simple grad descent optimization"""
@@ -188,20 +305,16 @@ class Optimization():
 
             J = self.compute_J(self.simulation)
             self.objfn_list.append(J)
-            # pbar.update(iteration, ObjectiveFn=J)
+
             self._update_progressbar(pbar, iteration, J)
 
             self._set_source_amplitude()
 
             grad = self.compute_dJ(self.simulation, self.design_region)
 
-            if iteration == 0:
-                mopt = np.zeros(grad.shape)
-                vopt = np.zeros(grad.shape)
+            grad_adam = self._step_adam(grad, iteration, beta1, beta2)
 
-            (grad_adam, mopt, vopt) = self._step_adam(grad, mopt, vopt, iteration, beta1, beta2,)
-
-            self._update_permittivity(grad_adam, step_size)
+            self._update_rho(grad_adam, step_size)
 
     def _run_LBFGS(self):
         """Performs L-BFGS Optimization of objective function w.r.t. eps_r"""
@@ -307,60 +420,30 @@ class Optimization():
         # reset the epsilon of the simulation
         self.simulation.eps_r = eps_new
 
-        return eps_new
+    def _update_rho(self, grad, step_size):
+        """ Manually updates the permittivity with the grad info """
 
-    def _step_adam(self, grad, mopt_old, vopt_old, iteration, beta1, beta2, epsilon=1e-8):
+        self.simulation.rho = self.simulation.rho + self.design_region * step_size * grad
+        self.simulation.rho[self.simulation.rho < 0] = 0
+        self.simulation.rho[self.simulation.rho > 1] = 1
+
+        self.simulation.eps_r = rho2eps(self.simulation.rho, self.eps_m, self.W,
+                                        eta=self.eta, beta=self.beta)
+
+
+    def _step_adam(self, grad, iteration, beta1, beta2, epsilon=1e-8):
         """ Performs one step of adam optimization"""
 
-        mopt = beta1 * mopt_old + (1 - beta1) * grad
+        mopt = beta1 * self.mopt + (1 - beta1) * grad
         mopt_t = mopt / (1 - beta1**(iteration + 1))
-        vopt = beta2 * vopt_old + (1 - beta2) * (np.square(grad))
+        vopt = beta2 * self.vopt + (1 - beta2) * (np.square(grad))
         vopt_t = vopt / (1 - beta2**(iteration + 1))
         grad_adam = mopt_t / (np.sqrt(vopt_t) + epsilon)
 
-        return (grad_adam, mopt, vopt)
+        self.mopt = mopt
+        self.vopt = vopt
 
-    def check_deriv(self, simulation, design_region, Npts=5, d_rho=1e-3):
-        """ Returns a list of analytical and numerical derivatives to check grad accuracy"""
-
-        # make copy of original epsilon
-        eps_orig = copy.deepcopy(simulation.eps_r)
-        rho_orig = 
-
-        # solve for the linear fields and grad of the linear objective function
-        grad_avm = self.compute_dJ(simulation, design_region)
-        J_orig = self.compute_J(simulation)
-
-        avm_grads = []
-        num_grads = []
-
-        # for a number of points
-        for _ in range(Npts):
-
-            # pick a random point within the design region
-            x, y = np.where(design_region == 1)
-            i = np.random.randint(len(x))
-            pt = [x[i], y[i]]
-
-            # create a new, perturbed permittivity
-            eps_new = copy.deepcopy(simulation.eps_r)
-            eps_new[pt[0], pt[1]] += d_eps
-
-            # make a copy of the current simulation
-            sim_new = copy.deepcopy(simulation)
-            sim_new.eps_r = eps_new
-
-            # solve for the fields with this new permittivity
-            J_new = self.compute_J(sim_new)
-
-            # compute the numerical grad
-            grad_num = (J_new - J_orig)/d_eps
-
-            # append both grads to lists
-            avm_grads.append(grad_avm[pt[0], pt[1]])
-            num_grads.append(grad_num)
-
-        return avm_grads, num_grads
+        return grad_adam
 
     def plt_objs(self, norm=None, ax=None):
         """ Plots objective function vs. iteration"""
@@ -483,4 +566,3 @@ class Optimization():
         if legend is not None:
             plt.legend(legend)
         plt.show()
-
