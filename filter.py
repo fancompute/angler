@@ -17,7 +17,7 @@ def sub2ind(array_shape, rows, cols):
 
 def get_W(Nx, Ny, design_region, R=10):
 
-    diffs = range(-R//2, R//2+1)
+    diffs = range(-R, R+1)
     N = Nx*Ny
 
     row_indeces = []
@@ -30,12 +30,12 @@ def get_W(Nx, Ny, design_region, R=10):
 
             row_index = sub2ind((Nx, Ny), i1, j1)
 
-            if i1 <= R//2 or i1 >= Nx-R//2-1:
+            if i1 <= R or i1 >= Nx-R-1:
                 pass
-                row_indeces.append(row_index)
-                col_indeces.append(row_index)
-                vals.append(R)
-            elif j1 <= R//2 or j1 >= Ny-R//2-1:
+                # row_indeces.append(row_index)
+                # col_indeces.append(row_index)
+                # vals.append(R)
+            elif j1 <= R or j1 >= Ny-R-1:
                 pass
                 # row_indeces.append(row_index)
                 # col_indeces.append(row_index)
@@ -158,10 +158,50 @@ if __name__ == '__main__':
     RTs = np.linspace(0,1,1000)
     plt.plot(RTs, drhob_drhot(RTs, eta=0.5, beta=10))
     plt.plot(RTs, rhot2rhob(RTs, eta=0.5, beta=10))
+    plt.xlabel('\tilde{\rho}')
+    plt.ylabel('\bar{\rho}')  
+    plt.legend(('projection', 'derivative'))
     plt.show()
 
     # change in projected density with respect to filtered density
 
+
+    def draw_circle(Nx, Ny, R=10):
+
+        diffs = range(-R, R+1)
+        N = Nx*Ny
+
+        circ = np.zeros((Nx, Ny))
+
+        for i1 in range(Nx//2, Nx//2+1):
+            for j1 in range(Ny//2, Ny//2+1):
+                r1 = np.array([i1, j1])
+
+                if i1 <= R or i1 >= Nx-R-1:
+                    pass
+                    # row_indeces.append(row_index)
+                    # col_indeces.append(row_index)
+                    # vals.append(R)
+                elif j1 <= R or j1 >= Ny-R-1:
+                    pass
+                    # row_indeces.append(row_index)
+                    # col_indeces.append(row_index)
+                    # vals.append(R)
+                else:
+                    for i_diff in diffs:
+                        i2 = i1 + i_diff
+                        for j_diff in diffs:
+                            j2 = j1 + j_diff
+                            r2 = np.array([i2, j2])
+
+                            val = R - dist(r1, r2)
+
+                            if val > 0:
+                                circ[i2,j2] = val
+        plt.imshow(circ)
+        plt.show()
+
+    draw_circle(Nx, Ny)
 
     # f1, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(5)
     # im1 = ax1.imshow(rho)

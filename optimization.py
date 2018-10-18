@@ -28,7 +28,7 @@ class Optimization():
         self.R = R
 
         (Nx, Ny) = self.simulation.eps_r.shape
-        self.W = get_W(Nx, Ny, self.design_region, self.R)
+        self.W = get_W(Nx, Ny, self.design_region, R=self.R)
         self.eta = eta
         self.beta = beta
 
@@ -147,7 +147,8 @@ class Optimization():
     def check_deriv(self, Npts=5, d_rho=1e-3):
         """ Returns a list of analytical and numerical derivatives to check grad accuracy"""
 
-        self.simulation.eps_r = self.simulation.eps_r
+        self.simulation.eps_r = rho2eps(rho=self.simulation.rho, eps_m=self.eps_m, W=self.W,
+                                        eta=self.eta, beta=self.beta)
         self.simulation.solve_fields()
         self.simulation.solve_fields_nl()
 
@@ -180,10 +181,6 @@ class Optimization():
 
             sim_new.solve_fields()
             sim_new.solve_fields_nl()
-
-            # plt.imshow(np.abs(sim_new.fields['Ez']))
-            # plt.imshow(eps_new)
-            # plt.show()
 
             # solve for the fields with this new permittivity
             J_new = self.compute_J(sim_new)
@@ -253,7 +250,7 @@ class Optimization():
             pbar.update(iteration, ObjectiveFn=J)
 
     def run(self, method='LBFGS', Nsteps=100, step_size=0.1,
-            beta1=0.9, beta2=0.999, eta=0.5, beta=100, R=5, verbose=True):
+            beta1=0.9, beta2=0.999, verbose=True):
         """ Runs an optimization."""
 
         self.Nsteps = Nsteps
