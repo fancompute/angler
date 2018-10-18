@@ -39,9 +39,6 @@ class Optimization():
         self.src_amplitudes = []
         self.objfn_list = []
 
-        self.mopt = np.zeros((Nx, Ny))
-        self.vopt = np.zeros((Nx, Ny))
-
         # compute the jacobians of J and store these
         self.dJ = self._autograd_dJ(J)
 
@@ -300,14 +297,18 @@ class Optimization():
 
             J = self.compute_J(self.simulation)
             self.objfn_list.append(J)
-
+            # pbar.update(iteration, ObjectiveFn=J)
             self._update_progressbar(pbar, iteration, J)
 
             self._set_source_amplitude()
 
             grad = self.compute_dJ(self.simulation, self.design_region)
 
-            grad_adam = self._step_adam(grad, iteration, beta1, beta2)
+            if iteration == 0:
+                mopt = np.zeros(grad.shape)
+                vopt = np.zeros(grad.shape)
+
+            (grad_adam, mopt, vopt) = self._step_adam(grad, mopt, vopt, iteration, beta1, beta2,)
 
             self._update_rho(grad_adam, step_size)
 
@@ -426,19 +427,18 @@ class Optimization():
                                         eta=self.eta, beta=self.beta)
 
 
-    def _step_adam(self, grad, iteration, beta1, beta2, epsilon=1e-8):
+
+    def _step_adam(self, gradient, mopt_old, vopt_old, iteration, beta1, beta2, epsilon=1e-8):
         """ Performs one step of adam optimization"""
 
-        mopt = beta1 * self.mopt + (1 - beta1) * grad
+        mopt = beta1 * mopt_old + (1 - beta1) * gradient
         mopt_t = mopt / (1 - beta1**(iteration + 1))
-        vopt = beta2 * self.vopt + (1 - beta2) * (np.square(grad))
+        vopt = beta2 * vopt_old + (1 - beta2) * (np.square(gradient))
         vopt_t = vopt / (1 - beta2**(iteration + 1))
         grad_adam = mopt_t / (np.sqrt(vopt_t) + epsilon)
 
-        self.mopt = mopt
-        self.vopt = vopt
+        return (grad_adam, mopt, vopt)
 
-        return grad_adam
 
     def plt_objs(self, norm=None, ax=None):
         """ Plots objective function vs. iteration"""
