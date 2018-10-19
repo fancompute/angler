@@ -39,9 +39,6 @@ class Optimization():
         self.src_amplitudes = []
         self.objfn_list = []
 
-        self.mopt = np.zeros((Nx, Ny))
-        self.vopt = np.zeros((Nx, Ny))
-
         # compute the jacobians of J and store these
         self.dJ = self._autograd_dJ(J)
 
@@ -91,7 +88,31 @@ class Optimization():
         else:
             Ez_nl = simulation.fields_nl['Ez']
 
-        return self._grad_linear(Ez, Ez_nl)# + self._grad_nonlinear(Ez, Ez_nl)
+        return self._grad_linear(Ez, Ez_nl) + self._grad_nonlinear(Ez, Ez_nl)
+
+    # def _grad_linear(self, Ez, Ez_nl):
+    #     """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
+
+    #     b_aj = -self.dJ['lin'](Ez, Ez_nl)
+    #     Ez_aj = adjoint_linear(self.simulation, b_aj)
+
+    #     EPSILON_0_ = EPSILON_0*self.simulation.L0
+    #     omega = self.simulation.omega
+    #     dAdeps = self.design_region*omega**2*EPSILON_0_
+
+    #     rho = self.simulation.rho
+    #     rho_t = rho2rhot(rho, self.W)
+    #     rho_b = rhot2rhob(rho_t, eta=self.eta, beta=self.beta)
+
+    #     eps_mat = (self.eps_m - 1)
+    #     filt_mat = drhot_drho(self.W)
+    #     proj_mat = drhob_drhot(rho_t, eta=self.eta, beta=self.beta)
+
+    #     Ez_vec = np.reshape(Ez, (-1,))
+    #     Ez_proj_vec = eps_mat * proj_mat * filt_mat.dot(Ez_vec)
+    #     Ez_proj = np.reshape(Ez_proj_vec, Ez.shape)
+
+    #     return 1*np.real(Ez_aj * dAdeps * Ez_proj)
 
     def _grad_linear(self, Ez, Ez_nl):
         """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
@@ -112,17 +133,20 @@ class Optimization():
         proj_mat = drhob_drhot(rho_t, eta=self.eta, beta=self.beta)
 
         Ez_vec = np.reshape(Ez, (-1,))
-        Ez_proj_vec = eps_mat * proj_mat * filt_mat.dot(Ez_vec)
-        Ez_proj = np.reshape(Ez_proj_vec, Ez.shape)
 
-        return 1*np.real(Ez_aj * dAdeps * Ez_proj)
+        dAdeps_vec = np.reshape(dAdeps, (-1,))
+        dfdrho = eps_mat*filt_mat.multiply(Ez_vec*proj_mat*dAdeps_vec)
+        Ez_aj_vec = np.reshape(Ez_aj, (-1,))
+        sensitivity_vec = dfdrho.dot(Ez_aj_vec)        
 
+        return 1*np.real(np.reshape(sensitivity_vec, rho.shape))
 
     def _grad_nonlinear(self, Ez, Ez_nl):
         """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
 
         b_aj = -self.dJ['nl'](Ez, Ez_nl)
         Ez_aj = adjoint_nonlinear(self.simulation, b_aj)
+        self.simulation.compute_nl(Ez_nl)
 
         EPSILON_0_ = EPSILON_0*self.simulation.L0
         omega = self.simulation.omega
@@ -137,12 +161,10 @@ class Optimization():
         filt_mat = drhot_drho(self.W)
         proj_mat = drhob_drhot(rho_t, eta=self.eta, beta=self.beta)
 
-        Ez_vec = np.reshape(Ez, (-1,))
-        Ez_proj_vec = eps_mat * proj_mat * filt_mat.dot(Ez_vec)
-        Ez_proj = np.reshape(Ez_proj_vec, Ez.shape)
+        Ez_vec = np.reshape(Ez_nl, (-1,))
 
-        return 1*np.real(Ez_aj * dAnldeps * eps_mat * Ez_proj)
-
+        dfdrho = eps_mat*filt_mat.multiply(Ez_vec*proj_mat*np.reshape(dAnldeps, (-1,)))
+        return 1*np.real(np.reshape(dfdrho.dot(np.reshape(Ez_aj, (-1,))), rho.shape))
 
     def check_deriv(self, Npts=5, d_rho=1e-3):
         """ Returns a list of analytical and numerical derivatives to check grad accuracy"""
@@ -193,29 +215,6 @@ class Optimization():
             num_grads.append(grad_num)
 
         return avm_grads, num_grads
-
-
-    def _set_design_region(self, x, simulation, design_region):
-        """ Inserts a vector x into the design_region of simulation.eps_r"""
-
-        eps_vec = copy.deepcopy(np.ndarray.flatten(simulation.eps_r))
-        des_vec = np.ndarray.flatten(design_region)
-
-        # Only update the permittivity if it actually differs from the current one 
-        # If it doesn't, we don't want to erase the stored fields
-
-        if np.linalg.norm(x - eps_vec[des_vec == 1])/np.linalg.norm(x) > 1e-10:
-            eps_vec[des_vec == 1] = x
-            eps_new = np.reshape(eps_vec, simulation.eps_r.shape)
-            simulation.eps_r = eps_new
-
-    def _get_design_region(self, spatial_array, design_region):
-        """ Returns a vector of the elements of spatial_array that are in design_region"""
-
-        spatial_vec = copy.deepcopy(np.ndarray.flatten(spatial_array))
-        des_vec = np.ndarray.flatten(design_region)
-        x = spatial_vec[des_vec == 1]
-        return x
 
     def _make_progressbar(self, N):
         """ Returns a progressbar to use during optimization"""
@@ -302,14 +301,18 @@ class Optimization():
 
             J = self.compute_J(self.simulation)
             self.objfn_list.append(J)
-
+            # pbar.update(iteration, ObjectiveFn=J)
             self._update_progressbar(pbar, iteration, J)
 
             self._set_source_amplitude()
 
             grad = self.compute_dJ(self.simulation, self.design_region)
 
-            grad_adam = self._step_adam(grad, iteration, beta1, beta2)
+            if iteration == 0:
+                mopt = np.zeros(grad.shape)
+                vopt = np.zeros(grad.shape)
+
+            (grad_adam, mopt, vopt) = self._step_adam(grad, mopt, vopt, iteration, beta1, beta2,)
 
             self._update_rho(grad_adam, step_size)
 
@@ -318,30 +321,23 @@ class Optimization():
 
         pbar = self._make_progressbar(self.Nsteps)
 
-        def _objfn(x, *argv):
+        def _objfn(rho, *argv):
             """ Returns objective function given some permittivity distribution"""
 
-            rho_bar = rho2rho_bar(x)
-            eps = rho_bar2eps(rho_bar, self.eps_max)
-
-            self._set_design_region(eps, self.simulation, self.design_region)
+            self._set_design_region(rho)
             J = self.compute_J(self.simulation)
 
             # return minus J because we technically will minimize
             return -J
 
-        def _grad(x,  *argv):
+        def _grad(rho,  *argv):
             """ Returns full grad given some permittivity distribution"""
-            # make a simulation copy
 
-            rho_bar = rho2rho_bar(x)
-            eps = rho_bar2eps(rho_bar, self.eps_max)
-
-            self._set_design_region(eps, self.simulation, self.design_region)
+            self._set_design_region(rho)
 
             # compute grad, extract design region, turn into vector, return
             grad = self.compute_dJ(self.simulation, self.design_region)
-            grad_vec = self._get_design_region(grad, self.design_region)
+            grad_vec = self._get_design_region(grad)
 
             return -grad_vec
 
@@ -352,32 +348,54 @@ class Optimization():
 
         def _update_iter_count(x_current):
             J = self.compute_J(self.simulation)
-            # pbar.update(iter_list[0], ObjectiveFn=J)
             self._update_progressbar(pbar, iter_list[0], J)
-
             iter_list[0] += 1
             self.objfn_list.append(J)
-            self._set_design_region(x_current, self.simulation, self.design_region)
+            self._set_design_region(x_current)
             self._set_source_amplitude()
 
-        # set up bounds on epsilon ((1, eps_m), (1, eps_m), ... ) for each grid in design region
-        eps_bounds = tuple([(1, self.eps_max) for _ in range(np.sum(self.design_region == 1))])
-        rho_bounds = tuple([(0, 1) for _ in range(np.sum(self.design_region == 1))])
+        N_des = np.sum(self.design_region == 1)              # num points in design region
+        rho_bounds = tuple([(0, 1) for _ in range(N_des)])   # bounds on rho {0, 1}
 
         # start eps off with the one currently within design region
-        eps0 = self._get_design_region(self.simulation.eps_r, self.design_region)
-        rho_bar0 = eps2rho_bar(eps0, eps_m)
-        eps0 = rho_bar2eps(rho_bar, self.eps_max)
+        rho = copy.deepcopy(self.simulation.rho)
+        rho0 = self._get_design_region(rho)
+        rho0 = np.reshape(rho0, (-1,))
 
         # minimize
-        (x, _, _) = fmin_l_bfgs_b(_objfn, x0, fprime=_grad, args=(), approx_grad=0,
-                            bounds=eps_bounds, m=10, factr=100,
-                            pgtol=1e-08, epsilon=1e-08, iprint=-1,
+        (rho_final, _, _) = fmin_l_bfgs_b(_objfn, rho0, fprime=_grad, args=(), approx_grad=0,
+                            bounds=rho_bounds, m=10, factr=10,
+                            pgtol=1e-15, epsilon=1e-08, iprint=-1,
                             maxfun=15000, maxiter=self.Nsteps, disp=self.verbose,
                             callback=_update_iter_count, maxls=20)
 
         # finally, set the simulation permittivity to that found via optimization
-        self._set_design_region(x, self.simulation, self.design_region)
+        self._set_design_region(rho_final)
+
+    def _set_design_region(self, x):
+        """ Inserts a vector x into design region of simulation.rho """
+
+        rho_vec = np.reshape(copy.deepcopy(self.simulation.rho), (-1,))
+        des_vec = np.reshape(self.design_region, (-1,))
+
+        # Only update the rho if it actually differs from the current one
+        # If it doesn't, we don't want to erase the stored fields
+
+        if np.linalg.norm(x - rho_vec[des_vec == 1])/np.linalg.norm(x) > 1e-10:
+            rho_vec[des_vec == 1] = x
+            rho_new = np.reshape(rho_vec, self.simulation.rho.shape)
+            self.simulation.rho = rho_new
+            eps_new = rho2eps(rho=rho_new, eps_m=self.eps_m, W=self.W,
+                              eta=self.eta, beta=self.beta)
+            self.simulation.eps_r = eps_new
+
+    def _get_design_region(self, spatial_array):
+        """ Returns a vector of the elements of spatial_array that are in design_region"""
+
+        spatial_vec = copy.deepcopy(np.ndarray.flatten(spatial_array))
+        des_vec = np.ndarray.flatten(self.design_region)
+        x = spatial_vec[des_vec == 1]
+        return x
 
     def _set_source_amplitude(self, epsilon=1e-2, N=1):
         """ If max_index_shift specified, sets the self.simulation.src amplitude
@@ -401,22 +419,6 @@ class Optimization():
 
                 self.simulation.src = self.simulation.src * (np.sqrt(ratio) - epsilon)
 
-    def _update_permittivity(self, grad, step_size):
-        """ Manually updates the permittivity with the grad info """
-
-        # deep copy original permittivity (deep for safety)
-        eps_old = copy.deepcopy(self.simulation.eps_r)
-
-        # update the old eps to get a new eps with the grad
-        eps_new = eps_old + self.design_region * step_size * grad
-
-        # push back inside bounds
-        eps_new[eps_new < 1] = 1
-        eps_new[eps_new > self.eps_max] = self.eps_max
-
-        # reset the epsilon of the simulation
-        self.simulation.eps_r = eps_new
-
     def _update_rho(self, grad, step_size):
         """ Manually updates the permittivity with the grad info """
 
@@ -427,20 +429,16 @@ class Optimization():
         self.simulation.eps_r = rho2eps(self.simulation.rho, self.eps_m, self.W,
                                         eta=self.eta, beta=self.beta)
 
-
-    def _step_adam(self, grad, iteration, beta1, beta2, epsilon=1e-8):
+    def _step_adam(self, gradient, mopt_old, vopt_old, iteration, beta1, beta2, epsilon=1e-8):
         """ Performs one step of adam optimization"""
 
-        mopt = beta1 * self.mopt + (1 - beta1) * grad
+        mopt = beta1 * mopt_old + (1 - beta1) * gradient
         mopt_t = mopt / (1 - beta1**(iteration + 1))
-        vopt = beta2 * self.vopt + (1 - beta2) * (np.square(grad))
+        vopt = beta2 * vopt_old + (1 - beta2) * (np.square(gradient))
         vopt_t = vopt / (1 - beta2**(iteration + 1))
         grad_adam = mopt_t / (np.sqrt(vopt_t) + epsilon)
 
-        self.mopt = mopt
-        self.vopt = vopt
-
-        return grad_adam
+        return (grad_adam, mopt, vopt)
 
     def plt_objs(self, norm=None, ax=None):
         """ Plots objective function vs. iteration"""
