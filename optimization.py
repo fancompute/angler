@@ -90,6 +90,30 @@ class Optimization():
 
         return self._grad_linear(Ez, Ez_nl) + self._grad_nonlinear(Ez, Ez_nl)
 
+    # def _grad_linear(self, Ez, Ez_nl):
+    #     """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
+
+    #     b_aj = -self.dJ['lin'](Ez, Ez_nl)
+    #     Ez_aj = adjoint_linear(self.simulation, b_aj)
+
+    #     EPSILON_0_ = EPSILON_0*self.simulation.L0
+    #     omega = self.simulation.omega
+    #     dAdeps = self.design_region*omega**2*EPSILON_0_
+
+    #     rho = self.simulation.rho
+    #     rho_t = rho2rhot(rho, self.W)
+    #     rho_b = rhot2rhob(rho_t, eta=self.eta, beta=self.beta)
+
+    #     eps_mat = (self.eps_m - 1)
+    #     filt_mat = drhot_drho(self.W)
+    #     proj_mat = drhob_drhot(rho_t, eta=self.eta, beta=self.beta)
+
+    #     Ez_vec = np.reshape(Ez, (-1,))
+    #     Ez_proj_vec = eps_mat * proj_mat * filt_mat.dot(Ez_vec)
+    #     Ez_proj = np.reshape(Ez_proj_vec, Ez.shape)
+
+    #     return 1*np.real(Ez_aj * dAdeps * Ez_proj)
+
     def _grad_linear(self, Ez, Ez_nl):
         """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
 
@@ -103,22 +127,26 @@ class Optimization():
         rho = self.simulation.rho
         rho_t = rho2rhot(rho, self.W)
         rho_b = rhot2rhob(rho_t, eta=self.eta, beta=self.beta)
-
         eps_mat = (self.eps_m - 1)
+
         filt_mat = drhot_drho(self.W)
         proj_mat = drhob_drhot(rho_t, eta=self.eta, beta=self.beta)
 
         Ez_vec = np.reshape(Ez, (-1,))
-        Ez_proj_vec = eps_mat * proj_mat * filt_mat.dot(Ez_vec)
-        Ez_proj = np.reshape(Ez_proj_vec, Ez.shape)
 
-        return 1*np.real(Ez_aj * dAdeps * Ez_proj)
+        dAdeps_vec = np.reshape(dAdeps, (-1,))
+        dfdrho = eps_mat*filt_mat.multiply(Ez_vec*proj_mat*dAdeps_vec)
+        Ez_aj_vec = np.reshape(Ez_aj, (-1,))
+        sensitivity_vec = dfdrho.dot(Ez_aj_vec)        
+
+        return 1*np.real(np.reshape(sensitivity_vec, rho.shape))
 
     def _grad_nonlinear(self, Ez, Ez_nl):
         """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
 
         b_aj = -self.dJ['nl'](Ez, Ez_nl)
         Ez_aj = adjoint_nonlinear(self.simulation, b_aj)
+        self.simulation.compute_nl(Ez_nl)
 
         EPSILON_0_ = EPSILON_0*self.simulation.L0
         omega = self.simulation.omega
@@ -128,16 +156,15 @@ class Optimization():
         rho = self.simulation.rho
         rho_t = rho2rhot(rho, self.W)
         rho_b = rhot2rhob(rho_t, eta=self.eta, beta=self.beta)
-
         eps_mat = (self.eps_m - 1)
+
         filt_mat = drhot_drho(self.W)
         proj_mat = drhob_drhot(rho_t, eta=self.eta, beta=self.beta)
 
-        Ez_nl_vec = np.reshape(Ez_nl, (-1,))
-        Ez_nl_proj_vec = eps_mat * proj_mat * filt_mat.dot(Ez_nl_vec)
-        Ez_nl_proj = np.reshape(Ez_nl_proj_vec, Ez_nl.shape)
+        Ez_vec = np.reshape(Ez_nl, (-1,))
 
-        return 1*np.real(Ez_aj * dAnldeps * Ez_nl_proj)
+        dfdrho = eps_mat*filt_mat.multiply(Ez_vec*proj_mat*np.reshape(dAnldeps, (-1,)))
+        return 1*np.real(np.reshape(dfdrho.dot(np.reshape(Ez_aj, (-1,))), rho.shape))
 
     def check_deriv(self, Npts=5, d_rho=1e-3):
         """ Returns a list of analytical and numerical derivatives to check grad accuracy"""
@@ -392,22 +419,6 @@ class Optimization():
 
                 self.simulation.src = self.simulation.src * (np.sqrt(ratio) - epsilon)
 
-    def _update_permittivity(self, grad, step_size):
-        """ Manually updates the permittivity with the grad info """
-
-        # deep copy original permittivity (deep for safety)
-        eps_old = copy.deepcopy(self.simulation.eps_r)
-
-        # update the old eps to get a new eps with the grad
-        eps_new = eps_old + self.design_region * step_size * grad
-
-        # push back inside bounds
-        eps_new[eps_new < 1] = 1
-        eps_new[eps_new > self.eps_max] = self.eps_max
-
-        # reset the epsilon of the simulation
-        self.simulation.eps_r = eps_new
-
     def _update_rho(self, grad, step_size):
         """ Manually updates the permittivity with the grad info """
 
@@ -417,8 +428,6 @@ class Optimization():
 
         self.simulation.eps_r = rho2eps(self.simulation.rho, self.eps_m, self.W,
                                         eta=self.eta, beta=self.beta)
-
-
 
     def _step_adam(self, gradient, mopt_old, vopt_old, iteration, beta1, beta2, epsilon=1e-8):
         """ Performs one step of adam optimization"""
@@ -430,7 +439,6 @@ class Optimization():
         grad_adam = mopt_t / (np.sqrt(vopt_t) + epsilon)
 
         return (grad_adam, mopt, vopt)
-
 
     def plt_objs(self, norm=None, ax=None):
         """ Plots objective function vs. iteration"""
