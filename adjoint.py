@@ -3,32 +3,38 @@ import scipy.sparse as sp
 from fdfdpy.linalg import solver_direct, grid_average
 from fdfdpy.derivatives import unpack_derivs
 from fdfdpy.constants import *
+import autograd.numpy as npa
+from autograd import grad
+from functools import partial
 
-def gradient(simulation, dJ, design_region, arguments):
+from filter import deps_drhob, drhob_drhot
+
+def gradient(simulation, dJ, design_region, arguments, eps_m, W):
     """Gives full derivative of J with respect to eps"""
-    (Ez, Ez_nl, eps) = arguments
-    return dJ['eps'](Ez, Ez_nl, eps) + \
-           grad_linear(simulation, dJ, design_region, arguments) + \
-           grad_nonlinear(simulation, dJ, design_region, arguments)
+    (Ez, Ez_nl) = arguments
+    return grad_linear(simulation, dJ, design_region, arguments, eps_m=eps_m, W=W) + \
+           grad_nonlinear(simulation, dJ, design_region, arguments, eps_m=eps_m, W=W)
 
-
-def grad_linear(simulation, dJ, design_region, arguments):
+def grad_linear(simulation, dJ, design_region, arguments, eps_m, W):
     """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
-    (Ez, Ez_nl, eps) = arguments
+    (Ez, Ez_nl) = arguments
 
-    b_aj = -dJ['lin'](Ez, Ez_nl, eps)
+    b_aj = -dJ['lin'](Ez, Ez_nl)
     Ez_aj = adjoint_linear(simulation, b_aj)
 
     EPSILON_0_ = EPSILON_0*simulation.L0
-    omega = simulation.omega    
+    omega = simulation.omega
     dAdeps = design_region*omega**2*EPSILON_0_
 
-    return 1*np.real(Ez_aj*dAdeps*Ez) 
+    return 1*np.real(Ez_aj * dAdeps * Ez)
 
 
-def grad_nonlinear(simulation, dJ, design_region, arguments):
+def grad_nonlinear(simulation, dJ, design_region, arguments, eps_m, W):
     """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
-    (Ez, Ez_nl, eps) = arguments
+    (Ez, Ez_nl, rho) = arguments
+
+    rho_bar = rho2rho_bar(rho)
+    eps = rho_bar2eps(rho_bar, eps_m)
 
     b_aj = -dJ['nl'](Ez, Ez_nl, eps)
     Ez_aj = adjoint_nonlinear(simulation, b_aj)
@@ -38,7 +44,7 @@ def grad_nonlinear(simulation, dJ, design_region, arguments):
     dAdeps = design_region*omega**2*EPSILON_0_
     dAnldeps = dAdeps + design_region*omega**2*EPSILON_0_*simulation.dnl_deps
 
-    return 1*np.real(Ez_aj*dAnldeps*Ez_nl)
+    return 1*np.real(Ez_aj * dAnldeps * Ez_nl)
 
 
 def adjoint_linear(simulation, b_aj, averaging=False, solver=DEFAULT_SOLVER, matrix_format=DEFAULT_MATRIX_FORMAT):
@@ -67,7 +73,7 @@ def adjoint_nonlinear(simulation, b_aj,
     MU_0_ = MU_0*simulation.L0
     omega = simulation.omega
 
-    (Nx,Ny) = (simulation.Nx, simulation.Ny)
+    (Nx, Ny) = (simulation.Nx, simulation.Ny)
     M = Nx*Ny
 
     Ez = simulation.fields_nl['Ez']

@@ -1,38 +1,46 @@
 import sys
 sys.path.append(".")
 
-from adjoint import gradient
+from adjoint import adjoint_linear, adjoint_nonlinear
 
 import numpy as np
 import copy
 import progressbar
 import matplotlib.pylab as plt
 from scipy.optimize import minimize, fmin_l_bfgs_b
+from fdfdpy.constants import *
 from autograd import grad
+from filter import (eps2rho, rho2eps, get_W, deps_drhob, drhob_drhot,
+                    drhot_drho, rho2rhot, drhot_drho, rhot2rhob)
+
 
 class Optimization():
 
-    def __init__(self, J=None, Nsteps=100, eps_max=5, field_start='linear', nl_solver='newton',
-                 max_ind_shift=None):
+    def __init__(self, J=None, simulation=None, design_region=None, eps_m=5,
+                 R=5, eta=0.5, beta=100,
+                 field_start='linear', nl_solver='newton', max_ind_shift=None):
 
         self._J = J
-        self.Nsteps = Nsteps
-        self.eps_max = eps_max
+        self.simulation = simulation
+        self.design_region = design_region
+
+        self.eps_m = eps_m
+        self.R = R
+
+        (Nx, Ny) = self.simulation.eps_r.shape
+        self.W = get_W(Nx, Ny, self.design_region, R=self.R)
+        self.eta = eta
+        self.beta = beta
+
         self.field_start = field_start
         self.nl_solver = nl_solver
         self.max_ind_shift = max_ind_shift
+
         self.src_amplitudes = []
         self.objfn_list = []
 
         # compute the jacobians of J and store these
         self.dJ = self._autograd_dJ(J)
-
-    def __repr__(self):
-        return "Optimization(Nsteps={}, eps_max={}, J={}, field_start={}, nl_solver={})".format(
-            self.Nsteps, self.eps_max, self.J, self.field_start, self.nl_solver)
-
-    def __str__(self):
-        return self.__repr__()
 
     @property
     def J(self):
@@ -49,8 +57,7 @@ class Optimization():
         # note: eventually want to check whether J has eps_nl argument, then switch between linear and nonlinear depending.
         dJ = {}
         dJ['lin'] = grad(J, 0)
-        dJ['nl']  = grad(J, 1)
-        dJ['eps'] = grad(J, 2)
+        dJ['nl'] = grad(J, 1)
         return dJ
 
     def compute_J(self, simulation):
@@ -61,51 +68,153 @@ class Optimization():
         else:
             Ez = simulation.fields['Ez']
 
-        if simulation.fields_nl['Ez'] is None:  
+        if simulation.fields_nl['Ez'] is None:
             (_, _, Ez_nl, _) = simulation.solve_fields_nl()
         else:
             Ez_nl = simulation.fields_nl['Ez']
 
-        eps = simulation.eps_r
-        return self.J(Ez, Ez_nl, eps)
+        return self.J(Ez, Ez_nl)
 
     def compute_dJ(self, simulation, design_region):
-        """ Returns the current gradient of a simulation"""
+        """ Returns the current grad of a simulation"""
 
         if simulation.fields['Ez'] is None:
             (_, _, Ez) = simulation.solve_fields()
         else:
             Ez = simulation.fields['Ez']
 
-        if simulation.fields_nl['Ez'] is None:  
+        if simulation.fields_nl['Ez'] is None:
             (_, _, Ez_nl, _) = simulation.solve_fields_nl()
         else:
             Ez_nl = simulation.fields_nl['Ez']
 
-        arguments = (Ez, Ez_nl, simulation.eps_r)
-        return gradient(simulation, self.dJ, design_region, arguments)
+        return self._grad_linear(Ez, Ez_nl) + self._grad_nonlinear(Ez, Ez_nl)
 
-    def _set_design_region(self, x, simulation, design_region):
-        """ Inserts a vector x into the design_region of simulation.eps_r"""
+    # def _grad_linear(self, Ez, Ez_nl):
+    #     """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
 
-        eps_vec = copy.deepcopy(np.ndarray.flatten(simulation.eps_r))
-        des_vec = np.ndarray.flatten(design_region)
+    #     b_aj = -self.dJ['lin'](Ez, Ez_nl)
+    #     Ez_aj = adjoint_linear(self.simulation, b_aj)
 
-        # Only update the permittivity if it actually differs from the current one 
-        # If it doesn't, we don't want to erase the stored fields
+    #     EPSILON_0_ = EPSILON_0*self.simulation.L0
+    #     omega = self.simulation.omega
+    #     dAdeps = self.design_region*omega**2*EPSILON_0_
 
-        if np.linalg.norm(x - eps_vec[des_vec == 1])/np.linalg.norm(x) > 1e-10:
-            eps_vec[des_vec == 1] = x
-            eps_new = np.reshape(eps_vec, simulation.eps_r.shape)
-            simulation.eps_r = eps_new
+    #     rho = self.simulation.rho
+    #     rho_t = rho2rhot(rho, self.W)
+    #     rho_b = rhot2rhob(rho_t, eta=self.eta, beta=self.beta)
 
-    def _get_design_region(self, spatial_array, design_region):
-        """ Returns a vector of the elements of spatial_array that are in design_region"""
+    #     eps_mat = (self.eps_m - 1)
+    #     filt_mat = drhot_drho(self.W)
+    #     proj_mat = drhob_drhot(rho_t, eta=self.eta, beta=self.beta)
 
-        spatial_vec = copy.deepcopy(np.ndarray.flatten(spatial_array))
-        des_vec = np.ndarray.flatten(design_region)
-        x = spatial_vec[des_vec == 1]
-        return x
+    #     Ez_vec = np.reshape(Ez, (-1,))
+    #     Ez_proj_vec = eps_mat * proj_mat * filt_mat.dot(Ez_vec)
+    #     Ez_proj = np.reshape(Ez_proj_vec, Ez.shape)
+
+    #     return 1*np.real(Ez_aj * dAdeps * Ez_proj)
+
+    def _grad_linear(self, Ez, Ez_nl):
+        """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
+
+        b_aj = -self.dJ['lin'](Ez, Ez_nl)
+        Ez_aj = adjoint_linear(self.simulation, b_aj)
+
+        EPSILON_0_ = EPSILON_0*self.simulation.L0
+        omega = self.simulation.omega
+        dAdeps = self.design_region*omega**2*EPSILON_0_
+
+        rho = self.simulation.rho
+        rho_t = rho2rhot(rho, self.W)
+        rho_b = rhot2rhob(rho_t, eta=self.eta, beta=self.beta)
+        eps_mat = (self.eps_m - 1)
+
+        filt_mat = drhot_drho(self.W)
+        proj_mat = drhob_drhot(rho_t, eta=self.eta, beta=self.beta)
+
+        Ez_vec = np.reshape(Ez, (-1,))
+
+        dAdeps_vec = np.reshape(dAdeps, (-1,))
+        dfdrho = eps_mat*filt_mat.multiply(Ez_vec*proj_mat*dAdeps_vec)
+        Ez_aj_vec = np.reshape(Ez_aj, (-1,))
+        sensitivity_vec = dfdrho.dot(Ez_aj_vec)        
+
+        return 1*np.real(np.reshape(sensitivity_vec, rho.shape))
+
+    def _grad_nonlinear(self, Ez, Ez_nl):
+        """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
+
+        b_aj = -self.dJ['nl'](Ez, Ez_nl)
+        Ez_aj = adjoint_nonlinear(self.simulation, b_aj)
+        self.simulation.compute_nl(Ez_nl)
+
+        EPSILON_0_ = EPSILON_0*self.simulation.L0
+        omega = self.simulation.omega
+        dAdeps = self.design_region*omega**2*EPSILON_0_
+        dAnldeps = dAdeps + self.design_region*omega**2*EPSILON_0_*self.simulation.dnl_deps
+
+        rho = self.simulation.rho
+        rho_t = rho2rhot(rho, self.W)
+        rho_b = rhot2rhob(rho_t, eta=self.eta, beta=self.beta)
+        eps_mat = (self.eps_m - 1)
+
+        filt_mat = drhot_drho(self.W)
+        proj_mat = drhob_drhot(rho_t, eta=self.eta, beta=self.beta)
+
+        Ez_vec = np.reshape(Ez_nl, (-1,))
+
+        dfdrho = eps_mat*filt_mat.multiply(Ez_vec*proj_mat*np.reshape(dAnldeps, (-1,)))
+        return 1*np.real(np.reshape(dfdrho.dot(np.reshape(Ez_aj, (-1,))), rho.shape))
+
+    def check_deriv(self, Npts=5, d_rho=1e-3):
+        """ Returns a list of analytical and numerical derivatives to check grad accuracy"""
+
+        self.simulation.eps_r = rho2eps(rho=self.simulation.rho, eps_m=self.eps_m, W=self.W,
+                                        eta=self.eta, beta=self.beta)
+        self.simulation.solve_fields()
+        self.simulation.solve_fields_nl()
+
+        # solve for the linear fields and grad of the linear objective function
+        grad_avm = self.compute_dJ(self.simulation, self.design_region)
+        J_orig = self.compute_J(self.simulation)
+
+        avm_grads = []
+        num_grads = []
+
+        # for a number of points
+        for _ in range(Npts):
+
+            # pick a random point within the design region
+            x, y = np.where(self.design_region == 1)
+            i = np.random.randint(len(x))
+            pt = [x[i], y[i]]
+
+            # create a new, perturbed permittivity
+            rho_new = copy.deepcopy(self.simulation.rho)
+            rho_new[pt[0], pt[1]] += d_rho
+
+            # make a copy of the current simulation
+            sim_new = copy.deepcopy(self.simulation)
+            eps_new = rho2eps(rho=rho_new, eps_m=self.eps_m, W=self.W,
+                              eta=self.eta, beta=self.beta)
+
+            sim_new.rho = rho_new
+            sim_new.eps_r = eps_new
+
+            sim_new.solve_fields()
+            sim_new.solve_fields_nl()
+
+            # solve for the fields with this new permittivity
+            J_new = self.compute_J(sim_new)
+
+            # compute the numerical grad
+            grad_num = (J_new - J_orig) / d_rho
+
+            # append both grads to lists
+            avm_grads.append(grad_avm[pt[0], pt[1]])
+            num_grads.append(grad_num)
+
+        return avm_grads, num_grads
 
     def _make_progressbar(self, N):
         """ Returns a progressbar to use during optimization"""
@@ -139,13 +248,17 @@ class Optimization():
         else:
             pbar.update(iteration, ObjectiveFn=J)
 
-    def run(self, simulation, design_region, method='LBFGS', step_size=0.1,
+    def run(self, method='LBFGS', Nsteps=100, step_size=0.1,
             beta1=0.9, beta2=0.999, verbose=True):
         """ Runs an optimization."""
 
-        self.simulation = simulation
-        self.design_region = design_region
+        self.Nsteps = Nsteps
         self.verbose = verbose
+
+        # get the material density from the simulation if only the first time being run
+        if self.simulation.rho is None:
+            eps = copy.deepcopy(self.simulation.eps_r)
+            self.simulation.rho = eps2rho(eps)
 
         allowed = ['LBFGS', 'GD', 'ADAM']
 
@@ -162,7 +275,7 @@ class Optimization():
             raise ValueError("'method' must be in {}".format(allowed))
 
     def _run_GD(self, step_size):
-        """ Performs simple gradient descent optimization"""
+        """ Performs simple grad descent optimization"""
 
         pbar = self._make_progressbar(self.Nsteps)
 
@@ -170,17 +283,17 @@ class Optimization():
 
             J = self.compute_J(self.simulation)
             self.objfn_list.append(J)
-            # pbar.update(iteration, ObjectiveFn=J)
+
             self._update_progressbar(pbar, iteration, J)
 
             self._set_source_amplitude()
 
-            gradient = self.compute_dJ(self.simulation, self.design_region)
+            grad = self.compute_dJ(self.simulation, self.design_region)
 
-            self._update_permittivity(gradient, step_size)
+            self._update_rho(grad, step_size)
 
     def _run_ADAM(self, step_size, beta1, beta2):
-        """ Performs simple gradient descent optimization"""
+        """ Performs simple grad descent optimization"""
 
         pbar = self._make_progressbar(self.Nsteps)
 
@@ -193,39 +306,40 @@ class Optimization():
 
             self._set_source_amplitude()
 
-            gradient = self.compute_dJ(self.simulation, self.design_region)
+            grad = self.compute_dJ(self.simulation, self.design_region)
 
             if iteration == 0:
-                mopt = np.zeros(gradient.shape)
-                vopt = np.zeros(gradient.shape)
+                mopt = np.zeros(grad.shape)
+                vopt = np.zeros(grad.shape)
 
-            (gradient_adam, mopt, vopt) = self._step_adam(gradient, mopt, vopt, iteration, beta1, beta2,)
+            (grad_adam, mopt, vopt) = self._step_adam(grad, mopt, vopt, iteration, beta1, beta2,)
 
-            self._update_permittivity(gradient_adam, step_size)
+            self._update_rho(grad_adam, step_size)
 
     def _run_LBFGS(self):
         """Performs L-BFGS Optimization of objective function w.r.t. eps_r"""
 
         pbar = self._make_progressbar(self.Nsteps)
 
-        def _objfn(x, *argv):
+        def _objfn(rho, *argv):
             """ Returns objective function given some permittivity distribution"""
-            self._set_design_region(x, self.simulation, self.design_region)
+
+            self._set_design_region(rho)
             J = self.compute_J(self.simulation)
 
             # return minus J because we technically will minimize
             return -J
 
-        def _grad(x,  *argv):
-            """ Returns full gradient given some permittivity distribution"""
-            # make a simulation copy
-            self._set_design_region(x, self.simulation, self.design_region)
+        def _grad(rho,  *argv):
+            """ Returns full grad given some permittivity distribution"""
 
-            # compute gradient, extract design region, turn into vector, return
-            gradient = self.compute_dJ(self.simulation, self.design_region)
-            gradient_vec = self._get_design_region(gradient, self.design_region)
+            self._set_design_region(rho)
 
-            return -gradient_vec
+            # compute grad, extract design region, turn into vector, return
+            grad = self.compute_dJ(self.simulation, self.design_region)
+            grad_vec = self._get_design_region(grad)
+
+            return -grad_vec
 
         # this simple callback function gets run each iteration
         # keeps track of the current iteration step for the progressbar
@@ -234,29 +348,54 @@ class Optimization():
 
         def _update_iter_count(x_current):
             J = self.compute_J(self.simulation)
-            # pbar.update(iter_list[0], ObjectiveFn=J)
             self._update_progressbar(pbar, iter_list[0], J)
-
             iter_list[0] += 1
             self.objfn_list.append(J)
-            self._set_design_region(x_current, self.simulation, self.design_region)
+            self._set_design_region(x_current)
             self._set_source_amplitude()
 
-        # set up bounds on epsilon ((1, eps_m), (1, eps_m), ... ) for each grid in design region
-        eps_bounds = tuple([(1, self.eps_max) for _ in range(np.sum(self.design_region == 1))])
+        N_des = np.sum(self.design_region == 1)              # num points in design region
+        rho_bounds = tuple([(0, 1) for _ in range(N_des)])   # bounds on rho {0, 1}
 
         # start eps off with the one currently within design region
-        x0 = self._get_design_region(self.simulation.eps_r, self.design_region)
+        rho = copy.deepcopy(self.simulation.rho)
+        rho0 = self._get_design_region(rho)
+        rho0 = np.reshape(rho0, (-1,))
 
         # minimize
-        (x, _, _) = fmin_l_bfgs_b(_objfn, x0, fprime=_grad, args=(), approx_grad=0,
-                            bounds=eps_bounds, m=10, factr=100,
-                            pgtol=1e-08, epsilon=1e-08, iprint=-1,
+        (rho_final, _, _) = fmin_l_bfgs_b(_objfn, rho0, fprime=_grad, args=(), approx_grad=0,
+                            bounds=rho_bounds, m=10, factr=10,
+                            pgtol=1e-15, epsilon=1e-08, iprint=-1,
                             maxfun=15000, maxiter=self.Nsteps, disp=self.verbose,
                             callback=_update_iter_count, maxls=20)
 
         # finally, set the simulation permittivity to that found via optimization
-        self._set_design_region(x, self.simulation, self.design_region)
+        self._set_design_region(rho_final)
+
+    def _set_design_region(self, x):
+        """ Inserts a vector x into design region of simulation.rho """
+
+        rho_vec = np.reshape(copy.deepcopy(self.simulation.rho), (-1,))
+        des_vec = np.reshape(self.design_region, (-1,))
+
+        # Only update the rho if it actually differs from the current one
+        # If it doesn't, we don't want to erase the stored fields
+
+        if np.linalg.norm(x - rho_vec[des_vec == 1])/np.linalg.norm(x) > 1e-10:
+            rho_vec[des_vec == 1] = x
+            rho_new = np.reshape(rho_vec, self.simulation.rho.shape)
+            self.simulation.rho = rho_new
+            eps_new = rho2eps(rho=rho_new, eps_m=self.eps_m, W=self.W,
+                              eta=self.eta, beta=self.beta)
+            self.simulation.eps_r = eps_new
+
+    def _get_design_region(self, spatial_array):
+        """ Returns a vector of the elements of spatial_array that are in design_region"""
+
+        spatial_vec = copy.deepcopy(np.ndarray.flatten(spatial_array))
+        des_vec = np.ndarray.flatten(self.design_region)
+        x = spatial_vec[des_vec == 1]
+        return x
 
     def _set_source_amplitude(self, epsilon=1e-2, N=1):
         """ If max_index_shift specified, sets the self.simulation.src amplitude
@@ -280,23 +419,15 @@ class Optimization():
 
                 self.simulation.src = self.simulation.src * (np.sqrt(ratio) - epsilon)
 
-    def _update_permittivity(self, gradient, step_size):
-        """ Manually updates the permittivity with the gradient info """
+    def _update_rho(self, grad, step_size):
+        """ Manually updates the permittivity with the grad info """
 
-        # deep copy original permittivity (deep for safety)
-        eps_old = copy.deepcopy(self.simulation.eps_r)
+        self.simulation.rho = self.simulation.rho + self.design_region * step_size * grad
+        self.simulation.rho[self.simulation.rho < 0] = 0
+        self.simulation.rho[self.simulation.rho > 1] = 1
 
-        # update the old eps to get a new eps with the gradient
-        eps_new = eps_old + self.design_region * step_size * gradient
-
-        # push back inside bounds
-        eps_new[eps_new < 1] = 1
-        eps_new[eps_new > self.eps_max] = self.eps_max
-
-        # reset the epsilon of the simulation
-        self.simulation.eps_r = eps_new
-
-        return eps_new
+        self.simulation.eps_r = rho2eps(self.simulation.rho, self.eps_m, self.W,
+                                        eta=self.eta, beta=self.beta)
 
     def _step_adam(self, gradient, mopt_old, vopt_old, iteration, beta1, beta2, epsilon=1e-8):
         """ Performs one step of adam optimization"""
@@ -308,47 +439,6 @@ class Optimization():
         grad_adam = mopt_t / (np.sqrt(vopt_t) + epsilon)
 
         return (grad_adam, mopt, vopt)
-
-    def check_deriv(self, simulation, design_region, Npts=5, d_eps=1e-3):
-        """ Returns a list of analytical and numerical derivatives to check gradient accuracy"""
-
-        # make copy of original epsilon
-        eps_orig = copy.deepcopy(simulation.eps_r)
-
-        # solve for the linear fields and gradient of the linear objective function
-        grad_avm = self.compute_dJ(simulation, design_region)
-        J_orig = self.compute_J(simulation)
-
-        avm_grads = []
-        num_grads = []
-
-        # for a number of points
-        for _ in range(Npts):
-
-            # pick a random point within the design region
-            x, y = np.where(design_region == 1)
-            i = np.random.randint(len(x))
-            pt = [x[i], y[i]]
-
-            # create a new, perturbed permittivity
-            eps_new = copy.deepcopy(simulation.eps_r)
-            eps_new[pt[0], pt[1]] += d_eps
-
-            # make a copy of the current simulation
-            sim_new = copy.deepcopy(simulation)
-            sim_new.eps_r = eps_new
-
-            # solve for the fields with this new permittivity
-            J_new = self.compute_J(sim_new)
-
-            # compute the numerical gradient
-            grad_num = (J_new - J_orig)/d_eps
-
-            # append both gradients to lists
-            avm_grads.append(grad_avm[pt[0], pt[1]])
-            num_grads.append(grad_num)
-
-        return avm_grads, num_grads
 
     def plt_objs(self, norm=None, ax=None):
         """ Plots objective function vs. iteration"""
@@ -471,4 +561,3 @@ class Optimization():
         if legend is not None:
             plt.legend(legend)
         plt.show()
-
