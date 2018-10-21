@@ -112,6 +112,7 @@ class Device:
 
         # input power
         self.W_in = self.simulation.W_in
+        print("        -> W_in = {}".format(self.W_in))
 
         # linear powers
         self.W_out_lin = self.simulation.flux_probe('x', [-self.NPML[0]-int(self.l/2/self.dl), self.ny], int(self.Ny/2))
@@ -129,13 +130,36 @@ class Device:
         print('        -> nonlinear transmission           = {:.4f}'.format(self.T_nl))
 
     def _calc_trans_three(self):
-        # TODO
-        pass
+        # input power
+        self.W_in = self.simulation.W_in
+        print("        -> W_in = {}".format(self.W_in))
+
+        # linear powers
+        self.W_top_lin = self.simulation.flux_probe('x', [-self.NPML[0]-int(self.l/2/self.dl), self.ny+int(self.d/2/self.dl)], int(self.H/2/self.dl))
+        self.W_bot_lin = self.simulation.flux_probe('x', [-self.NPML[0]-int(self.l/2/self.dl), self.ny-int(self.d/2/self.dl)], int(self.H/2/self.dl))
+
+        # nonlinear powers
+        self.W_top_nl = self.simulation.flux_probe('x', [-self.NPML[0]-int(self.l/2/self.dl), self.ny+int(self.d/2/self.dl)], int(self.H/2/self.dl), nl=True)
+        self.W_bot_nl = self.simulation.flux_probe('x', [-self.NPML[0]-int(self.l/2/self.dl), self.ny-int(self.d/2/self.dl)], int(self.H/2/self.dl), nl=True)
+
+
+        print('        -> linear transmission (top)        = {:.4f}'.format(self.W_top_lin / self.W_in))
+        print('        -> linear transmission (bottom)     = {:.4f}'.format(self.W_bot_lin / self.W_in))
+        print('        -> nonlinear transmission (top)     = {:.4f}'.format(self.W_top_nl / self.W_in))
+        print('        -> nonlinear transmission (bottom)  = {:.4f}'.format(self.W_bot_nl / self.W_in))
+
+        self.S = [[self.W_top_lin / self.W_in, self.W_top_nl / self.W_in],
+                  [self.W_bot_lin / self.W_in, self.W_bot_nl / self.W_in]]
+
+        plt.imshow(self.S, cmap='magma')
+        plt.colorbar()
+        plt.title('power matrix')
+        plt.show()
 
     def _calc_trans_ortho(self):
         # input power
         self.W_in = self.simulation.W_in
-        print("W_in = {}".format(self.W_in))
+        print("        -> W_in = {}".format(self.W_in))
 
         # linear powers
         self.W_right_lin = self.simulation.flux_probe('x', [-self.NPML[0]-int(self.l/2/self.dl), self.ny], int(self.H/2/self.dl))
@@ -173,6 +197,7 @@ class Device:
         plt.xlabel('frequency difference (GHz)')
         plt.ylabel('objective function')
         plt.show()
+
         print('        -> computed FWHM of {} (GHz):'.format(FWHM/1e9))
         print('        -> Q factor of {0:.2E}'.format(self.Q))        
 
@@ -196,4 +221,7 @@ class Device:
         # save to filename
         with open(filename, "wb") as f:
             pickle.dump(self.__dict__, f)
+
+        print('done')
+
 
