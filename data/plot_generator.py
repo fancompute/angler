@@ -17,7 +17,7 @@ scale_bar_font_size = 10
 
 def apply_sublabels(axs, invert_color_inds, x=19, y=-5, size='large', ha='right', va='top', prefix='(', postfix=')'):
     # axs = list of axes
-    # invert_color_ind = list of booleans (whether to make sublabels white or black)
+    # invert_color_ind = list of booleans (True to make sublabels white, else False)
     for n, ax in enumerate(axs):
         if invert_color_inds[n]:
             color='w'
@@ -33,32 +33,10 @@ def apply_sublabels(axs, invert_color_inds, x=19, y=-5, size='large', ha='right'
                     horizontalalignment=ha,
                     verticalalignment=va)
 
+def gen_(Device):
 
-def gen_fig1(eps):
-
-    lambda0 = 2e-6              # free space wavelength (m)
-    c0 = 3e8                    # speed of light in vacuum (m/s)
-    omega = 2*np.pi*c0/lambda0  # angular frequency (2pi/s)
-    dl = 0.8e-1                 # grid size (L0)
-    NPML = [15, 15]             # number of pml grid points on x and y borders
-    pol = 'Ez'                  # polarization (either 'Hz' or 'Ez')
-    source_amp = 1              # amplitude of modal source (A/L0^2?)    L = 7           # length of box (L0)
-
-    L = 5         # length of box (L0)
-    H = 5           # height of box (L0)
-    w = .3          # width of waveguides (L0)
-    d = H/1.5       # distance between waveguides (L0)
-    l = 5           # length of waveguide from PML to box (L0)
-    spc = 3         # space between box and PML (L0)
-
-    n_index = 2.44              # refractive index
-    eps_m = n_index**2          # relative permittivity
-    chi3 = 4.1*1e-19            # Al2S3 from Boyd (m^2/V^2)
-
-    # poor man's binarization
-    threshold = 3.7  # (eps_m/2 + 1/2)
-    # eps = eps_m*(eps > threshold) + 1*(eps <= threshold)
-
+    simulation = Device.simulation
+    
     _, design_region = three_port(L, H, w, d, l, spc, dl, NPML, eps_m)
 
     (Nx, Ny) = eps.shape
