@@ -84,19 +84,26 @@ class Device:
         self.structure_type = structure_type
         self.is_geometry_set = True
 
-    def generate_data(self):
+    def generate_data(self, Nf=100):
         """ Solve fields, index shift, frequency scan (Q), power scan, S_matrix etc. """
 
         print('generating data...')
 
+        print('    computing index shift')
+        self.compute_index_shift()
+
         print('    computing power transmission')
         self.calc_transmissions()
 
-        Nf = 4
         print('    computing frequency scan ({} points)'.format(Nf))
         self.freq_scan(Nf=Nf)
 
         self.is_data_generated = True
+
+    def compute_index_shift(self):
+        """ compute the refractive index shift """
+        self.index_shift = self.simulation.compute_index_shift()
+        print("        -> max index shift = {}".format(self.index_shift))
 
     def calc_transmissions(self):
         """ Gets the transmission data """
