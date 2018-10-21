@@ -156,11 +156,14 @@ def accelerator(beta, gap, lambda0, L, spc, dl, NPML, eps_start):
     nx, ny = int(Nx/2), int(Ny/2)            # halfway grid points
     shape = (Nx, Ny)                          # shape of domain (in num. grids)
 
+
     # x and y coordinate arrays
     xs, ys = get_grid(shape, dl)
 
     des = lambda x, y: (np.abs(x) > gap/2) * (np.abs(x) < gap/2 + L)
 
-    eps_r = apply_regions(des, xs, ys, eps_start)
+    eps_r = apply_regions([des], xs, ys, eps_start=eps_start)
+    design_region = apply_regions([des], xs, ys, eps_start=2)
+    design_region = design_region - 1
 
-    return eps_r
+    return eps_r, design_region

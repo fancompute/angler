@@ -3,7 +3,10 @@ sys.path.append(".")
 
 from adjoint import adjoint_linear, adjoint_nonlinear
 
+from inspect import signature
+
 import numpy as np
+import scipy.sparse as sp
 import copy
 import progressbar
 import matplotlib.pylab as plt
@@ -17,10 +20,10 @@ from filter import (eps2rho, rho2eps, get_W, deps_drhob, drhob_drhot,
 class Optimization():
 
     def __init__(self, J=None, simulation=None, design_region=None, eps_m=5,
-                 R=5, eta=0.5, beta=100,
+                 R=None, eta=0.5, beta=100,
                  field_start='linear', nl_solver='newton', max_ind_shift=None):
 
-        self._J = J
+        self.J = J
         self.simulation = simulation
         self.design_region = design_region
 
@@ -28,7 +31,11 @@ class Optimization():
         self.R = R
 
         (Nx, Ny) = self.simulation.eps_r.shape
-        self.W = get_W(Nx, Ny, self.design_region, R=self.R)
+        if self.R is not None:
+            self.W = get_W(Nx, Ny, self.design_region,  NPML=self.simulation.NPML, R=self.R)
+        else:
+            self.W = sp.eye(Nx*Ny, dtype=np.complex64)
+
         self.eta = eta
         self.beta = beta
 
@@ -50,6 +57,14 @@ class Optimization():
     def J(self, J):
         self._J = J
         self.dJ = self._autograd_dJ(J)
+
+    def _is_linear(self, J):
+        # checks number of arguments to J, if <= 1, it's a linear problem (not used yet)
+        sig = signature(J)
+        if len(sig.parameters.items()) <= 1:
+            return True
+        else:
+            return False
 
     def _autograd_dJ(self, J):
         """ Uses autograd to automatically compute Jacobians of J with respect to each argument"""
@@ -514,7 +529,7 @@ class Optimization():
 
         return freqs, objs, FWHM
 
-    def scan_power(self, probes=None, Ns=50, s_max=10):
+    def scan_power(self, probes=None, Ns=50, s_min=1e-2, s_max=1e2):
         """ Scans the source amplitude and computes the objective function
             probes is a list of functions for computing the power, for example:
             [lambda simulation: simulation.flux_probe('x', [-NPML[0]-int(l/2/dl), ny + int(d/2/dl)], int(H/2/dl))]
@@ -525,12 +540,13 @@ class Optimization():
         num_probes = len(probes)
 
         # create src_amplitudes
-        s_list = np.logspace(-6, np.log10(s_max), Ns)        
+        s_list = np.logspace(np.log10(s_min), np.log10(s_max), Ns)        
 
         bar = progressbar.ProgressBar(max_value=Ns)
 
         # transmission
-        transmissions = [[] for _ in num_probes]
+        transmissions = [[] for _ in range(num_probes)]
+        powers = []
 
         for i, s in enumerate(s_list):
 
@@ -539,18 +555,19 @@ class Optimization():
             # make a new simulation object
             sim_new = copy.deepcopy(self.simulation)
 
-            # reset the simulation to compute new A (hacky way of doing it)
-            sim_new.src = s * sim_new.src / np.max(np.abs(sim_new.src))
+            sim_new.modes[0].scale = s
+            sim_new.modes[0].setup_src(sim_new)
+            W_in = sim_new.W_in
+            powers.append(W_in)
 
             # compute the fields
             _ = sim_new.solve_fields_nl()
 
             # compute power transmission using each probe
-            for probe_index, probe in probes:
+            for probe_index, probe in enumerate(probes):
                 W_out = probe(sim_new)
-                sim_new.modes[0].compute_normalization(sim_new)                
-                transmissions[probe_index][i] = W_out / W_in
-        return transmissions
+                transmissions[probe_index].append(W_out / W_in)
+        return powers, transmissions
 
     def plot_transmissions(self, transmissions, legend=None):
         """ Plots the results of the power scan """

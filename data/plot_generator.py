@@ -568,10 +568,14 @@ if __name__ == '__main__':
     # fig = plot_Device(D2)
     # plt.show()
 
-    fnameT = "T_port.p"
-    DT = load_device(fnameT)
-    fig = plot_Device(DT)
-    plt.show()
+    # fname3 = "figs/devices/3_port.p"
+    # D3 = load_device(fname3)
+    # fig = plot_Device(D3)
+    # plt.show()
 
+    # fnameT = "figs/devices/T_port.p"
+    # DT = load_device(fnameT)
+    # fig = plot_Device(DT)
+    # plt.show()
 
 

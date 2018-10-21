@@ -84,7 +84,7 @@ class Device:
         self.structure_type = structure_type
         self.is_geometry_set = True
 
-    def generate_data(self, Nf=100):
+    def generate_data(self, Nf=100, Np=100, s_min=1e-1, s_max=1e3):
         """ Solve fields, index shift, frequency scan (Q), power scan, S_matrix etc. """
 
         print('generating data...')
@@ -97,6 +97,9 @@ class Device:
 
         print('    computing frequency scan ({} points)'.format(Nf))
         self.freq_scan(Nf=Nf)
+
+        print('    computing power scan ({} points)'.format(Np))
+        self.power_scan(Np=Np, s_min=s_min, s_max=s_max)
 
         self.is_data_generated = True
 
@@ -208,6 +211,36 @@ class Device:
         print('        -> computed FWHM of {} (GHz):'.format(FWHM/1e9))
         print('        -> Q factor of {0:.2E}'.format(self.Q))        
 
+    def power_scan(self, Np=50, s_min=1e-1, s_max=1e3):
+        """ Gets the transmission data """
+
+        if self.structure_type == 'two_port':
+            probe_out = lambda simulation: simulation.flux_probe('x', [-self.NPML[0]-int(self.l/2/self.dl), self.ny], int(self.Ny/2), nl=True)
+            probes = [probe_out]            
+            self._power_scan_all(probes, Np=Np, s_min=s_min, s_max=s_max)
+
+        elif self.structure_type == 'three_port':
+            probe_top = lambda simulation: simulation.flux_probe('x', [-self.NPML[0]-int(self.l/2/self.dl), self.ny+int(self.d/2/self.dl)], int(self.H/2/self.dl), nl=True)
+            probe_bot = lambda simulation: simulation.flux_probe('x', [-self.NPML[0]-int(self.l/2/self.dl), self.ny-int(self.d/2/self.dl)], int(self.H/2/self.dl), nl=True)
+            probes = [probe_top, probe_bot]            
+            self._power_scan_all(probes, Np=Np, s_min=s_min, s_max=s_max)
+
+        elif self.structure_type == 'ortho_port':
+            probe_right = lambda simulation: simulation.flux_probe('x', [-NPML[0]-int(l/2/dl), ny], int(H/2/dl), nl=True)
+            probe_top = lambda simulation: simulation.flux_probe('y', [nx, -NPML[1]-int(l/2/dl)], int(H/2/dl), nl=True)
+            probes = [probe_right, probe_top]            
+            self._power_scan_all(probes, Np=Np, s_min=s_min, s_max=s_max)
+
+    def _power_scan_all(self, probes, Np=50, s_min=1e-1, s_max=1e3):
+        probe_out = lambda simulation: simulation.flux_probe('x', [-self.NPML[0]-int(self.l/2/self.dl), self.ny], int(self.Ny/2), nl=True)
+        probes = [probe_out]
+        self.powers, self.transmissions = self.optimization.scan_power(probes=probes, Ns=Np, s_min=s_min, s_max=s_max)
+        for probe_index, _ in enumerate(probes):
+            plt.plot(self.powers, self.transmissions[probe_index])
+        plt.xscale('log')
+        plt.xlabel('input power ($W / \mum$)')
+        plt.ylabel('transmission')
+        plt.show()        
 
     def save(self, filename):
         """ Pickle this object and save it to file 

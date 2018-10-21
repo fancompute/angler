@@ -8,6 +8,8 @@ from functools import partial
 
 # eps = np.load('data/figs/data/2port_eps.npy')
 
+def wrap(i, N):
+    return i + (i >= N)*(i - N) + (i < 0)*(i + N)
 
 def dist(r1, r2):
     return np.sqrt(np.sum(np.square(r1 - r2)))
@@ -15,45 +17,55 @@ def dist(r1, r2):
 def sub2ind(array_shape, rows, cols):
     return rows*array_shape[1] + cols
 
-def get_W(Nx, Ny, design_region, R=10):
+def get_W(Nx, Ny, design_region, NPML, R=10):
 
     diffs = range(-R, R+1)
     N = Nx*Ny
+
+    # if there is no PML on one or more sides, need to wrap filter around
+    is_periodic_x = NPML[0] == 0
+    is_periodic_y = NPML[1] == 0
 
     row_indeces = []
     col_indeces = []
     vals = []
 
-    for i1 in range(Nx):
-        for j1 in range(Ny):
+    if is_periodic_x:
+        i_range = range(Nx)
+    else:
+        i_range = range(R + NPML[0] + 1, Nx - R - 1 - NPML[0])
+
+    if is_periodic_y:
+        j_range = range(Ny)
+    else:
+        j_range = range(R + NPML[1] + 1, Ny - R - 1 - NPML[1])
+
+
+
+    for i1 in i_range:
+        for j1 in j_range:
             r1 = np.array([i1, j1])
 
             row_index = sub2ind((Nx, Ny), i1, j1)
 
-            if i1 <= R or i1 >= Nx-R-1:
-                pass
-                # row_indeces.append(row_index)
-                # col_indeces.append(row_index)
-                # vals.append(R)
-            elif j1 <= R or j1 >= Ny-R-1:
-                pass
-                # row_indeces.append(row_index)
-                # col_indeces.append(row_index)
-                # vals.append(R)
-            else:
-                for i_diff in diffs:
-                    i2 = i1 + i_diff
-                    for j_diff in diffs:
-                        j2 = j1 + j_diff
-                        r2 = np.array([i2, j2])
-                        col_index = sub2ind((Nx, Ny), i2, j2)
+            for i_diff in diffs:
+                i2 = i1 + i_diff
+                for j_diff in diffs:
+                    j2 = j1 + j_diff
+                    r2 = np.array([i2, j2])
 
-                        val = R - dist(r1, r2)
+                    # wrap around for periodic BC
+                    i2 = wrap(i2, Nx)
+                    j2 = wrap(j2, Ny)
 
-                        if val > 0:
-                            row_indeces.append(row_index)
-                            col_indeces.append(col_index)
-                            vals.append(val)
+                    col_index = sub2ind((Nx, Ny), i2, j2)
+
+                    val = R - dist(r1, r2)
+
+                    if val > 0:
+                        row_indeces.append(row_index)
+                        col_indeces.append(col_index)
+                        vals.append(val)
 
     W = sp.csr_matrix((vals, (row_indeces, col_indeces)), shape=(N, N))
 
