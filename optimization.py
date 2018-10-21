@@ -460,7 +460,7 @@ class Optimization():
         ax.set_title('optimization results')
         return ax
 
-    def scan_frequency(self, Nf=50, df=1/20):
+    def scan_frequency(self, Nf=50, df=1/20, pbar=True):
         """ Scans the objective function vs. frequency """
 
         # create frequencies (in Hz)
@@ -468,13 +468,15 @@ class Optimization():
         freqs = 1/2/np.pi*np.linspace(self.simulation.omega - delta_f/2,
                                       self.simulation.omega + delta_f/2,  Nf)
 
-        bar = progressbar.ProgressBar(max_value=Nf)
+        if pbar:
+            bar = progressbar.ProgressBar(max_value=Nf)
 
         # loop through frequencies
         objs = []
         for i, f in enumerate(freqs):
 
-            bar.update(i + 1)
+            if pbar:
+                bar.update(i + 1)
 
             # make a new simulation object
             sim_new = copy.deepcopy(self.simulation)
