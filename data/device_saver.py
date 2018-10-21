@@ -29,13 +29,6 @@ class Device:
         self.Ez = self.simulation.fields['Ez']
         self.Ez_nl = self.simulation.fields_nl['Ez']        
 
-        # spatial coordinates
-        (Nx, Ny) = self.Ez.shape
-        nx, ny = Nx//2, Ny//2
-        self.x_range = np.linspace(-Nx/2*dl, Nx/2*dl, Nx)
-        self.y_range = np.linspace(-Ny/2*dl, Ny/2*dl, Ny)
-
-
         # whether other important things have been stored
         self.parameters_set = False
         self.geometry_set = False
@@ -55,6 +48,10 @@ class Device:
 
         # compute nice-to-haves
         self.grids_per_lamda = self.lambda0 / self.dl / self.L0
+        (Nx, Ny) = self.Ez.shape
+        nx, ny = Nx//2, Ny//2
+        self.x_range = np.linspace(-Nx/2*dl, Nx/2*dl, Nx)
+        self.y_range = np.linspace(-Ny/2*dl, Ny/2*dl, Ny)
 
         self.parameters_set = True
 
@@ -76,7 +73,7 @@ class Device:
         self.structure_type = structure_type
         self.geometry_set = True
 
-    def save(filename):
+    def save(self, filename):
         """ Pickle this object and save it to file 
             NOTE: filename should probably end in '.p'
             for reference, to load this object: `device = pickle.load( open(fname, 'rb'))`
