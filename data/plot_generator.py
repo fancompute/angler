@@ -1,9 +1,11 @@
 import matplotlib.pylab as plt
+import matplotlib.gridspec as gridspec
 from matplotlib.colors import LogNorm
 import matplotlib.patches as mpatches
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 import matplotlib.font_manager as fm
 from mpl_toolkits.axes_grid.inset_locator import inset_axes
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import numpy as np
 from numpy import in1d
@@ -24,6 +26,14 @@ from device_saver import Device
 scale_bar_pad = 0.75
 scale_bar_font_size = 10
 fontprops = fm.FontProperties(size=scale_bar_font_size)
+
+
+def colorbar(mappable):
+    ax = mappable.axes
+    fig = ax.figure
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    return fig.colorbar(mappable, cax=cax)
 
 def set_axis_font(ax, font_size):
     for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
@@ -468,12 +478,20 @@ def plot_ortho_port(D):
     print(np.sum(D.simulation.eps_r[:,-1]>1))
 
     eps_disp, design_region = ortho_port(D.L, D.L2, D.H, D.H2, D.w, D.l, D.dl, D.NPML, D.eps_m)
-    f, (ax_top, ax_mid, ax_bot) = plt.subplots(3, 2, figsize=(7, 10), constrained_layout=True)
+    # f, (ax_top, ax_mid, ax_bot) = plt.subplots(3, 2, figsize=(7, 10), constrained_layout=True)
+
+    f = plt.figure(figsize=(7, 8))
+    gs = gridspec.GridSpec(3, 2, figure=f, height_ratios=[1, 1, 0.3])
+    ax_drawing = plt.subplot(gs[0, 0])
+    ax_eps = plt.subplot(gs[0, 1])
+    ax_lin = plt.subplot(gs[1, 0])
+    ax_nl = plt.subplot(gs[1, 1])
+    ax_obj = plt.subplot(gs[2, 0])
+    ax_power = plt.subplot(gs[2, 1])
 
     eps_disp = np.flipud(eps_disp.T)
 
     # draw structure
-    ax_drawing = ax_top[0]
     im = ax_drawing.pcolormesh(D.x_range, D.y_range, eps_disp, cmap='Greys')
     ax_drawing.set_xlabel('x position ($\mu$m)')
     ax_drawing.set_ylabel('y position ($\mu$m)')
@@ -540,13 +558,12 @@ def plot_ortho_port(D):
     ax_drawing.set_aspect('equal', anchor='C', share=True)
 
     # permittivity
-    ax_eps = ax_top[1]
     eps_final = np.flipud(D.simulation.eps_r.T)
     im = ax_eps.pcolormesh(D.x_range, D.y_range, eps_final, cmap='Greys')
     ax_eps.set_xlabel('x position ($\mu$m)')
     ax_eps.set_ylabel('y position ($\mu$m)')
     # ax_eps.set_title('relative permittivity')
-    cbar = plt.colorbar(im, ax=ax_eps)
+    cbar = colorbar(im)
     cbar.ax.set_title('$\epsilon_r$')
 
     ax_eps.get_xaxis().set_visible(False)
@@ -570,7 +587,6 @@ def plot_ortho_port(D):
     ax_eps.set_aspect('equal', anchor='C', share=True)
 
     # linear fields
-    ax_lin = ax_mid[0]
     E_lin = np.flipud(np.abs(D.Ez.T))
     vmin = 1
     vmax = E_lin.max()/1.5
@@ -579,7 +595,7 @@ def plot_ortho_port(D):
     ax_lin.set_xlabel('x position ($\mu$m)')
     ax_lin.set_ylabel('y position ($\mu$m)')
     # ax_lin.set_title('linear fields')
-    cbar = plt.colorbar(im, ax=ax_lin)
+    cbar = colorbar(im)
     cbar.ax.set_title('$|E_z|$')
     # cbar.ax.tick_params(axis='x', direction='in', labeltop=True)
     ax_lin.annotate('linear fields', xy=(0.5, 0.5), xytext=(0.5, 0.94),
@@ -603,14 +619,13 @@ def plot_ortho_port(D):
     ax_lin.set_aspect('equal', anchor='C', share=True)
 
     # nonlinear fields
-    ax_nl = ax_mid[1]
     E_nl = np.flipud(np.abs(D.Ez_nl.T))
     vmin = 1
     im = ax_nl.pcolormesh(D.x_range, D.y_range, E_nl, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
     ax_nl.contour(D.x_range, D.y_range, eps_final, levels=2, linewidths=0.2, colors='w')
     ax_nl.set_xlabel('x position ($\mu$m)')
     ax_nl.set_ylabel('y position ($\mu$m)')
-    cbar = plt.colorbar(im, ax=ax_nl)
+    cbar = colorbar(im)
     cbar.ax.set_title('$|E_z|$')    
     ax_nl.annotate('nonlinear fields', xy=(0.5, 0.5), xytext=(0.5, 0.94),
                     xycoords='axes fraction',
@@ -633,7 +648,6 @@ def plot_ortho_port(D):
     ax_nl.set_aspect('equal', anchor='C', share=True)
 
     # objective function
-    ax_obj = ax_bot[0]
     obj_list = D.optimization.objfn_list
     iter_list = range(1, len(obj_list) + 1)
     ax_obj.plot(iter_list, obj_list)
@@ -641,7 +655,6 @@ def plot_ortho_port(D):
     ax_obj.set_ylabel('objective (max 1)')
 
     # power scan
-    ax_power = ax_bot[1] 
 
     for i in range(2):
         ax_power.plot(D.powers, D.transmissions[i])
@@ -653,7 +666,7 @@ def plot_ortho_port(D):
     # ax_power.set_aspect('equal', anchor='C', share=True)
 
     apply_sublabels([ax_drawing, ax_eps, ax_lin, ax_nl, ax_power, ax_obj], invert_color_inds=[False, False, True, True, False, False])
-
+    f.tight_layout()
     return f
 
 
@@ -689,19 +702,19 @@ def load_device(fname):
 
 if __name__ == '__main__':
 
-    fname2 = "data/figs/devices/2_port.p"
-    fname2 = "/Users/twh/Downloads/2_port_new.p"    
-    D2 = load_device(fname2)
+    # fname2 = "data/figs/devices/2_port.p"
+    # fname2 = "/Users/twh/Downloads/2_port_new.p"    
+    # D2 = load_device(fname2)
 
-    fig = plot_Device(D2)
-    plt.show()
+    # fig = plot_Device(D2)
+    # plt.show()
 
     # fname3 = "data/figs/devices/3_port.p"
     # D3 = load_device(fname3)
     # fig = plot_Device(D3)
     # plt.show()
 
-    fnameT = "data/figs/devices/T_port.p"
+    fnameT = "/home/iwill/Downloads/T_port.p"
     DT = load_device(fnameT)
     fig = plot_Device(DT)
     # plt.savefig('data/test.png', dpi=400)
