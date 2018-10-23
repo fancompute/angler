@@ -226,19 +226,17 @@ class Device:
             self._power_scan_all(probes, Np=Np, s_min=s_min, s_max=s_max)
 
         elif self.structure_type == 'ortho_port':
-            probe_right = lambda simulation: simulation.flux_probe('x', [-NPML[0]-int(l/2/dl), ny], int(H/2/dl), nl=True)
-            probe_top = lambda simulation: simulation.flux_probe('y', [nx, -NPML[1]-int(l/2/dl)], int(H/2/dl), nl=True)
+            probe_right = lambda simulation: simulation.flux_probe('x', [-self.NPML[0]-int(self.l/2/self.dl), self.ny], int(self.H/2/self.dl), nl=True)
+            probe_top = lambda simulation: simulation.flux_probe('y', [self.nx, -self.NPML[1]-int(self.l/2/self.dl)], int(self.H/2/self.dl), nl=True)
             probes = [probe_right, probe_top]            
             self._power_scan_all(probes, Np=Np, s_min=s_min, s_max=s_max)
 
-    def _power_scan_all(self, probes, Np=50, s_min=1e-1, s_max=1e3):
-        probe_out = lambda simulation: simulation.flux_probe('x', [-self.NPML[0]-int(self.l/2/self.dl), self.ny], int(self.Ny/2), nl=True)
-        probes = [probe_out]
-        self.powers, self.transmissions = self.optimization.scan_power(probes=probes, Ns=Np, s_min=s_min, s_max=s_max)
+    def _power_scan_all(self, probes, Np=50, s_min=1e-1, s_max=1e1):
+        self.powers, self.transmissions = self.optimization.scan_power(probes=probes, Ns=Np, s_min=s_min, s_max=s_max, solver='hybrid')
         for probe_index, _ in enumerate(probes):
             plt.plot(self.powers, self.transmissions[probe_index])
         plt.xscale('log')
-        plt.xlabel('input power ($W$ / $\mum$)')
+        plt.xlabel('input power (W / mum)')
         plt.ylabel('transmission')
         plt.show()        
 

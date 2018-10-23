@@ -434,11 +434,13 @@ def plot_ortho_port(D):
     print(np.sum(D.simulation.eps_r[:,-1]>1))
 
     eps_disp, design_region = ortho_port(D.L, D.L2, D.H, D.H2, D.w, D.l, D.dl, D.NPML, D.eps_m)
-    f, (ax_top, ax_bot) = plt.subplots(2, 2, figsize=(7, 5), constrained_layout=True)
+    f, (ax_top, ax_mid, ax_bot) = plt.subplots(3, 2, figsize=(7, 5), constrained_layout=True)
+
+    eps_disp = np.flipud(eps_disp.T)
 
     # draw structure
     ax_drawing = ax_top[0]
-    im = ax_drawing.pcolormesh(D.x_range, D.y_range, eps_disp.T, cmap='Greys')
+    im = ax_drawing.pcolormesh(D.x_range, D.y_range, eps_disp, cmap='Greys')
     ax_drawing.set_xlabel('x position ($\mu$m)')
     ax_drawing.set_ylabel('y position ($\mu$m)')
     y_dist = 1.6
@@ -505,7 +507,8 @@ def plot_ortho_port(D):
 
     # permittivity
     ax_eps = ax_top[1]
-    im = ax_eps.pcolormesh(D.x_range, D.y_range, D.simulation.eps_r.T, cmap='Greys')
+    eps_final = np.flipud(D.simulation.eps_r.T)
+    im = ax_eps.pcolormesh(D.x_range, D.y_range, eps_final, cmap='Greys')
     ax_eps.set_xlabel('x position ($\mu$m)')
     ax_eps.set_ylabel('y position ($\mu$m)')
     # ax_eps.set_title('relative permittivity')
@@ -532,12 +535,12 @@ def plot_ortho_port(D):
                     verticalalignment='center')
 
     # linear fields
-    ax_lin = ax_bot[0]
-    E_lin = np.abs(D.Ez.T)
-    vmin = 3
-    vmax = E_lin.max()
+    ax_lin = ax_mid[0]
+    E_lin = np.flipud(np.abs(D.Ez.T))
+    vmin = 1
+    vmax = E_lin.max()/1.5
     im = ax_lin.pcolormesh(D.x_range, D.y_range, E_lin, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
-    ax_lin.contour(D.x_range, D.y_range, D.simulation.eps_r.T, levels=2, linewidths=0.2, colors='w')
+    ax_lin.contour(D.x_range, D.y_range, eps_final, levels=2, linewidths=0.2, colors='w')
     ax_lin.set_xlabel('x position ($\mu$m)')
     ax_lin.set_ylabel('y position ($\mu$m)')
     # ax_lin.set_title('linear fields')
@@ -564,12 +567,11 @@ def plot_ortho_port(D):
     ax_lin.add_artist(scalebar)
 
     # nonlinear fields
-    ax_nl = ax_bot[1]
-    E_nl = np.abs(D.Ez_nl.T)
-    vmin = 3
-    vmax = E_nl.max()    
+    ax_nl = ax_mid[1]
+    E_nl = np.flipud(np.abs(D.Ez_nl.T))
+    vmin = 1
     im = ax_nl.pcolormesh(D.x_range, D.y_range, E_nl, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
-    ax_nl.contour(D.x_range, D.y_range, D.simulation.eps_r.T, levels=2, linewidths=0.2, colors='w')
+    ax_nl.contour(D.x_range, D.y_range, eps_final, levels=2, linewidths=0.2, colors='w')
     ax_nl.set_xlabel('x position ($\mu$m)')
     ax_nl.set_ylabel('y position ($\mu$m)')
     cbar = plt.colorbar(im, ax=ax_nl)
@@ -593,7 +595,38 @@ def plot_ortho_port(D):
                                fontproperties=fontprops)
     ax_nl.add_artist(scalebar)
 
-    apply_sublabels([ax_drawing, ax_eps, ax_lin, ax_nl], invert_color_inds=[False, False, True, True])
+    # objective function
+    ax_obj = ax_bot[0]
+    obj_list = D.optimization.objfn_list
+    iter_list = range(1, len(obj_list) + 1)
+    ax_obj.plot(iter_list, obj_list)
+    ax_obj.set_xlabel('iteration')
+    ax_obj.set_ylabel('objective (max 1)')
+
+
+    # f0 = 3e8/D.lambda0
+    # freqs_scaled = [(f0 - f)/1e9 for f in D.freqs]
+    # objs = D.objs
+    # inset = inset_axes(ax_obj,
+    #                 width="40%", # width = 30% of parent_bbox
+    #                 height=0.5, # height : 1 inch
+    #                 loc=7)
+    # inset.plot(freqs_scaled, objs, linewidth=1)
+    # inset.set_xlabel('$\Delta f$ $(GHz)$')
+    # inset.set_ylabel('objective')    
+    # set_axis_font(inset, 6)
+
+    # power scan
+    ax_power = ax_bot[1] 
+
+    for i in range(2):
+        ax_power.plot(D.powers, D.transmissions[i])
+    ax_power.set_xscale('log')
+    ax_power.set_xlabel('input power (W / $\mu$m)')
+    ax_power.set_ylabel('transmission')
+    ax_power.legend(('right', 'top'), loc='best')
+
+    apply_sublabels([ax_drawing, ax_eps, ax_lin, ax_nl, ax_power, ax_obj], invert_color_inds=[False, False, True, True, False, False])
 
     return f
 
@@ -634,14 +667,15 @@ if __name__ == '__main__':
     D2 = load_device(fname2)
 
     fig = plot_Device(D2)
-    plt.savefig('/Users/twh/Desktop/test.png', dpi=400)
+    plt.show()
 
     # fname3 = "data/figs/devices/3_port.p"
     # D3 = load_device(fname3)
     # fig = plot_Device(D3)
     # plt.show()
 
-    # fnameT = "data/figs/devices/T_port.p"
-    # DT = load_device(fnameT)
-    # fig = plot_Device(DT)
+    fnameT = "data/figs/devices/T_port.p"
+    DT = load_device(fnameT)
+    fig = plot_Device(DT)
     # plt.savefig('data/test.png', dpi=400)
+    plt.show()
