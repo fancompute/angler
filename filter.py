@@ -2,6 +2,7 @@ import matplotlib.pylab as plt
 import numpy as np
 import autograd.numpy as npa
 import scipy.sparse as sp
+import progressbar
 
 from autograd import grad
 from functools import partial
@@ -40,10 +41,12 @@ def get_W(Nx, Ny, design_region, NPML, R=10):
     else:
         j_range = range(R + NPML[1] + 1, Ny - R - 1 - NPML[1])
 
+    bar = progressbar.ProgressBar(max_value=len(i_range)+1)
 
+    for counti, i1 in enumerate(i_range):
+        bar.update(counti)        
+        for countj, j1 in enumerate(j_range):
 
-    for i1 in i_range:
-        for j1 in j_range:
             r1 = np.array([i1, j1])
 
             row_index = sub2ind((Nx, Ny), i1, j1)

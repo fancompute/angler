@@ -529,7 +529,7 @@ class Optimization():
 
         return freqs, objs, FWHM
 
-    def scan_power(self, probes=None, Ns=50, s_min=1e-2, s_max=1e2):
+    def scan_power(self, probes=None, Ns=50, s_min=1e-2, s_max=1e2, solver='newton'):
         """ Scans the source amplitude and computes the objective function
             probes is a list of functions for computing the power, for example:
             [lambda simulation: simulation.flux_probe('x', [-NPML[0]-int(l/2/dl), ny + int(d/2/dl)], int(H/2/dl))]
@@ -558,15 +558,32 @@ class Optimization():
             sim_new.modes[0].scale = s
             sim_new.modes[0].setup_src(sim_new)
             W_in = sim_new.W_in
+
             powers.append(W_in)
 
-            # compute the fields
-            _ = sim_new.solve_fields_nl()
+            if solver == 'hybrid':
+                # compute the fields
+                (_,_,_,c) = sim_new.solve_fields_nl(timing=False, averaging=True,
+                            Estart=None, solver_nl='born', conv_threshold=1e-10,
+                            max_num_iter=100)
+
+                if c[-1] > 1e-10:
+                    # compute the fields
+                    (_,_,_,c) = sim_new.solve_fields_nl(timing=False, averaging=True,
+                                Estart=None, solver_nl='newton', conv_threshold=1e-10,
+                                max_num_iter=100)
+            else:
+                (_,_,_,c) = sim_new.solve_fields_nl(timing=False, averaging=True,
+                            Estart=None, solver_nl=solver, conv_threshold=1e-10,
+                            max_num_iter=100)
 
             # compute power transmission using each probe
             for probe_index, probe in enumerate(probes):
                 W_out = probe(sim_new)
                 transmissions[probe_index].append(W_out / W_in)
+
+            # plt.show()
+
         return powers, transmissions
 
     def plot_transmissions(self, transmissions, legend=None):

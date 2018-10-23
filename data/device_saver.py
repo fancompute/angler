@@ -238,7 +238,7 @@ class Device:
         for probe_index, _ in enumerate(probes):
             plt.plot(self.powers, self.transmissions[probe_index])
         plt.xscale('log')
-        plt.xlabel('input power ($W / \mum$)')
+        plt.xlabel('input power ($W$ / $\mum$)')
         plt.ylabel('transmission')
         plt.show()        
 

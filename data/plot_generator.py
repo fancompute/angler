@@ -3,6 +3,7 @@ from matplotlib.colors import LogNorm
 import matplotlib.patches as mpatches
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 import matplotlib.font_manager as fm
+from mpl_toolkits.axes_grid.inset_locator import inset_axes
 
 import numpy as np
 from numpy import in1d
@@ -18,10 +19,16 @@ sys.path.append('../')
 
 from fdfdpy import Simulation
 from structures import two_port, three_port, ortho_port
+from device_saver import Device
 
 scale_bar_pad = 0.75
 scale_bar_font_size = 10
 fontprops = fm.FontProperties(size=scale_bar_font_size)
+
+def set_axis_font(ax, font_size):
+    for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
+             ax.get_xticklabels() + ax.get_yticklabels()):
+        item.set_fontsize(font_size)
 
 def plot_Device(D):
 
@@ -36,10 +43,16 @@ def plot_Device(D):
         raise ValueError("Incorrect structure_type: {}".format(structure_type))
     return f
 
+
+############################################################################################################################################
+############################################################################################################################################
+############################################################################################################################################
+############################################################################################################################################
+
 def plot_two_port(D):
 
     eps_disp, design_region = two_port(D.L, D.H, D.w, D.l, D.spc, D.dl, D.NPML, D.eps_m)
-    f, (ax_top, ax_bot) = plt.subplots(2, 2, figsize=(7, 5), constrained_layout=True)
+    f, (ax_top, ax_mid, ax_bot) = plt.subplots(3, 2, figsize=(7, 5), constrained_layout=True)
 
     # draw structure
     ax_drawing = ax_top[0]
@@ -139,10 +152,10 @@ def plot_two_port(D):
                     verticalalignment='center')
 
     # linear fields
-    ax_lin = ax_bot[0]
+    ax_lin = ax_mid[0]
     E_lin = np.abs(D.Ez.T)
-    vmin = 1
-    vmax = E_lin.max()
+    vmin = 3
+    vmax = E_lin.max()/1.5
     im = ax_lin.pcolormesh(D.x_range, D.y_range, E_lin, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
     ax_lin.contour(D.x_range, D.y_range, D.simulation.eps_r.T, levels=2, linewidths=0.2, colors='w')
     ax_lin.set_xlabel('x position ($\mu$m)')
@@ -171,10 +184,10 @@ def plot_two_port(D):
     ax_lin.add_artist(scalebar)
 
     # nonlinear fields
-    ax_nl = ax_bot[1]
+    ax_nl = ax_mid[1]
     E_nl = np.abs(D.Ez_nl.T)
-    vmin = 1
-    vmax = E_nl.max()    
+    vmin = 3
+    # vmax = E_nl.max()    
     im = ax_nl.pcolormesh(D.x_range, D.y_range, E_nl, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
     ax_nl.contour(D.x_range, D.y_range, D.simulation.eps_r.T, levels=2, linewidths=0.2, colors='w')
     ax_nl.set_xlabel('x position ($\mu$m)')
@@ -200,10 +213,45 @@ def plot_two_port(D):
                                fontproperties=fontprops)
     ax_nl.add_artist(scalebar)
 
-    apply_sublabels([ax_drawing, ax_eps, ax_lin, ax_nl], invert_color_inds=[False, False, True, True])
+
+    # objective function
+    ax_obj = ax_bot[0]
+    obj_list = D.optimization.objfn_list
+    iter_list = range(1, len(obj_list) + 1)
+    ax_obj.plot(iter_list, obj_list)
+    ax_obj.set_xlabel('iteration')
+    ax_obj.set_ylabel('objective (max 1)')
+
+
+    f0 = 3e8/D.lambda0
+    freqs_scaled = [(f0 - f)/1e9 for f in D.freqs]
+    objs = D.objs
+    inset = inset_axes(ax_obj,
+                    width="40%", # width = 30% of parent_bbox
+                    height=0.5, # height : 1 inch
+                    loc=7)
+    inset.plot(freqs_scaled, objs, linewidth=1)
+    inset.set_xlabel('$\Delta f$ $(GHz)$')
+    inset.set_ylabel('objective')    
+    set_axis_font(inset, 6)
+
+    # power scan
+    ax_power = ax_bot[1] 
+
+    # ax_power.plot(D.powers, D.transmissions[0])
+    # ax_power.set_xscale('log')
+    # ax_power.set_xlabel('input power (W / $\mu$m)')
+    # ax_power.set_ylabel('transmission')
+    # ax_power.legend(('right', 'top'))
+
+    apply_sublabels([ax_drawing, ax_eps, ax_lin, ax_nl, ax_power, ax_obj], invert_color_inds=[False, False, True, True, False, False])
 
     return f
 
+############################################################################################################################################
+############################################################################################################################################
+############################################################################################################################################
+############################################################################################################################################
 
 def plot_three_port(D):
 
@@ -308,7 +356,7 @@ def plot_three_port(D):
     # linear fields
     ax_lin = ax_bot[0]
     E_lin = np.abs(D.Ez.T)
-    vmin = 1
+    vmin = 3
     vmax = E_lin.max()
     im = ax_lin.pcolormesh(D.x_range, D.y_range, E_lin, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
     ax_lin.contour(D.x_range, D.y_range, D.simulation.eps_r.T, levels=2, linewidths=0.2, colors='w')
@@ -340,7 +388,7 @@ def plot_three_port(D):
     # nonlinear fields
     ax_nl = ax_bot[1]
     E_nl = np.abs(D.Ez_nl.T)
-    vmin = 1
+    vmin = 3
     vmax = E_nl.max()    
     im = ax_nl.pcolormesh(D.x_range, D.y_range, E_nl, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
     ax_nl.contour(D.x_range, D.y_range, D.simulation.eps_r.T, levels=2, linewidths=0.2, colors='w')
@@ -371,7 +419,19 @@ def plot_three_port(D):
 
     return f
 
+
+############################################################################################################################################
+############################################################################################################################################
+############################################################################################################################################
+############################################################################################################################################
+
 def plot_ortho_port(D):
+
+    max_shift = np.max(D.simulation.compute_index_shift())
+
+    print(np.sum(D.simulation.eps_r[1,:]>1))
+    print(np.sum(D.simulation.eps_r[:,1]>1))
+    print(np.sum(D.simulation.eps_r[:,-1]>1))
 
     eps_disp, design_region = ortho_port(D.L, D.L2, D.H, D.H2, D.w, D.l, D.dl, D.NPML, D.eps_m)
     f, (ax_top, ax_bot) = plt.subplots(2, 2, figsize=(7, 5), constrained_layout=True)
@@ -474,7 +534,7 @@ def plot_ortho_port(D):
     # linear fields
     ax_lin = ax_bot[0]
     E_lin = np.abs(D.Ez.T)
-    vmin = 1
+    vmin = 3
     vmax = E_lin.max()
     im = ax_lin.pcolormesh(D.x_range, D.y_range, E_lin, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
     ax_lin.contour(D.x_range, D.y_range, D.simulation.eps_r.T, levels=2, linewidths=0.2, colors='w')
@@ -506,7 +566,7 @@ def plot_ortho_port(D):
     # nonlinear fields
     ax_nl = ax_bot[1]
     E_nl = np.abs(D.Ez_nl.T)
-    vmin = 1
+    vmin = 3
     vmax = E_nl.max()    
     im = ax_nl.pcolormesh(D.x_range, D.y_range, E_nl, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
     ax_nl.contour(D.x_range, D.y_range, D.simulation.eps_r.T, levels=2, linewidths=0.2, colors='w')
@@ -537,6 +597,13 @@ def plot_ortho_port(D):
 
     return f
 
+
+############################################################################################################################################
+############################################################################################################################################
+############################################################################################################################################
+############################################################################################################################################
+
+
 def apply_sublabels(axs, invert_color_inds, x=19, y=-5, size='large', ha='right', va='top', prefix='(', postfix=')'):
     # axs = list of axes
     # invert_color_ind = list of booleans (True to make sublabels white, else False)
@@ -563,19 +630,18 @@ def load_device(fname):
 
 if __name__ == '__main__':
 
-    # fname2 = "2_port.p"
-    # D2 = load_device(fname2)
-    # fig = plot_Device(D2)
-    # plt.show()
+    fname2 = "data/figs/devices/2_port.p"
+    D2 = load_device(fname2)
 
-    # fname3 = "figs/devices/3_port.p"
+    fig = plot_Device(D2)
+    plt.savefig('/Users/twh/Desktop/test.png', dpi=400)
+
+    # fname3 = "data/figs/devices/3_port.p"
     # D3 = load_device(fname3)
     # fig = plot_Device(D3)
     # plt.show()
 
-    # fnameT = "figs/devices/T_port.p"
+    # fnameT = "data/figs/devices/T_port.p"
     # DT = load_device(fnameT)
     # fig = plot_Device(DT)
-    # plt.show()
-
-
+    # plt.savefig('data/test.png', dpi=400)
