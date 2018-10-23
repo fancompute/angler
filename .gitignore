@@ -9,6 +9,10 @@ __pycache__/
 #pickle
 *.p
 
+#DS Store
+.DS_Store
+
+
 # Distribution / packaging
 .Python
 build/
