@@ -53,6 +53,21 @@ def plot_Device(D):
         raise ValueError("Incorrect structure_type: {}".format(structure_type))
     return f
 
+def pad_array(array, padding, val):
+    (Nx, Ny) = array.shape
+    pad = val*np.ones((Nx, padding))
+    new_array = array.T
+    new_array = np.vstack([pad.T, new_array, pad.T])
+    return new_array
+
+def pad_list(ls, padding, dl):
+    N = len(ls)
+    N_new = N + 2*padding
+    n = N_new/2
+    ls_new = [dl*(l-n) for l in range(N_new)]
+    return ls_new
+
+
 
 ############################################################################################################################################
 ############################################################################################################################################
@@ -61,9 +76,11 @@ def plot_Device(D):
 
 def plot_two_port(D):
 
+    # scale_bar_pad = 0.1
+    pad_grids = 50
 
-    f = plt.figure(figsize=(7, 8))
-    gs = gridspec.GridSpec(3, 2, figure=f, height_ratios=[1, 1, 0.3])
+    f = plt.figure(figsize=(7, 6))
+    gs = gridspec.GridSpec(3, 2, figure=f, height_ratios=[1, 1, 0.7])
     ax_drawing = plt.subplot(gs[0, 0])
     ax_eps = plt.subplot(gs[0, 1])
     ax_lin = plt.subplot(gs[1, 0])
@@ -72,9 +89,11 @@ def plot_two_port(D):
     ax_power = plt.subplot(gs[2, 1])
 
     eps_disp, design_region = two_port(D.L, D.H, D.w, D.l, D.spc, D.dl, D.NPML, D.eps_m)
+    eps_disp = pad_array(eps_disp, pad_grids, 1)
 
     # draw structure
-    im = ax_drawing.pcolormesh(D.x_range, D.y_range, eps_disp.T, cmap='Greys')
+    y_range = pad_list(list(D.y_range), pad_grids, D.dl)
+    im = ax_drawing.pcolormesh(D.x_range, y_range, eps_disp, cmap='Greys')
     ax_drawing.set_xlabel('x position ($\mu$m)')
     ax_drawing.set_ylabel('y position ($\mu$m)')
     base_in = 9.5
@@ -93,21 +112,21 @@ def plot_two_port(D):
     design_box = mpatches.Rectangle(xy=(-D.L/2, -D.H/2), width=D.L, height=D.H,
                                     alpha=0.5, edgecolor='k', linestyle='--')
     ax_drawing.add_patch(design_box)
-    ax_drawing.annotate('design region', (0.5, 0.5), xytext=(0.0, 0.75),
+    ax_drawing.annotate('design region', (0.5, 0.5), xytext=(0.0, 0.9),
                     xycoords='axes fraction',
                     textcoords='data',
                     size='small',
                     color='k',
                     horizontalalignment='center',
                     verticalalignment='center')
-    ax_drawing.annotate('linear', (0.5, 0.5), xytext=(6, 1),
+    ax_drawing.annotate('linear', (0.5, 0.5), xytext=(5.6, 1),
                     xycoords='axes fraction',
                     textcoords='data',
                     size='small',
                     color='k',
                     horizontalalignment='left',
                     verticalalignment='center')
-    ax_drawing.annotate('nonlinear', (0.5, 0.5), xytext=(6, -y_dist - 1),
+    ax_drawing.annotate('nonlinear', (0.5, 0.5), xytext=(5.6, -y_dist - 1),
                     xycoords='axes fraction',
                     textcoords='data',
                     size='small',
@@ -132,7 +151,7 @@ def plot_two_port(D):
                                size_vertical=0.3,
                                fontproperties=fontprops)
     ax_drawing.add_artist(scalebar)
-    ax_drawing.annotate('optimization definition', xy=(0.5, 0.5), xytext=(0.5, 0.94),
+    ax_drawing.annotate('optimization', xy=(0.5, 0.5), xytext=(0.5, 0.9),
                     xycoords='axes fraction',
                     textcoords='axes fraction',
                     size='medium',
@@ -142,7 +161,9 @@ def plot_two_port(D):
     ax_drawing.set_aspect('equal', anchor='C', share=True)
 
     # permittivity
-    im = ax_eps.pcolormesh(D.x_range, D.y_range, D.simulation.eps_r.T, cmap='Greys')
+    eps_final = pad_array(D.simulation.eps_r, pad_grids, 1)
+
+    im = ax_eps.pcolormesh(D.x_range, y_range, eps_final, cmap='Greys')
     ax_eps.set_xlabel('x position ($\mu$m)')
     ax_eps.set_ylabel('y position ($\mu$m)')
     # ax_eps.set_title('relative permittivity')
@@ -160,7 +181,7 @@ def plot_two_port(D):
                                fontproperties=fontprops)
 
     ax_eps.add_artist(scalebar)
-    ax_eps.annotate('final structure', xy=(0.5, 0.5), xytext=(0.5, 0.94),
+    ax_eps.annotate('final structure', xy=(0.5, 0.5), xytext=(0.5, 0.9),
                     xycoords='axes fraction',
                     textcoords='axes fraction',
                     size='medium',
@@ -170,18 +191,20 @@ def plot_two_port(D):
     ax_eps.set_aspect('equal', anchor='C', share=True)
 
     # linear fields
-    E_lin = np.abs(D.Ez.T)
+    E_lin = np.abs(D.Ez)
+    E_lin = pad_array(E_lin, pad_grids, 1e-3)
+
     vmin = 3
     vmax = E_lin.max()/1.5
-    im = ax_lin.pcolormesh(D.x_range, D.y_range, E_lin, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
-    ax_lin.contour(D.x_range, D.y_range, D.simulation.eps_r.T, levels=2, linewidths=0.2, colors='w')
+    im = ax_lin.pcolormesh(D.x_range, y_range, E_lin, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
+    ax_lin.contour(D.x_range, y_range, eps_final, levels=2, linewidths=0.2, colors='w')
     ax_lin.set_xlabel('x position ($\mu$m)')
     ax_lin.set_ylabel('y position ($\mu$m)')
     # ax_lin.set_title('linear fields')
     cbar = colorbar(im)
     cbar.ax.set_title('$|E_z|$')
     # cbar.ax.tick_params(axis='x', direction='in', labeltop=True)
-    ax_lin.annotate('linear fields', xy=(0.5, 0.5), xytext=(0.5, 0.94),
+    ax_lin.annotate('linear fields', xy=(0.5, 0.5), xytext=(0.5, 0.9),
                     xycoords='axes fraction',
                     textcoords='axes fraction',
                     size='medium',
@@ -202,16 +225,18 @@ def plot_two_port(D):
     ax_lin.set_aspect('equal', anchor='C', share=True)
 
     # nonlinear fields
-    E_nl = np.abs(D.Ez_nl.T)
+    E_nl = np.abs(D.Ez_nl)
+    E_nl = pad_array(E_nl, pad_grids, 1e-3)
+
     vmin = 3
     # vmax = E_nl.max()    
-    im = ax_nl.pcolormesh(D.x_range, D.y_range, E_nl, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
-    ax_nl.contour(D.x_range, D.y_range, D.simulation.eps_r.T, levels=2, linewidths=0.2, colors='w')
+    im = ax_nl.pcolormesh(D.x_range, y_range, E_nl, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
+    ax_nl.contour(D.x_range, y_range, eps_final, levels=2, linewidths=0.2, colors='w')
     ax_nl.set_xlabel('x position ($\mu$m)')
     ax_nl.set_ylabel('y position ($\mu$m)')
     cbar = colorbar(im)
     cbar.ax.set_title('$|E_z|$')    
-    ax_nl.annotate('nonlinear fields', xy=(0.5, 0.5), xytext=(0.5, 0.94),
+    ax_nl.annotate('nonlinear fields', xy=(0.5, 0.5), xytext=(0.5, 0.9),
                     xycoords='axes fraction',
                     textcoords='axes fraction',
                     size='medium',
@@ -235,29 +260,29 @@ def plot_two_port(D):
     # objective function
     obj_list = D.optimization.objfn_list
     iter_list = range(1, len(obj_list) + 1)
-    ax_obj.plot(iter_list, obj_list)
+    ax_obj.plot(iter_list, obj_list, color='k')
     ax_obj.set_xlabel('iteration')
     ax_obj.set_ylabel('objective (max 1)')
-
+    ax_obj.set_ylim([-0.01, 1.01])
 
     f0 = 3e8/D.lambda0
     freqs_scaled = [(f0 - f)/1e9 for f in D.freqs]
     objs = D.objs
-    inset = inset_axes(ax_obj,
-                    width="40%", # width = 30% of parent_bbox
-                    height=0.5, # height : 1 inch
-                    loc=7)
-    inset.plot(freqs_scaled, objs, linewidth=1)
-    inset.set_xlabel('$\Delta f$ $(GHz)$')
-    inset.set_ylabel('objective')    
-    set_axis_font(inset, 6)
+    # inset = inset_axes(ax_obj,
+    #                 width="40%", # width = 30% of parent_bbox
+    #                 height=0.5, # height : 1 inch
+    #                 loc=7)
+    # inset.plot(freqs_scaled, objs, linewidth=1)
+    # inset.set_xlabel('$\Delta f$ $(GHz)$')
+    # inset.set_ylabel('objective')    
+    # set_axis_font(inset, 6)
 
     # power scan
     ax_power.plot(D.powers, D.transmissions[0], color='#0066cc')
     ax_power.set_xscale('log')
     ax_power.set_xlabel('input power (W / $\mu$m)')
     ax_power.set_ylabel('transmission')
-    ax_power.set_ylim([0, 1])
+    ax_power.set_ylim([-0.01, 1.01])
 
     # ax_power.plot(D.powers, D.transmissions[0])
     # ax_power.set_xscale('log')
@@ -345,7 +370,7 @@ def plot_three_port(D):
                                size_vertical=0.3,
                                fontproperties=fontprops)
     ax_drawing.add_artist(scalebar)
-    ax_drawing.annotate('optimization definition', xy=(0.5, 0.5), xytext=(0.5, 0.94),
+    ax_drawing.annotate('optimization definition', xy=(0.5, 0.5), xytext=(0.5, 0.9),
                     xycoords='axes fraction',
                     textcoords='axes fraction',
                     size='medium',
@@ -374,7 +399,7 @@ def plot_three_port(D):
                                fontproperties=fontprops)
 
     ax_eps.add_artist(scalebar)
-    ax_eps.annotate('final structure', xy=(0.5, 0.5), xytext=(0.5, 0.94),
+    ax_eps.annotate('final structure', xy=(0.5, 0.5), xytext=(0.5, 0.85),
                     xycoords='axes fraction',
                     textcoords='axes fraction',
                     size='medium',
@@ -708,20 +733,22 @@ def load_device(fname):
 
 if __name__ == '__main__':
 
-    # fname2 = "data/figs/devices/2_port.p"
-    # fname2 = "/Users/twh/Downloads/2_port_new.p"    
-    # D2 = load_device(fname2)
+    fname2 = "data/figs/devices/2_port.p"
+    fname2 = "/Users/twh/Downloads/2_port_new.p"    
+    D2 = load_device(fname2)
 
-    # fig = plot_Device(D2)
-    # plt.show()
+    fig = plot_Device(D2)
+    plt.savefig('data/figs/img/2_port.png', dpi=400)
+
+    plt.show()
 
     # fname3 = "data/figs/devices/3_port.p"
     # D3 = load_device(fname3)
     # fig = plot_Device(D3)
     # plt.show()
 
-    fnameT = "data/figs/devices/T_port.p"
-    DT = load_device(fnameT)
-    fig = plot_Device(DT)
-    plt.savefig('data/test.png', dpi=300)
-    plt.show()
+    # fnameT = "data/figs/devices/T_port.p"
+    # DT = load_device(fnameT)
+    # fig = plot_Device(DT)
+    # plt.savefig('data/figs/img/T_port.png', dpi=400)
+    # plt.show()
