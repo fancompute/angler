@@ -751,7 +751,6 @@ def apply_sublabels(axs, invert_color_inds, x=19, y=-5, size='large', ha='right'
 if __name__ == '__main__':
 
     fname2 = "data/figs/devices/2_port.p"
-    fname2 = "/Users/twh/Downloads/2_port_new.p"    
     D2 = load_device(fname2)
     fig = plot_Device(D2)
     plt.savefig('data/figs/img/2_port.pdf', dpi=400)
@@ -762,8 +761,8 @@ if __name__ == '__main__':
     # fig = plot_Device(D3)
     # plt.show()
 
-    # fnameT = "data/figs/devices/T_port.p"
-    # DT = load_device(fnameT)
-    # fig = plot_Device(DT)
-    # plt.savefig('data/figs/img/T_port.pdf', dpi=400)
-    # plt.show()
+    fnameT = "data/figs/devices/T_port.p"
+    DT = load_device(fnameT)
+    fig = plot_Device(DT)
+    plt.savefig('data/figs/img/T_port.pdf', dpi=400)
+    plt.show()
