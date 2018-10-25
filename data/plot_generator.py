@@ -13,7 +13,6 @@ from numpy import in1d
 from string import ascii_lowercase
 import copy
 
-from collections import namedtuple
 import dill as pickle
 
 import sys
@@ -21,7 +20,7 @@ sys.path.append('../')
 
 from fdfdpy import Simulation
 from structures import two_port, three_port, ortho_port
-from device_saver import Device
+from device_saver import Device, load_device
 
 scale_bar_pad = 0.75
 scale_bar_font_size = 10
@@ -94,6 +93,8 @@ def plot_two_port(D):
     # draw structure
     y_range = pad_list(list(D.y_range), pad_grids, D.dl)
     im = ax_drawing.pcolormesh(D.x_range, y_range, eps_disp, cmap='Greys')
+    im.set_rasterized(True)
+
     ax_drawing.set_xlabel('x position ($\mu$m)')
     ax_drawing.set_ylabel('y position ($\mu$m)')
     base_in = 9.5
@@ -112,24 +113,24 @@ def plot_two_port(D):
     design_box = mpatches.Rectangle(xy=(-D.L/2, -D.H/2), width=D.L, height=D.H,
                                     alpha=0.5, edgecolor='k', linestyle='--')
     ax_drawing.add_patch(design_box)
-    ax_drawing.annotate('design region', (0.5, 0.5), xytext=(0.0, 0.9),
+    ax_drawing.annotate('design region', (0.5, 0.5), xytext=(0.0, 1),
                     xycoords='axes fraction',
                     textcoords='data',
-                    size='small',
+                    size='medium',
                     color='k',
                     horizontalalignment='center',
                     verticalalignment='center')
     ax_drawing.annotate('linear', (0.5, 0.5), xytext=(5.6, 1),
                     xycoords='axes fraction',
                     textcoords='data',
-                    size='small',
+                    size='medium',
                     color='k',
                     horizontalalignment='left',
                     verticalalignment='center')
-    ax_drawing.annotate('nonlinear', (0.5, 0.5), xytext=(5.6, -y_dist - 1),
+    ax_drawing.annotate('nonlinear', (0.5, 0.5), xytext=(4.6, -y_dist - 1),
                     xycoords='axes fraction',
                     textcoords='data',
-                    size='small',
+                    size='medium',
                     color='k',
                     horizontalalignment='left',
                     verticalalignment='center')
@@ -164,6 +165,8 @@ def plot_two_port(D):
     eps_final = pad_array(D.simulation.eps_r, pad_grids, 1)
 
     im = ax_eps.pcolormesh(D.x_range, y_range, eps_final, cmap='Greys')
+    im.set_rasterized(True)
+
     ax_eps.set_xlabel('x position ($\mu$m)')
     ax_eps.set_ylabel('y position ($\mu$m)')
     # ax_eps.set_title('relative permittivity')
@@ -197,6 +200,8 @@ def plot_two_port(D):
     vmin = 3
     vmax = E_lin.max()/1.5
     im = ax_lin.pcolormesh(D.x_range, y_range, E_lin, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
+    im.set_rasterized(True)
+
     ax_lin.contour(D.x_range, y_range, eps_final, levels=2, linewidths=0.2, colors='w')
     ax_lin.set_xlabel('x position ($\mu$m)')
     ax_lin.set_ylabel('y position ($\mu$m)')
@@ -231,6 +236,8 @@ def plot_two_port(D):
     vmin = 3
     # vmax = E_nl.max()    
     im = ax_nl.pcolormesh(D.x_range, y_range, E_nl, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
+    im.set_rasterized(True)
+
     ax_nl.contour(D.x_range, y_range, eps_final, levels=2, linewidths=0.2, colors='w')
     ax_nl.set_xlabel('x position ($\mu$m)')
     ax_nl.set_ylabel('y position ($\mu$m)')
@@ -315,6 +322,8 @@ def plot_three_port(D):
 
     # draw structure
     im = ax_drawing.pcolormesh(D.x_range, D.y_range, eps_disp.T, cmap='Greys')
+    im.set_rasterized(True)
+
     ax_drawing.set_xlabel('x position ($\mu$m)')
     ax_drawing.set_ylabel('y position ($\mu$m)')
     y_dist = 1.6
@@ -382,6 +391,8 @@ def plot_three_port(D):
 
     # permittivity
     im = ax_eps.pcolormesh(D.x_range, D.y_range, D.simulation.eps_r.T, cmap='Greys')
+    im.set_rasterized(True)
+
     ax_eps.set_xlabel('x position ($\mu$m)')
     ax_eps.set_ylabel('y position ($\mu$m)')
     # ax_eps.set_title('relative permittivity')
@@ -413,6 +424,8 @@ def plot_three_port(D):
     vmin = 3
     vmax = E_lin.max()
     im = ax_lin.pcolormesh(D.x_range, D.y_range, E_lin, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
+    im.set_rasterized(True)
+
     ax_lin.contour(D.x_range, D.y_range, D.simulation.eps_r.T, levels=2, linewidths=0.2, colors='w')
     ax_lin.set_xlabel('x position ($\mu$m)')
     ax_lin.set_ylabel('y position ($\mu$m)')
@@ -445,6 +458,8 @@ def plot_three_port(D):
     vmin = 3
     vmax = E_nl.max()    
     im = ax_nl.pcolormesh(D.x_range, D.y_range, E_nl, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
+    im.set_rasterized(True)
+
     ax_nl.contour(D.x_range, D.y_range, D.simulation.eps_r.T, levels=2, linewidths=0.2, colors='w')
     ax_nl.set_xlabel('x position ($\mu$m)')
     ax_nl.set_ylabel('y position ($\mu$m)')
@@ -523,6 +538,8 @@ def plot_ortho_port(D):
 
     # draw structure
     im = ax_drawing.pcolormesh(D.x_range, D.y_range, eps_disp, cmap='Greys')
+    im.set_rasterized(True)
+
     ax_drawing.set_xlabel('x position ($\mu$m)')
     ax_drawing.set_ylabel('y position ($\mu$m)')
     y_dist = 0
@@ -556,14 +573,14 @@ def plot_ortho_port(D):
     ax_drawing.annotate('linear', (0, 0), xytext=(3.7, -0.8),
                     xycoords='axes fraction',
                     textcoords='data',
-                    size='small',
+                    size='medium',
                     color='k',
                     horizontalalignment='left',
                     verticalalignment='center')
     ax_drawing.annotate('nonlinear', (0, 0), xytext=(0.5, -4.5),
                     xycoords='axes fraction',
                     textcoords='data',
-                    size='small',
+                    size='medium',
                     color='k',
                     horizontalalignment='left',
                     verticalalignment='center')
@@ -590,6 +607,8 @@ def plot_ortho_port(D):
     # permittivity
     eps_final = np.flipud(D.simulation.eps_r.T)
     im = ax_eps.pcolormesh(D.x_range, D.y_range, eps_final, cmap='Greys')
+    im.set_rasterized(True)
+
     ax_eps.set_xlabel('x position ($\mu$m)')
     ax_eps.set_ylabel('y position ($\mu$m)')
     # ax_eps.set_title('relative permittivity')
@@ -621,6 +640,8 @@ def plot_ortho_port(D):
     vmin = 1
     vmax = E_lin.max()/1.5
     im = ax_lin.pcolormesh(D.x_range, D.y_range, E_lin, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
+    im.set_rasterized(True)
+
     ax_lin.contour(D.x_range, D.y_range, eps_final, levels=2, linewidths=0.2, colors='w')
     ax_lin.set_xlabel('x position ($\mu$m)')
     ax_lin.set_ylabel('y position ($\mu$m)')
@@ -652,6 +673,8 @@ def plot_ortho_port(D):
     E_nl = np.flipud(np.abs(D.Ez_nl.T))
     vmin = 1
     im = ax_nl.pcolormesh(D.x_range, D.y_range, E_nl, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
+    im.set_rasterized(True)
+
     ax_nl.contour(D.x_range, D.y_range, eps_final, levels=2, linewidths=0.2, colors='w')
     ax_nl.set_xlabel('x position ($\mu$m)')
     ax_nl.set_ylabel('y position ($\mu$m)')
@@ -693,7 +716,7 @@ def plot_ortho_port(D):
     ax_power.set_xlabel('input power (W / $\mu$m)')
     ax_power.set_ylabel('transmission')
     ax_power.set_ylim([-0.01, 1.01])
-    ax_power.legend(('right', 'top'), loc='best')
+    ax_power.legend(('right port', 'bottom port'), loc='best')
     # ax_power.set_aspect('equal', anchor='C', share=True)
 
     apply_sublabels([ax_drawing, ax_eps, ax_lin, ax_nl, ax_power, ax_obj], invert_color_inds=[False, False, True, True, False, False])
@@ -725,21 +748,13 @@ def apply_sublabels(axs, invert_color_inds, x=19, y=-5, size='large', ha='right'
                     horizontalalignment=ha,
                     verticalalignment=va)
 
-def load_device(fname):
-    """ Loads the pickled Device object """
-    D_dict = pickle.load(open(fname, "rb"))
-    D = namedtuple('Device', D_dict.keys())(*D_dict.values())
-    return D
-
 if __name__ == '__main__':
 
     fname2 = "data/figs/devices/2_port.p"
     fname2 = "/Users/twh/Downloads/2_port_new.p"    
     D2 = load_device(fname2)
-
     fig = plot_Device(D2)
-    plt.savefig('data/figs/img/2_port.png', dpi=400)
-
+    plt.savefig('data/figs/img/2_port.pdf', dpi=400)
     plt.show()
 
     # fname3 = "data/figs/devices/3_port.p"
@@ -750,5 +765,5 @@ if __name__ == '__main__':
     # fnameT = "data/figs/devices/T_port.p"
     # DT = load_device(fnameT)
     # fig = plot_Device(DT)
-    # plt.savefig('data/figs/img/T_port.png', dpi=400)
+    # plt.savefig('data/figs/img/T_port.pdf', dpi=400)
     # plt.show()

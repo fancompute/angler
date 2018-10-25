@@ -3,6 +3,15 @@ from copy import deepcopy
 import warnings
 import dill as pickle
 import matplotlib.pylab as plt
+from collections import namedtuple
+
+
+def load_device(fname):
+    """ Loads the pickled Device object """
+    D_dict = pickle.load(open(fname, "rb"))
+    D = namedtuple('Device', D_dict.keys())(*D_dict.values())
+    return D
+
 
 class Device:
     """ Stores the data from a finished structure optimization.  
