@@ -144,10 +144,16 @@ def deps_drhob(rhob, eps_m):
     return (eps_m - 1)
 
 
-""" THIS IS THE OPPOSITE PROCEDURE, TAKING PERMITTIVITY AND GETTING DENSITY """
-
 
 if __name__ == '__main__':
+
+    """ some isolated tests of the filtering and projection """
+    import matplotlib.style
+    import matplotlib as mpl
+    import matplotlib.gridspec as gridspec
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+    mpl.style.use('seaborn-colorblind')    
 
     Nx = 100
     Ny = 100
@@ -155,32 +161,35 @@ if __name__ == '__main__':
     eps_m = 6
     beta = 100
     eta = 0.5
+    NPML = [5, 5]
 
     rho = np.zeros((Nx, Ny))
-    rho[20:Nx-30, Ny//2:Ny//2+30] = 0.7
-    rho[Nx//2:Nx//2+30, 19:Ny-20] = 1
+    rho[20:Nx-20, Ny//2:Ny//2+20] = 0.7
+    rho[Nx//2:Nx//2+5, 20:Ny-20] = 1
+    # plt.imshow(rho)
+    # plt.show()
 
-    design_region = np.zeros((Nx, Ny))
-    design_region[20:80, 20:80] = 1
+    design_region = np.ones((Nx, Ny))
 
-    W = get_W(Nx, Ny, design_region, R=R)
+    W = get_W(Nx, Ny, design_region, NPML, R=R)
 
     rhot = rho2rhot(rho, W)
     rhob = rhot2rhob(rhot, eta=eta, beta=beta)
     eps = rhob2eps(rhob, eps_m=eps_m)
 
-
+    f = plt.figure(figsize=(8, 4))
     RTs = np.linspace(0,1,1000)
-    num_grad = np.gradient(rhot2rhob(RTs, eta=0.5, beta=10), RTs[1]-RTs[0])
-    plt.plot(RTs, drhob_drhot(RTs, eta=0.5, beta=10))
-    plt.plot(RTs, num_grad)
+    plt.plot(RTs, rhot2rhob(RTs, eta=0.5, beta=0.1))
     plt.plot(RTs, rhot2rhob(RTs, eta=0.5, beta=10))
-    plt.xlabel('\tilde{\rho}')
-    plt.ylabel('\bar{\rho}')  
-    plt.legend(('projection', 'derivative'))
+    plt.plot(RTs, rhot2rhob(RTs, eta=0.5, beta=1000))
+    plt.legend((r"$\beta = .1$", r"$\beta = 10$", r"$\beta = 1000$"))
+    plt.xlabel(r"$\tilde{\rho}_i$")
+    plt.ylabel(r"$\bar{\rho}_i$")
+    plt.title(r"projection with varying $\beta$ ($\eta=0.5$)")
+    # plt.savefig('data/figs/img/project.pdf', dpi=300)
     plt.show()
 
-    # change in projected density with respect to filtered density
+    # # change in projected density with respect to filtered density
 
 
     def circle(Nx, Ny, R=10):
@@ -196,14 +205,8 @@ if __name__ == '__main__':
 
                 if i1 <= R or i1 >= Nx-R-1:
                     pass
-                    # row_indeces.append(row_index)
-                    # col_indeces.append(row_index)
-                    # vals.append(R)
                 elif j1 <= R or j1 >= Ny-R-1:
                     pass
-                    # row_indeces.append(row_index)
-                    # col_indeces.append(row_index)
-                    # vals.append(R)
                 else:
                     for i_diff in diffs:
                         i2 = i1 + i_diff
@@ -217,47 +220,50 @@ if __name__ == '__main__':
                                 circ[i2, j2] = val
         return circ
 
+    f = plt.figure(figsize=(5, 5))    
     circ = circle(Nx, Ny, R=10)
     im = plt.imshow(circ, cmap='inferno')
     plt.colorbar()
-    plt.title('filter response on one central point')
+    plt.title(r'filter response ($R = 10$ pixels)')
+    plt.xlabel('pixels')
+    plt.ylabel('pixels')
+    # plt.savefig('data/figs/img/response.pdf', dpi=300)
     plt.show()
 
-    plt.clf()
+    def colorbar(mappable):
+        ax = mappable.axes
+        fig = ax.figure
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        return fig.colorbar(mappable, cax=cax)
 
-    f1, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(5)
-    im1 = ax1.imshow(rho)
-    plt.colorbar(im1, ax=ax1)
-    im2 = ax2.imshow(rhot)
-    plt.colorbar(im2, ax=ax2)
-    im3 = ax3.imshow(rhob)
-    plt.colorbar(im3, ax=ax3)
-    im4 = ax4.imshow(eps)
-    plt.colorbar(im4, ax=ax4)
+    f = plt.figure(figsize=(9, 7), constrained_layout=True)
+    gs = gridspec.GridSpec(2, 2, figure=f, height_ratios=[1, 1], wspace=0.1, hspace=0.5)
+    ax_rho = plt.subplot(gs[0, 0])
+    ax_rhot = plt.subplot(gs[0, 1])
+    ax_rhob = plt.subplot(gs[1, 0])
+    ax_eps = plt.subplot(gs[1, 1])
 
-    eps_r = rho2eps(rho, eps_m, W, eta=0.5, beta=100)
+    im1 = ax_rho.imshow(rho, cmap='Greys')
+    colorbar(im1)
+    ax_rho.set_title(r'design density ($\rho$)')
+    ax_rho.set_xlabel('pixels (x)')
+    ax_rho.set_ylabel('pixels (y)')
+    im2 = ax_rhot.imshow(rhot, cmap='Greys')
+    colorbar(im2)
+    ax_rhot.set_title(r'filtered density ($\tilde{\rho}$)')   
+    ax_rhot.set_xlabel('pixels (x)')
+    ax_rhot.set_ylabel('pixels (y)')
+    im3 = ax_rhob.imshow(rhob, cmap='Greys')
+    colorbar(im3)
+    ax_rhob.set_title(r'projected density ($\bar{\rho}$)') 
+    ax_rhob.set_xlabel('pixels (x)')
+    ax_rhob.set_ylabel('pixels (y)')   
+    im4 = ax_eps.imshow(eps, cmap='Greys')
+    ax_eps.set_title(r'rel. permittivity ($\epsilon_r$)')
+    ax_eps.set_xlabel('pixels (x)')
+    ax_eps.set_ylabel('pixels (y)')
+    colorbar(im4)
 
-    im5 = ax5.imshow(eps_r)
-    plt.colorbar(im5, ax=ax5)
+    # plt.savefig('data/figs/img/filter.pdf', dpi=300)
     plt.show()
-
-    R = np.random.random((100, 100))
-    # R = np.zeros((Nx, Ny))
-    # R[Nx//2:Nx//2+5, Ny//2:Ny//2+5] = 1
-    eps = rho2eps(R, eps_m=eps_m, W=W, eta=0.5, beta=100)
-    plt.imshow(eps)
-    plt.show()
-
-    rhob = eps2rhob(eps, eps_m=eps_m)
-    rhot = rhob2rhot(rhob, eta=eta, beta=beta)
-
-    f1, (ax1, ax2, ax3, ax4) = plt.subplots(4)
-    im1 = ax1.imshow(eps)
-    plt.colorbar(im1, ax=ax1)
-    im2 = ax2.imshow(rhob)
-    plt.colorbar(im2, ax=ax2)
-    im3 = ax3.imshow(rhot)
-    plt.colorbar(im3, ax=ax3)
-    # im4 = ax4.imshow(rho)
-    # plt.colorbar(im4, ax=ax4)
-    plt.show()    
