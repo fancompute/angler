@@ -8,7 +8,7 @@ from device_saver import load_device
 
 """ Opens a device and prints its stored stats for the paper"""
 
-def scan_frequency(D, probe, Nf=5, df=1/200, pbar=True):
+def scan_frequency(D, probe, Nf=100, df=1/200, pbar=True):
     """ Scans the objective function vs. frequency """
 
     # create frequencies (in Hz)
@@ -44,7 +44,7 @@ def scan_frequency(D, probe, Nf=5, df=1/200, pbar=True):
     return freqs, spectrum
 
 
-def get_spectrum(fname, D):
+def get_spectrum(D):
 
     if D.structure_type == 'two_port':
         probe_out_low = lambda simulation: simulation.flux_probe('x', [-D.NPML[0]-int(D.l/2/D.dl), D.ny], int(D.Ny/2), nl=False)        
@@ -81,13 +81,29 @@ def plot_spectra(D, freqs, spectra):
 
 if __name__ == '__main__':
 
-    fname2 = 'data/figs/devices/2_port.p'
-    D = load_device(fname2)
-    freqs, spectra2 = get_spectrum(fname2, D)
+    # fname2 = 'data/figs/devices/2_port.p'
+    # D = load_device(fname2)
+    # freqs, spectra2 = get_spectrum(D)
+    # freqs_GHz = [(f-150e12)/1e9 for f in freqs]
+    # plot_spectra(D, freqs_GHz, spectra2)
+
+    fnameT = 'data/figs/devices/T_port.p'
+    D = load_device(fnameT)
+    freqs, spectraT = get_spectrum(D)
     freqs_GHz = [(f-150e12)/1e9 for f in freqs]
-    plot_spectra(D, freqs_GHz, spectra2)
+    plot_spectra(D, freqs_GHz, spectraT)
 
-    # fnameT = 'data/figs/devices/T_port.p'
-    # freqs, spectraT = plot_spectrum(fnameT)
-    # plot_spectra(D, freqs, spectraT)
 
+if D.structure_type == 'two_port':
+    leg = ('low power', 'high power')
+elif D.structure_type == 'ortho_port':
+    leg = ('low power (right)', 'low power (bottom)', 'high power (right)', 'high power (bottom)')
+
+
+for spectrum in spectraT:
+    plt.plot(freqs, spectrum)
+
+
+plt.legend(leg, loc='center left')
+plt.xlabel('frequency difference (GHz)')
+plt.ylabel('transmission')    
