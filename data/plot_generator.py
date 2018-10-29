@@ -269,7 +269,7 @@ def plot_two_port(D):
     iter_list = range(1, len(obj_list) + 1)
     ax_obj.plot(iter_list, obj_list, color='k')
     ax_obj.set_xlabel('iteration')
-    ax_obj.set_ylabel('objective (max 1)')
+    ax_obj.set_ylabel('objective function')
     ax_obj.set_ylim([-0.01, 1.01])
 
     f0 = 3e8/D.lambda0
@@ -491,7 +491,7 @@ def plot_three_port(D):
     iter_list = range(1, len(obj_list) + 1)
     ax_obj.plot(iter_list, obj_list)
     ax_obj.set_xlabel('iteration')
-    ax_obj.set_ylabel('objective (max 1)')
+    ax_obj.set_ylabel('objective function')
 
     # power scan
     ax_power.plot(D.powers, D.transmissions[0], color='#0066cc')
@@ -706,7 +706,7 @@ def plot_ortho_port(D):
     ax_obj.plot(iter_list, obj_list, color='k')
     ax_obj.set_ylim([-0.01, 1.01])
     ax_obj.set_xlabel('iteration')
-    ax_obj.set_ylabel('objective (max 1)')
+    ax_obj.set_ylabel('objective function')
 
     # power scan
 
