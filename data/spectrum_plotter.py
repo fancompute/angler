@@ -8,7 +8,7 @@ from device_saver import load_device
 
 """ Opens a device and prints its stored stats for the paper"""
 
-def scan_frequency(D, probe, Nf=10, df=1/20, pbar=True):
+def scan_frequency(D, probe, Nf=5, df=1/200, pbar=True):
     """ Scans the objective function vs. frequency """
 
     # create frequencies (in Hz)
@@ -34,7 +34,6 @@ def scan_frequency(D, probe, Nf=10, df=1/20, pbar=True):
         sim_new.eps_r = D.simulation.eps_r
 
         # # solve fields
-        print(probe)
         _ = sim_new.solve_fields()
         _ = sim_new.solve_fields_nl()
 
@@ -61,7 +60,6 @@ def get_spectrum(fname, D):
 
     spectra = []
     for probe_index, probe in enumerate(probes):
-        W = probe(D.simulation)
         freqs, spectrum = scan_frequency(D, probe)  
         spectra.append(spectrum)
 
