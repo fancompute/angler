@@ -28,7 +28,7 @@ def apply_sublabels(axs, invert_color_inds, x=19, y=-5, size='large', ha='right'
                     verticalalignment=va)
 
 
-def scan_frequency(D, probe, Nf=100, df=1/200, pbar=True):
+def scan_frequency(D, probe, Nf=300, df=1/200, pbar=True):
     """ Scans the objective function vs. frequency """
 
     # create frequencies (in Hz)
@@ -119,22 +119,23 @@ def plot_from_data(fname_freqs2, fname_spectra2, fname_freqsT, fname_spectraT):
 
     freqs_GHzT = [(f-150e12)/1e9 for f in freqsT]
 
-    for i in range(2):
-        ax2.plot(freqs_GHzT, spectraT[i]) 
+    ax2.plot(freqs_GHzT, spectraT[0], color='#2ca02c')
+    ax2.plot(freqs_GHzT, spectraT[1], color='#d62728')    
     ax2.legend(('right port', 'bottom port'), loc='upper right')     
     ax2.set_xlabel('frequency difference (GHz)')
     ax2.set_ylabel('transmission')
     ax2.set_title('low power regime')
     ax2.set_ylim(0, 1)
 
-    for i in range(2, 4):
-        ax3.plot(freqs_GHzT, spectraT[i])
+    ax3.plot(freqs_GHzT, spectraT[2], color='#9467bd')
+    ax3.plot(freqs_GHzT, spectraT[3], color='#8c564b')
     ax3.legend(('right port', 'bottom port'), loc='upper right')
     ax3.set_xlabel('frequency difference (GHz)')
     ax3.set_ylabel('transmission')
     ax3.set_title('high power regime')
     ax3.set_ylim(0, 1)
     apply_sublabels([ax1, ax2, ax3], [False, False, False], x=19, y=-5, size='large', ha='right', va='top', prefix='(', postfix=')')
+    plt.savefig('data/figs/img/spectra.pdf', dpi=400)
     plt.show()
 
 
@@ -161,7 +162,6 @@ if __name__ == '__main__':
     fname_spectraT = 'data/spectra/spectraT.npy'
 
     plot_from_data(fname_freqs2, fname_spectra2, fname_freqsT, fname_spectraT)
-
 
 
 

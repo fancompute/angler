@@ -644,7 +644,7 @@ def plot_ortho_port(D):
     E_lin = np.flipud(np.abs(D.Ez.T))
     E_lin = E_lin / np.sqrt(D.W_in)
 
-    vmin = 1
+    vmin = 8
     vmax = E_lin.max()/1.5
     im = ax_lin.pcolormesh(D.x_range, D.y_range, E_lin, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
     im.set_rasterized(True)
@@ -680,7 +680,7 @@ def plot_ortho_port(D):
     E_nl = np.flipud(np.abs(D.Ez_nl.T))
     E_nl = E_nl / np.sqrt(D.W_in)
 
-    vmin = 1
+    vmin = 8
     im = ax_nl.pcolormesh(D.x_range, D.y_range, E_nl, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
     im.set_rasterized(True)
 
@@ -760,11 +760,11 @@ def apply_sublabels(axs, invert_color_inds, x=19, y=-5, size='large', ha='right'
 
 if __name__ == '__main__':
 
-    fname2 = "data/figs/devices/2_port.p"
-    D2 = load_device(fname2)
-    fig = plot_Device(D2)
-    plt.savefig('data/figs/img/2_port_10_29.pdf', dpi=400)
-    plt.show()
+    # fname2 = "data/figs/devices/2_port.p"
+    # D2 = load_device(fname2)
+    # fig = plot_Device(D2)
+    # plt.savefig('data/figs/img/2_port_10_29.pdf', dpi=400)
+    # plt.show()
 
     # fname3 = "data/figs/devices/3_port.p"
     # D3 = load_device(fname3)
