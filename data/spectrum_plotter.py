@@ -81,29 +81,32 @@ def plot_spectra(D, freqs, spectra):
 
 if __name__ == '__main__':
 
-    # fname2 = 'data/figs/devices/2_port.p'
-    # D = load_device(fname2)
-    # freqs, spectra2 = get_spectrum(D)
-    # freqs_GHz = [(f-150e12)/1e9 for f in freqs]
-    # plot_spectra(D, freqs_GHz, spectra2)
-
-    fnameT = 'data/figs/devices/T_port.p'
-    D = load_device(fnameT)
-    freqs, spectraT = get_spectrum(D)
+    fname2 = 'data/figs/devices/2_port.p'
+    D = load_device(fname2)
+    freqs, spectra2 = get_spectrum(D)
     freqs_GHz = [(f-150e12)/1e9 for f in freqs]
-    plot_spectra(D, freqs_GHz, spectraT)
+    plot_spectra(D, freqs_GHz, spectra2)
+
+    np.save('data/freqs2', freqs)
+    np.save('data/spectra2', spectra2)
+
+    # fnameT = 'data/figs/devices/T_port.p'
+    # D = load_device(fnameT)
+    # freqs, spectraT = get_spectrum(D)
+    # freqs_GHz = [(f-150e12)/1e9 for f in freqs]
+    # plot_spectra(D, freqs_GHz, spectraT)
 
 
-if D.structure_type == 'two_port':
-    leg = ('low power', 'high power')
-elif D.structure_type == 'ortho_port':
-    leg = ('low power (right)', 'low power (bottom)', 'high power (right)', 'high power (bottom)')
+# if D.structure_type == 'two_port':
+#     leg = ('low power', 'high power')
+# elif D.structure_type == 'ortho_port':
+#     leg = ('low power (right)', 'low power (bottom)', 'high power (right)', 'high power (bottom)')
 
 
-for spectrum in spectraT:
-    plt.plot(freqs, spectrum)
+# for spectrum in spectraT:
+#     plt.plot(freqs, spectrum)
 
 
-plt.legend(leg, loc='center left')
-plt.xlabel('frequency difference (GHz)')
-plt.ylabel('transmission')    
+# plt.legend(leg, loc='center left')
+# plt.xlabel('frequency difference (GHz)')
+# plt.ylabel('transmission')    

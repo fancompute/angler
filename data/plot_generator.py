@@ -196,9 +196,11 @@ def plot_two_port(D):
     # linear fields
     E_lin = np.abs(D.Ez)
     E_lin = pad_array(E_lin, pad_grids, 1e-3)
+    E_lin = E_lin / np.sqrt(D.W_in)
 
     vmin = 3
     vmax = E_lin.max()/1.5
+
     im = ax_lin.pcolormesh(D.x_range, y_range, E_lin, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
     im.set_rasterized(True)
 
@@ -207,9 +209,9 @@ def plot_two_port(D):
     ax_lin.set_ylabel('y position ($\mu$m)')
     # ax_lin.set_title('linear fields')
     cbar = colorbar(im)
-    cbar.ax.set_title('$|E_z|$')
+    cbar.ax.set_title('$|E_z|/P_{in}^{1/2}$')
     # cbar.ax.tick_params(axis='x', direction='in', labeltop=True)
-    ax_lin.annotate('linear fields', xy=(0.5, 0.5), xytext=(0.5, 0.9),
+    ax_lin.annotate('low power', xy=(0.5, 0.5), xytext=(0.5, 0.9),
                     xycoords='axes fraction',
                     textcoords='axes fraction',
                     size='medium',
@@ -232,6 +234,7 @@ def plot_two_port(D):
     # nonlinear fields
     E_nl = np.abs(D.Ez_nl)
     E_nl = pad_array(E_nl, pad_grids, 1e-3)
+    E_nl = E_nl / np.sqrt(D.W_in)
 
     vmin = 3
     # vmax = E_nl.max()    
@@ -242,8 +245,8 @@ def plot_two_port(D):
     ax_nl.set_xlabel('x position ($\mu$m)')
     ax_nl.set_ylabel('y position ($\mu$m)')
     cbar = colorbar(im)
-    cbar.ax.set_title('$|E_z|$')    
-    ax_nl.annotate('nonlinear fields', xy=(0.5, 0.5), xytext=(0.5, 0.9),
+    cbar.ax.set_title('$|E_z|/P_{in}^{1/2}$')    
+    ax_nl.annotate('high power', xy=(0.5, 0.5), xytext=(0.5, 0.9),
                     xycoords='axes fraction',
                     textcoords='axes fraction',
                     size='medium',
@@ -285,7 +288,9 @@ def plot_two_port(D):
     # set_axis_font(inset, 6)
 
     # power scan
+
     ax_power.plot(D.powers, D.transmissions[0], color='#0066cc')
+    ax_power.plot(2*[D.W_in], [0, 1], linestyle='dashed', linewidth=1, color='k')    
     ax_power.set_xscale('log')
     ax_power.set_xlabel('input power (W / $\mu$m)')
     ax_power.set_ylabel('transmission')
@@ -637,6 +642,8 @@ def plot_ortho_port(D):
 
     # linear fields
     E_lin = np.flipud(np.abs(D.Ez.T))
+    E_lin = E_lin / np.sqrt(D.W_in)
+
     vmin = 1
     vmax = E_lin.max()/1.5
     im = ax_lin.pcolormesh(D.x_range, D.y_range, E_lin, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
@@ -647,9 +654,9 @@ def plot_ortho_port(D):
     ax_lin.set_ylabel('y position ($\mu$m)')
     # ax_lin.set_title('linear fields')
     cbar = colorbar(im)
-    cbar.ax.set_title('$|E_z|$')
+    cbar.ax.set_title('$|E_z|/P_{in}^{1/2}$')    
     # cbar.ax.tick_params(axis='x', direction='in', labeltop=True)
-    ax_lin.annotate('linear fields', xy=(0.5, 0.5), xytext=(0.5, 0.94),
+    ax_lin.annotate('low power', xy=(0.5, 0.5), xytext=(0.5, 0.94),
                     xycoords='axes fraction',
                     textcoords='axes fraction',
                     size='medium',
@@ -671,6 +678,8 @@ def plot_ortho_port(D):
 
     # nonlinear fields
     E_nl = np.flipud(np.abs(D.Ez_nl.T))
+    E_nl = E_nl / np.sqrt(D.W_in)
+
     vmin = 1
     im = ax_nl.pcolormesh(D.x_range, D.y_range, E_nl, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
     im.set_rasterized(True)
@@ -679,8 +688,8 @@ def plot_ortho_port(D):
     ax_nl.set_xlabel('x position ($\mu$m)')
     ax_nl.set_ylabel('y position ($\mu$m)')
     cbar = colorbar(im)
-    cbar.ax.set_title('$|E_z|$')    
-    ax_nl.annotate('nonlinear fields', xy=(0.5, 0.5), xytext=(0.5, 0.94),
+    cbar.ax.set_title('$|E_z|/P_{in}^{1/2}$')    
+    ax_nl.annotate('high power', xy=(0.5, 0.5), xytext=(0.5, 0.94),
                     xycoords='axes fraction',
                     textcoords='axes fraction',
                     size='medium',
@@ -711,7 +720,8 @@ def plot_ortho_port(D):
     # power scan
 
     ax_power.plot(D.powers, D.transmissions[0], color='#0066cc')
-    ax_power.plot(D.powers, D.transmissions[1], color='#ff6666')    
+    ax_power.plot(D.powers, D.transmissions[1], color='#ff6666')
+    ax_power.plot(2*[D.W_in], [0, 1], linestyle='dashed', linewidth=1, color='k')    
     ax_power.set_xscale('log')
     ax_power.set_xlabel('input power (W / $\mu$m)')
     ax_power.set_ylabel('transmission')
@@ -753,7 +763,7 @@ if __name__ == '__main__':
     fname2 = "data/figs/devices/2_port.p"
     D2 = load_device(fname2)
     fig = plot_Device(D2)
-    plt.savefig('data/figs/img/2_port.pdf', dpi=400)
+    plt.savefig('data/figs/img/2_port_10_29.pdf', dpi=400)
     plt.show()
 
     # fname3 = "data/figs/devices/3_port.p"
@@ -764,5 +774,5 @@ if __name__ == '__main__':
     fnameT = "data/figs/devices/T_port.p"
     DT = load_device(fnameT)
     fig = plot_Device(DT)
-    plt.savefig('data/figs/img/T_port.pdf', dpi=400)
+    plt.savefig('data/figs/img/T_port_10_29.pdf', dpi=400)
     plt.show()
