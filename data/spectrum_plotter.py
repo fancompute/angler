@@ -5,6 +5,7 @@ import copy
 import matplotlib.pylab as plt
 from string import ascii_lowercase
 
+from angler import Optimization as optimization
 from device_saver import load_device
 
 """ Opens a device and prints its stored stats for the paper"""
@@ -39,6 +40,8 @@ def scan_frequency(D, probe, Nf=300, df=1/200, pbar=True):
     if pbar:
         bar = progressbar.ProgressBar(max_value=Nf)
 
+    (_, _, E_prev) = D.simulation.solve_fields()
+
     # loop through frequencies
     spectrum = []
     for i, f in enumerate(freqs):
@@ -54,8 +57,8 @@ def scan_frequency(D, probe, Nf=300, df=1/200, pbar=True):
         sim_new.eps_r = D.simulation.eps_r
 
         # # solve fields
-        _ = sim_new.solve_fields()
-        _ = sim_new.solve_fields_nl()
+        # _ = sim_new.solve_fields()
+        _ = sim_new.solve_fields_nl(Estart=E_prev)
 
         # compute objective function and append to list
         transmission = probe(sim_new) / D.W_in
@@ -72,8 +75,8 @@ def get_spectrum(D):
         probes = [probe_out_low, probe_out_high]            
 
     elif D.structure_type == 'ortho_port':
-        probe_right_low = lambda simulation: simulation.flux_probe('x', [-D.NPML[0]-int(D.l/2/D.dl), D.ny], int(D.H/2/D.dl), nl=False)
-        probe_top_low = lambda simulation: simulation.flux_probe('y', [D.nx, -D.NPML[1]-int(D.l/2/D.dl)], int(D.H/2/D.dl), nl=False)        
+        # probe_right_low = lambda simulation: simulation.flux_probe('x', [-D.NPML[0]-int(D.l/2/D.dl), D.ny], int(D.H/2/D.dl), nl=False)
+        # probe_top_low = lambda simulation: simulation.flux_probe('y', [D.nx, -D.NPML[1]-int(D.l/2/D.dl)], int(D.H/2/D.dl), nl=False)        
         probe_right_high = lambda simulation: simulation.flux_probe('x', [-D.NPML[0]-int(D.l/2/D.dl), D.ny], int(D.H/2/D.dl), nl=True)
         probe_top_high = lambda simulation: simulation.flux_probe('y', [D.nx, -D.NPML[1]-int(D.l/2/D.dl)], int(D.H/2/D.dl), nl=True)
         probes = [probe_right_low, probe_top_low, probe_right_high, probe_top_high]
@@ -150,18 +153,18 @@ if __name__ == '__main__':
     # np.save('data/freqs2', freqs)
     # np.save('data/spectra2', spectra2)
 
-    # fnameT = 'data/figs/devices/T_port.p'
-    # D = load_device(fnameT)
-    # freqs, spectraT = get_spectrum(D)
-    # freqs_GHz = [(f-150e12)/1e9 for f in freqs]
-    # plot_spectra(D, freqs_GHz, spectraT)
+    fnameT = 'data/figs/devices/T_port.p'
+    D = load_device(fnameT)
+    freqs, spectraT = get_spectrum(D)
+    freqs_GHz = [(f-150e12)/1e9 for f in freqs]
+    plot_spectra(D, freqs_GHz, spectraT)
 
-    fname_freqs2 = 'data/spectra/freqs2.npy'
-    fname_spectra2 = 'data/spectra/spectra2.npy'
-    fname_freqsT = 'data/spectra/freqs.npy'
-    fname_spectraT = 'data/spectra/spectraT.npy'
+    # fname_freqs2 = 'data/spectra/freqs2.npy'
+    # fname_spectra2 = 'data/spectra/spectra2.npy'
+    # fname_freqsT = 'data/spectra/freqs_new.npy'
+    # fname_spectraT = 'data/spectra/spectraT_new.npy'
 
-    plot_from_data(fname_freqs2, fname_spectra2, fname_freqsT, fname_spectraT)
+    # plot_from_data(fname_freqs2, fname_spectra2, fname_freqsT, fname_spectraT)
 
 
 

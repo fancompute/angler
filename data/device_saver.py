@@ -4,7 +4,9 @@ import warnings
 import dill as pickle
 import matplotlib.pylab as plt
 from collections import namedtuple
-
+import sys
+sys.path.append('../angler')
+from angler import Optimization
 
 def load_device(fname):
     """ Loads the pickled Device object """

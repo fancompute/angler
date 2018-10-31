@@ -4,10 +4,10 @@ import autograd.numpy as npa
 from autograd import grad
 from functools import partial
 
-from rainbowfish.linalg import solver_direct, grid_average
-from rainbowfish.derivatives import unpack_derivs
-from rainbowfish.filter import deps_drhob, drhob_drhot
-from rainbowfish.constants import *
+from angler.linalg import solver_direct, grid_average
+from angler.derivatives import unpack_derivs
+from angler.filter import deps_drhob, drhob_drhot
+from angler.constants import *
 
 def gradient(simulation, dJ, design_region, arguments, eps_m, W):
     """Gives full derivative of J with respect to eps"""

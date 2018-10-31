@@ -6,9 +6,9 @@ import matplotlib.pylab as plt
 from scipy.optimize import minimize, fmin_l_bfgs_b
 from autograd import grad
 
-from rainbowfish.constants import *
-from rainbowfish.adjoint import adjoint_linear, adjoint_nonlinear
-from rainbowfish.filter import (eps2rho, rho2eps, get_W, deps_drhob, drhob_drhot,
+from angler.constants import *
+from angler.adjoint import adjoint_linear, adjoint_nonlinear
+from angler.filter import (eps2rho, rho2eps, get_W, deps_drhob, drhob_drhot,
                     drhot_drho, rho2rhot, drhot_drho, rhot2rhob)
 
 

@@ -2,8 +2,8 @@ import numpy as np
 import scipy.sparse as sp
 from copy import deepcopy
 
-from fdfdpy.constants import *
-from fdfdpy.linalg import *
+from angler.constants import *
+from angler.linalg import *
 
 
 class mode:

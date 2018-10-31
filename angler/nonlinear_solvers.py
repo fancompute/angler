@@ -6,9 +6,9 @@ from copy import deepcopy
 
 from scipy.optimize import newton_krylov, anderson
 
-from rainbowfish.linalg import grid_average, solver_direct, solver_complex2real
-from rainbowfish.derivatives import unpack_derivs
-from rainbowfish.constants import (DEFAULT_LENGTH_SCALE, DEFAULT_MATRIX_FORMAT,
+from angler.linalg import grid_average, solver_direct, solver_complex2real
+from angler.derivatives import unpack_derivs
+from angler.constants import (DEFAULT_LENGTH_SCALE, DEFAULT_MATRIX_FORMAT,
 							  DEFAULT_SOLVER, EPSILON_0, MU_0)
 
 

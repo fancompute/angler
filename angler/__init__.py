@@ -1,5 +1,5 @@
 # used for setup.py
-name = "rainbowfish"
+name = "angler"
 
 # import the main classes
 from .optimization import Optimization

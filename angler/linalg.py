@@ -4,10 +4,10 @@ import scipy.sparse.linalg as spl
 from pyMKL import pardisoSolver
 from time import time
 
-from rainbowfish.constants import DEFAULT_MATRIX_FORMAT, DEFAULT_SOLVER
-from rainbowfish.constants import EPSILON_0, MU_0
-from rainbowfish.pml import S_create
-from rainbowfish.derivatives import createDws
+from angler.constants import DEFAULT_MATRIX_FORMAT, DEFAULT_SOLVER
+from angler.constants import EPSILON_0, MU_0
+from angler.pml import S_create
+from angler.derivatives import createDws
 
 
 def grid_average(center_array, w):

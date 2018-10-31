@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.sparse as sp
 
-from rainbowfish.constants import DEFAULT_MATRIX_FORMAT
+from angler.constants import DEFAULT_MATRIX_FORMAT
 
 
 def createDws(w, s, dL, N, matrix_format=DEFAULT_MATRIX_FORMAT):
