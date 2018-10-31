@@ -1,135 +1,108 @@
 # Rainbowfish
 
-Rainbowfish is a package for performing automated inverse design of optical structures.
+`rainbowfish` is a package for simulating and optimizing optical structures.
 
-It supports both linear and nonlinear devices.
+It provides a frequency-domain solver for simulating for linear and nonlinear devices.
 
-## Package
+	"A finite-difference makes an infinite difference"
 
-There are several jupyter notebook examples in the `Notebooks/` directory.  The most up to date and thorough example is 
+It also provides tools for inverse design and optimization of linear and nonlinear devices.
 
-	Notebooks/Three_Port_Al2S3.ipynb
+This package is released as part of a paper `Adjoint method and inverse design for nonlinear optical devices`, which can be downloaded [here](broken_link).  If you use this package, please cite us as:
 
-which provives the code used to generate the results in the paper for an Al2S3 1 -> 2 port nonlinear optical switch.
+	BibTeX Citation
 
-## Creating devices
+## Installation
 
-In `structures.py` one may define functions for creating permittivity distributions based on geometric parameters.
+	pip install rainbowfish
 
-Right now, only the `three_port` system is included, which is a dielectric box with 1 input waveguide and 2 output wavguides.  The following geometric parameters may be specified:
+## Examples / Quickstart
 
+There are several jupyter notebook examples in the `Notebooks/` directory:
 
-	L     		# length of box (L0)
-	H     		# height of box (L0)
-	w     		# width of waveguides (L0)
-	d 	  	    # distance between waveguides (L0)
-	l     		# length of waveguide from PML to box (L0)
-	spc   		# space between box and PML (L0)
-	NPML  		# [num PML grids in x, num PML grids in y]
-	eps_start       # starting relative permittivity of device
+### Electromagnetic simulations
 
-and then `structures.three_port` can be called to give a permittvity array for this device, which can be used in simulations.
+For modeling linear devices with our finite-difference frequency-domain solver, see
 
+	Notebooks/Simple.ipynb
 
-	eps_r = three_port(L, H, w, d, dl, l, spc, NPML, eps_start=eps_m)
+For modeling nonlinear devices wuth FDFD, see 
 
-The total grid points in X and Y (`Nx` and `Ny`) are solved for and can be obtained by
+	Notebooks/Nonlinear_system.ipynb
 
-	(Nx, Ny) = eps_r.shape
+### Inverse design & optimization
 
-## Running optimization
+For an example of optimizing a linear device, see 
 
-We provide an `Optimization` class in `optimization.py` that may be used to run gradient-based optimization of the permittivity distribution within some design region.  This optimization may be a function of either the linear fields, nonlinear fields, or both.
+	Notebooks/accelerator.ipynb
 
-To setup an optimization, one must define:
+For several examples of optimizing nonlinear devices, the notebooks
 
-The objective function:
+	Notebooks/2_port.ipynb
+	Notebooks/3_port.ipynb
+	Notebooks/T_port.ipynb
 
-	J = {
-		'linear':    lambda e_lin: pass,       	          # scalar function of the linear electric fields
-		'nonlinear': lambda e_nl: pass,    		  # scalar function of the nonlinear electric fields
-		'total':     lambda J_lin, J_nl: pass             # scalar function of J['linear'] and J['nonlinear']
-	}
+were used for the devices in the paper.
 
-If only `J['linear']` or `J['nonlinear']` are defined, the simulation will simply solve for the linear or nonlinear parts, repsectively.  There is no need to define `J['total']` in this case.
+## Package Structure
 
-The partial derivatives of the objective function with respect to e_lin, e_nl, :
+`rainbowfish` provides two main classes, `Simulation` and `Optimization`, which perform most of the functionality.
 
-	dJdE = {
-		'linear':    lambda e_lin: pass,       		  # scalar function of the linear electric fields
-		'nonlinear': lambda e_nl: pass,    		  # scalar function of the nonlinear electric fields
-		'total':     lambda dJdE_lin, dJdE_nl: pass       # scalar function of dJdE['linear'] and dJdE['nonlinear']
-	}
+Generally, `Simulation` objects are used to perform FDFD simulations, and `Optimization` classes run inverse design and optimization algorithms over `Simulation`s.
 
-Again, if one of these terms was not included in `J`, there is no need to include here either.
+Here we will go over some of the features in each class.
 
-The spatial regions defined for the optimization:
+### Simulation
 
-	regions = {
-		'design':    np.array(),        # numpy array with 1 where permittivity is changed and 0 elsewhere
-		'nonlin':    np.array()	        # numpy array with 1 where nonlinear effects are present and 0 elsewhere
-	}
+`Simulation` objects are at the core of `rainbowfish` and provide methods for modeling your electromagentic system (solving fields, adding sources and nonlinearities, plotting).
 
-`regions['nonlin']` is only needed if the objective function has a nonlinear component.
+#### Setting up a simulation
 
-If the objective function has a nonlinear component one must define the nonlinear function being applied and its derivative:
+A `Simulation` object is initialized as
 
-	nonlin_fns = {
-		'eps_nl':   lambda e: pass,    # how relative permittivity changes with the electric field
-		'dnl_de':    lambda e: pass     # partial derivative of deps_de with respect to e
-	}
+```python
+S = Simulation(omega, eps_r, dl, NPML, pol)
+```
 
-With these dictionaries defined, the a new optimization object may be initialilzed by calling:
+`omega` is the angular frequency (in radians / second)
+`eps_r` is a numpy array specifying the relative permittivity
+`dl` is the grid size (in units of micron by default)
+`NPML` is a list containing the number of PML grids in x and y directions
+`pol` is the polarization (`'Ez'` or `'Hz'`)
 
-	optimization = Optimization(Nsteps=Nsteps,
-				    J=J,
-				    dJdE=dJdE,
-				    eps_max=eps_m,
-				    step_size=step_size,
-				    solver=solver,
-				    opt_method=opt_method,
-				    max_ind_shift=max_ind_shift)
+Note:  a keyword argument `L0` may be supplied as the default length scale.  All length parameters (including `dl`) are be specified in units of L0.
 
-Where the additional parameters are:
+Note: a reciprocal and non-magnetic system is assumed.  If you want to extend this, feel free to submit a pull request.
 
-    Nsteps           # how many iterations to run. default = 100
-    eps_max          # the maximum allowed relative permittivity (set to your material of interest). default = 0.5
-    step_size        # step size for gradient updates. default = 0.01
-    field_start      # what field to use to start nonlinear solver ('linear', 'previous').  default = 'linear'
-    solver           # nonlinear equation solver (either 'born' or 'newton') default = 'born'
-    opt_method       # optimization update method (either 'descent' or 'adam' for gradient descent or ADAM) default = 'adam'
-    max_ind_shift    # maximum allowed index shift.  Default = None.  If specified, will adaptively decrease input power to make sure material avoids damage.
+#### Sources are exciting!
 
-With the optimization object initialized, one may now run an optimization on the `Fdfd` `simulation` object that is defined previously defined.  For more details, see [fdfdpy](https://github.com/fancompute/fdfdpy).
+Current sources may be specified by assigning a numpy array to `S.src`.  This is assumed to be a `Jz` source for `Ez` polarization or `Mz` source for `Hz` polarization.
 
-	new_eps = optimization.run(simulation, regions=regions, nonlin_fns=nonlin_fns)
+Modal sources for waveguides may also be specified by using the `Simulation.add_mode()` method.  See the `Simple.ipynb` notebook for an example.
 
-This will try to optimize the objective function `J['tot']` and will return a final, optimized permittivity distribution.
+#### Adding nonlinearities
 
-One may plot the objective function as a function of iterations by running the method:
+Adding nonlinearity to the system can be done simply as
 
-	optimization.plt_objs()
+```python
+S.add_nl(chi3, nl_region, eps_scale=True, eps_max=5)
+```
 
-If the objective function has both linear and nonlinear components, these will be displayed along with the total objective function.
+`chi3` is the (scalar) third order nonlinear susceptibility in units of m^2/V^2
+`nl_region` is a boolean array indicating the spatial extent of the nonlinearity in the domain.
+if `eps_scale` is `True`, the nonlinearity will be proportional to the density of material in the `nl_region` where `eps_max` is the maximum relative permittivity.
 
-Running the method
+Note:  Right now only self-frequency, Kerr nonlinearity is currently supported, but feel free to add your own according to the template in the file `rainbowfish/nonlinearity.py`.
+
+#### Solving for fields
+
+## Tests
+
+To run all tests:
+
+	python -im unittest discover tests
+
+Or to run individually:
 	
-	dn = optimization.compute_index_shift(self, simulation, regions, nonlin_fns)
-
-will return a numpy array representing the spatial distribution of the refractive index shift caused by the nonlinear effects.  
-
-	np.max(dn)
-	
-Will return the max index shift, which is used to determine whether the device is operating above the damage threshold.
-
-## Package Requirements
-- fdfdpy
-- numpy
-- scipy
-- matplotlib
-
-## To Do
-- [ ] Do Hz polarization sensitivity.
-- [ ] Get a structure working with a lower index shift
-- [ ] Frequency scanning for bandwidth.
+	python tests/your_test.py
 

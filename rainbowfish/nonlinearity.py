@@ -1,6 +1,6 @@
 import numpy as np
 
-from fdfdpy.linalg import *
+from rainbowfish.linalg import *
 
 
 class Nonlinearity:
