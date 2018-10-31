@@ -1,10 +1,10 @@
 # Rainbowfish
 
-Rainbowfish is a package for performing inverse design of optical structures.
+Rainbowfish is a package for performing automated inverse design of optical structures.
 
-It supports linear and nonlinear devices.
+It supports both linear and nonlinear devices.
 
-## Examples
+## Package
 
 There are several jupyter notebook examples in the `Notebooks/` directory.  The most up to date and thorough example is 
 
