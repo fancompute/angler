@@ -1,5 +1,8 @@
-# nonlinear_avm
-inverse design of a nonlinear optical device using AVM
+# Rainbowfish
+
+Rainbowfish is a package for performing inverse design of optical structures.
+
+It supports linear and nonlinear devices.
 
 ## Examples
 
@@ -19,7 +22,7 @@ Right now, only the `three_port` system is included, which is a dielectric box w
 	L     		# length of box (L0)
 	H     		# height of box (L0)
 	w     		# width of waveguides (L0)
-	d 	  	# distance between waveguides (L0)
+	d 	  	    # distance between waveguides (L0)
 	l     		# length of waveguide from PML to box (L0)
 	spc   		# space between box and PML (L0)
 	NPML  		# [num PML grids in x, num PML grids in y]
