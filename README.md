@@ -1,6 +1,6 @@
 # angler
 
-`angler` is a package for simulating and optimizing optical structures.
+`angler` (Adjoint Nonlinear Gradients) is a package for simulating and optimizing optical structures.
 
 It provides a frequency-domain solver for simulating for linear and nonlinear devices.
 
