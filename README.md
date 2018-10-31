@@ -1,6 +1,6 @@
-# Rainbowfish
+# angler
 
-`rainbowfish` is a package for simulating and optimizing optical structures.
+`angler` is a package for simulating and optimizing optical structures.
 
 It provides a frequency-domain solver for simulating for linear and nonlinear devices.
 
@@ -14,7 +14,7 @@ This package is released as part of a paper `Adjoint method and inverse design f
 
 ## Installation
 
-	pip install rainbowfish
+	pip install angler
 
 ## Examples / Quickstart
 
@@ -46,7 +46,7 @@ were used for the devices in the paper.
 
 ## Package Structure
 
-`rainbowfish` provides two main classes, `Simulation` and `Optimization`, which perform most of the functionality.
+`angler` provides two main classes, `Simulation` and `Optimization`, which perform most of the functionality.
 
 Generally, `Simulation` objects are used to perform FDFD simulations, and `Optimization` classes run inverse design and optimization algorithms over `Simulation`s.
 
@@ -54,7 +54,7 @@ Here we will go over some of the features in each class.
 
 ### Simulation
 
-`Simulation` objects are at the core of `rainbowfish` and provide methods for modeling your electromagentic system (solving fields, adding sources and nonlinearities, plotting).
+`Simulation` objects are at the core of `angler` and provide methods for modeling your electromagentic system (solving fields, adding sources and nonlinearities, plotting).
 
 A `Simulation` object is initialized as
 
@@ -113,7 +113,7 @@ simulation.add_nl(chi3, nl_region, eps_scale=True, eps_max=5)
 `nl_region` is a boolean array indicating the spatial extent of the nonlinearity in the domain.
 if `eps_scale` is `True`, the nonlinearity will be proportional to the density of material in the `nl_region` where `eps_max` is the maximum relative permittivity.
 
-Note:  Right now only self-frequency, Kerr nonlinearity is currently supported, but feel free to add your own according to the template in the file `rainbowfish/nonlinearity.py`.
+Note:  Right now only self-frequency, Kerr nonlinearity is currently supported, but feel free to add your own according to the template in the file `angler/nonlinearity.py`.
 
 With nonlinearity added, one can solve for the nonlinear fields as 
 
@@ -121,7 +121,7 @@ With nonlinearity added, one can solve for the nonlinear fields as
 (Hx, Hy, Ez, conv) = simulation.solve_fields_nl()
 ```
 
-`rainbowfish` supports a few iterative methods for solving the nonlinear system, including Born/Picard iterations and Newton-Raphson method.  These can be changed with the `solver_nl` keyword argument.
+`angler` supports a few iterative methods for solving the nonlinear system, including Born/Picard iterations and Newton-Raphson method.  These can be changed with the `solver_nl` keyword argument.
 
 `conv` is a list of the convergence over each iteration of the solver.
 
@@ -139,9 +139,9 @@ simulation.plt_re()    # Re{} of field z component
 simulation.plt_diff()  # diff between linear and nonlinear fields
 simulation.plt_eps()   # plots relative permittivity
 ```
-more plotting utilities are defined in `rainbowfish/plot.py`
+more plotting utilities are defined in `angler/plot.py`
 
-For more info on `Simulation`s, see `rainbowfish/simulation.py`
+For more info on `Simulation`s, see `angler/simulation.py`
 
 ### Optimization
 
@@ -160,7 +160,7 @@ def J(Ez, Ez_nl):
 	return I_P
 ```
 
-Note: `rainbowfish` assumes you are trying to maximize `J`, so define your objective function accordingly.
+Note: `angler` assumes you are trying to maximize `J`, so define your objective function accordingly.
 
 Note: Please make sure you use `autograd.numpy` to define operations in your objective function.
 
@@ -174,7 +174,7 @@ optimization = Optimization(J, simulation, design_region, eps_m)
 
 where `eps_m` is the upper bound on the relative permittivity.  (1 is assumed to be the lower bound).
 
-`rainbowfish` allows users to perform filtering and projection techniques.  Filtering allows one to generate larger feature sizes by performing low-pass spatial filtering to the structures.  Projection is used to take less-than-physical intermediate permittivities and push them towards vacuum or material.
+`angler` allows users to perform filtering and projection techniques.  Filtering allows one to generate larger feature sizes by performing low-pass spatial filtering to the structures.  Projection is used to take less-than-physical intermediate permittivities and push them towards vacuum or material.
 
 `R` is the feature size of the low pass filter (in pixels).  3-5 is usually a decent size depending on the grid size.  If `R is None` then no filtering will be applied.
 
@@ -182,9 +182,9 @@ where `eps_m` is the upper bound on the relative permittivity.  (1 is assumed to
 
 `eta=0.5` is the bias of the projection towards vacuum (if > 0.5, will be more likely to give vacuum structures.)
 
-Specific parameters of the nonlinear solver can be changed with the optimization initialization as well.  See `rainbowfish/optimization.py` for more details.
+Specific parameters of the nonlinear solver can be changed with the optimization initialization as well.  See `angler/optimization.py` for more details.
 
-With the `optimization` defined, `rainbowfish` will automatically use autograd to compute the partial derivatives of `J` with respect to the fields and solve the corresponding adjoint problems.  The gradient of `J` with respect to the design parameters (representing the relative permittivity) may then be simply computed and stored during optimization.
+With the `optimization` defined, `angler` will automatically use autograd to compute the partial derivatives of `J` with respect to the fields and solve the corresponding adjoint problems.  The gradient of `J` with respect to the design parameters (representing the relative permittivity) may then be simply computed and stored during optimization.
 
 To check these derivatives against direct numerical approximations:
 
@@ -222,7 +222,7 @@ freqs, objs, FWHM = optimization.scan_frequency(Nf=50, df=1/20)
 ```
 where `Nf` is the number of frequencies and `df` is the frequency range (relative to central frequency).
 
-Power scanning and transmission plotting utilities are available but still a work in progress.  See `rainbowfish/optimization.py` for more details.
+Power scanning and transmission plotting utilities are available but still a work in progress.  See `angler/optimization.py` for more details.
 
 ## Tests
 
