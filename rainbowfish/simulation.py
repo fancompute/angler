@@ -89,15 +89,6 @@ class Simulation:
         self.fields = {f: None for f in ['Ex', 'Ey', 'Ez', 'Hx', 'Hy', 'Hz']}
         self.fields_nl = {f: None for f in ['Ex', 'Ey', 'Ez', 'Hx', 'Hy', 'Hz']}
 
-    def compute_index_shift(self):
-        """ Computes array of nonlinear refractive index shift"""
-
-        _ = self.solve_fields()
-        _ = self.solve_fields_nl()
-        index_nl = np.sqrt(np.real(self.eps_r + self.eps_nl))
-        index_lin = np.sqrt(np.real(self.eps_r))
-        return np.abs(index_nl - index_lin)
-
     def solve_fields(self, include_nl=False, timing=False, averaging=True, solver=DEFAULT_SOLVER,
                      matrix_format=DEFAULT_MATRIX_FORMAT):
         # performs direct solve for A given source
@@ -255,7 +246,6 @@ class Simulation:
         assert self.NPML[0] >= 0 and self.NPML[1] >= 0, "both elements of NPML must be >= 0"
 
         assert self.pol in ['Ez', 'Hz'], "pol must be one of 'Ez' or 'Hz'"
-
         # to do, check for correct types as well.
 
     def flux_probe(self, direction_normal, center, width, nl=False):
@@ -351,6 +341,15 @@ class Simulation:
             self.eps_r = eps_random
 
         self.rho = eps2rho(self.eps_r, eps_m)
+
+    def compute_index_shift(self):
+        """ Computes array of nonlinear refractive index shift"""
+
+        _ = self.solve_fields()
+        _ = self.solve_fields_nl()
+        index_nl = np.sqrt(np.real(self.eps_r + self.eps_nl))
+        index_lin = np.sqrt(np.real(self.eps_r))
+        return np.abs(index_nl - index_lin)
 
     def plt_abs(self, nl=False, cbar=True, outline=True, ax=None, vmax=None, tiled_y=1):
         # plot np.absolute value of primary field (e.g. Ez/Hz)

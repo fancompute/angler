@@ -15,7 +15,7 @@ from rainbowfish.filter import (eps2rho, rho2eps, get_W, deps_drhob, drhob_drhot
 class Optimization():
 
     def __init__(self, J=None, simulation=None, design_region=None, eps_m=5,
-                 R=None, eta=0.5, beta=100,
+                 R=None, eta=0.5, beta=1e-9,
                  field_start='linear', nl_solver='newton', max_ind_shift=None):
 
         self.J = J
