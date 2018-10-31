@@ -1,19 +1,14 @@
-import sys
-sys.path.append(".")
-
-from adjoint import adjoint_linear, adjoint_nonlinear
-
-from inspect import signature
-
 import numpy as np
 import scipy.sparse as sp
 import copy
 import progressbar
 import matplotlib.pylab as plt
 from scipy.optimize import minimize, fmin_l_bfgs_b
-from fdfdpy.constants import *
 from autograd import grad
-from filter import (eps2rho, rho2eps, get_W, deps_drhob, drhob_drhot,
+
+from rainbowfish.constants import *
+from rainbowfish.adjoint import adjoint_linear, adjoint_nonlinear
+from rainbowfish.filter import (eps2rho, rho2eps, get_W, deps_drhob, drhob_drhot,
                     drhot_drho, rho2rhot, drhot_drho, rhot2rhob)
 
 

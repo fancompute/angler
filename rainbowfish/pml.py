@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.sparse as sp
 
-from fdfdpy.constants import ETA_0, EPSILON_0, DEFAULT_MATRIX_FORMAT
+from rainbowfish.constants import ETA_0, EPSILON_0, DEFAULT_MATRIX_FORMAT
 
 
 def sig_w(l, dw, m=4, lnR=-12):

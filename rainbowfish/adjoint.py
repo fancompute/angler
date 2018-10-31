@@ -1,13 +1,13 @@
 import numpy as np
 import scipy.sparse as sp
-from fdfdpy.linalg import solver_direct, grid_average
-from fdfdpy.derivatives import unpack_derivs
-from fdfdpy.constants import *
 import autograd.numpy as npa
 from autograd import grad
 from functools import partial
 
-from filter import deps_drhob, drhob_drhot
+from rainbowfish.linalg import solver_direct, grid_average
+from rainbowfish.derivatives import unpack_derivs
+from rainbowfish.filter import deps_drhob, drhob_drhot
+from rainbowfish.constants import *
 
 def gradient(simulation, dJ, design_region, arguments, eps_m, W):
     """Gives full derivative of J with respect to eps"""

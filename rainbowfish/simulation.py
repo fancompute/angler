@@ -2,16 +2,15 @@ import numpy as np
 import scipy.sparse as sp
 from copy import deepcopy
 
-from fdfdpy.linalg import construct_A, solver_direct, grid_average
-from fdfdpy.derivatives import unpack_derivs
-from fdfdpy.plot import plt_base, plt_base_eps
-from fdfdpy.nonlinear_solvers import born_solve, newton_solve, newton_krylov_solve
-from fdfdpy.source.mode import mode
-from fdfdpy.nonlinearity import Nonlinearity
-from fdfdpy.constants import (DEFAULT_LENGTH_SCALE, DEFAULT_MATRIX_FORMAT,
+from rainbowfish.linalg import construct_A, solver_direct, grid_average
+from rainbowfish.derivatives import unpack_derivs
+from rainbowfish.nonlinear_solvers import born_solve, newton_solve, newton_krylov_solve
+from rainbowfish.source.mode import mode
+from rainbowfish.nonlinearity import Nonlinearity
+from rainbowfish.constants import (DEFAULT_LENGTH_SCALE, DEFAULT_MATRIX_FORMAT,
                               DEFAULT_SOLVER, EPSILON_0, MU_0)
-from fdfdpy.optimize.filter import eps2rho
-
+from rainbowfish.filter import eps2rho
+from rainbowfish.plot import plt_base_eps, plt_base
 
 class Simulation:
 
