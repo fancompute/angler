@@ -22,7 +22,7 @@ It also provides an easy to use package for inverse design and optimization of l
 
 There are several jupyter notebook examples in the `Notebooks/` directory:
 
-### Electromagnetic simulations
+#### Electromagnetic simulations
 
 For modeling linear devices with our FDFD solver, see
 
@@ -32,7 +32,7 @@ For modeling nonlinear devices wuth FDFD, see
 
 	Notebooks/Nonlinear_system.ipynb
 
-### Inverse design & optimization
+#### Inverse design & optimization
 
 For an example of optimizing a linear device, see 
 
@@ -50,7 +50,7 @@ were used for the devices in the paper.
 
 `angler` provides two main classes, `Simulation` and `Optimization`, which perform most of the functionality.
 
-Generally, `Simulation` objects are used to perform FDFD simulations, and `Optimization` classes run inverse design and optimization algorithms over `Simulation`s.
+Generally, `Simulation` objects are used to perform FDFD simulations, and `Optimization` classes run inverse design and optimization algorithms over `Simulation`s.  To learn more about how `angler` works and how to use it, please take a look at `angler/README.md` for a more detailed explanation.
 
 ## Tests
 
