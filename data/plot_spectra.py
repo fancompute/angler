@@ -64,69 +64,6 @@ def scan_frequency(D, probe, Nf=300, df=1/200, pbar=True):
     return freqs, spectrum
 
 
-def scan_frequency_bistable(D, probe, Nf=300, df=1/200, pbar=True):
-    """ Scans the objective function vs. frequency """
-
-    # create frequencies (in Hz)
-    delta_f = D.simulation.omega*df
-    freqs = 1/2/np.pi*np.linspace(D.simulation.omega - delta_f/2,
-                                  D.simulation.omega + delta_f/2,  Nf)
-
-    if pbar:
-        bar = progressbar.ProgressBar(max_value=2*Nf)
-
-
-    (_, _, E_prev) = sim_new.solve_fields()
-
-    # loop through frequencies
-    spectrum_down = []
-    for i, f in enumerate(freqs):
-
-        if pbar:
-            bar.update(i)
-
-        # make a new simulation object
-        sim_new = copy.deepcopy(D.simulation)
-
-        # reset the simulation to compute new A (hacky way of doing it)
-        sim_new.omega = 2*np.pi*f
-        sim_new.eps_r = D.simulation.eps_r
-
-        sim_new.src = 2*sim_new.src
-
-        # # solve fields
-        _ = sim_new.solve_fields()
-        _ = sim_new.solve_fields_nl(Estart=E_prev)
-
-        # compute objective function and append to list
-        transmission = probe(sim_new) / D.W_in
-        spectrum_down.append(transmission)
-
-    # loop through frequencies
-    spectrum_up = []
-    for i, f in enumerate(freqs):
-
-        if pbar:
-            bar.update(i + Nf)
-
-        # make a new simulation object
-        sim_new = copy.deepcopy(D.simulation)
-
-        # reset the simulation to compute new A (hacky way of doing it)
-        sim_new.omega = 2*np.pi*f
-        sim_new.eps_r = D.simulation.eps_r
-
-        # # solve fields
-        _ = sim_new.solve_fields()
-        _ = sim_new.solve_fields_nl()
-
-        # compute objective function and append to list
-        transmission = probe(sim_new) / D.W_in
-        spectrum_up.append(transmission)
-
-    return freqs, spectrum_down, spectrum_up   
-
-
 def get_spectrum(D):
 
     if D.structure_type == 'two_port':
@@ -201,14 +138,41 @@ def plot_from_data(fname_freqs2, fname_spectra2, fname_freqsT, fname_spectraT):
     plt.savefig('data/figs/img/spectra.pdf', dpi=400)
     plt.show()
 
+def plot_from_data_linear(fname_freqs2, fname_spectra2, fname_freqsT, fname_spectraT):
+
+    freqs2 = np.load(fname_freqs2)
+    spectra2 = np.load(fname_spectra2)
+    freqsT = np.load(fname_freqsT)
+    spectraT = np.load(fname_spectraT)
+        
+    f, (ax1, ax2) = plt.subplots(2, constrained_layout=True, figsize=(6, 4))
+
+    freqs_GHz2 = [(f-150e12)/1e9 for f in freqs2]
+
+    ax1.plot(freqs_GHz2, spectra2[0]) 
+    ax1.set_xlabel('frequency difference (GHz)')
+    ax1.set_ylabel('transmission')
+    ax1.set_ylim(0, 1)
+
+    freqs_GHzT = [(f-150e12)/1e9 for f in freqsT]
+
+    ax2.plot(freqs_GHzT, spectraT[0])
+    ax2.plot(freqs_GHzT, spectraT[1], color='#d62728')    
+    ax2.legend(('right port', 'bottom port'), loc='upper right')     
+    ax2.set_xlabel('frequency difference (GHz)')
+    ax2.set_ylabel('transmission')
+    ax2.set_ylim(0, 1)
+    apply_sublabels([ax1, ax2], [False, False], x=19, y=-5, size='large', ha='right', va='top', prefix='(', postfix=')')    
+    plt.savefig('data/figs/img/spectra_11_1.pdf', dpi=400)
+    plt.show()
 
 if __name__ == '__main__':
 
-    fname2 = 'data/figs/devices/2_port.p'
-    D = load_device(fname2)
-    freqs, spectra2 = get_spectrum(D)
-    freqs_GHz = [(f-150e12)/1e9 for f in freqs]
-    plot_spectra(D, freqs_GHz, spectra2)
+    # fname2 = 'data/figs/devices/2_port.p'
+    # D = load_device(fname2)
+    # freqs, spectra2 = get_spectrum(D)
+    # freqs_GHz = [(f-150e12)/1e9 for f in freqs]
+    # plot_spectra(D, freqs_GHz, spectra2)
 
     # np.save('data/freqs2', freqs)
     # np.save('data/spectra2', spectra2)
@@ -219,12 +183,13 @@ if __name__ == '__main__':
     # freqs_GHz = [(f-150e12)/1e9 for f in freqs]
     # plot_spectra(D, freqs_GHz, spectraT)
 
-    # fname_freqs2 = 'data/spectra/freqs2.npy'
-    # fname_spectra2 = 'data/spectra/spectra2.npy'
-    # fname_freqsT = 'data/spectra/freqs.npy'
-    # fname_spectraT = 'data/spectra/spectraT.npy'
+    fname_freqs2 = 'data/spectra/freqs2.npy'
+    fname_spectra2 = 'data/spectra/spectra2.npy'
+    fname_freqsT = 'data/spectra/freqs.npy'
+    fname_spectraT = 'data/spectra/spectraT.npy'
 
     # plot_from_data(fname_freqs2, fname_spectra2, fname_freqsT, fname_spectraT)
+    plot_from_data_linear(fname_freqs2, fname_spectra2, fname_freqsT, fname_spectraT)
 
 
 

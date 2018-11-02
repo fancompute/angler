@@ -2,12 +2,13 @@ import unittest
 import numpy as np
 from numpy.testing import assert_allclose
 import copy
+
 import sys
 sys.path.append('..')
-from fdfdpy import Simulation
-from nonlinear_avm.structures import three_port
-from nonlinear_avm.optimization_scipy import Optimization_Scipy as Optimization
-from nonlinear_avm.adjoint import dJdeps_linear, dJdeps_nonlinear
+
+from angler import Simulation
+from angler.structures import three_port
+from angler.adjoint import dJdeps_linear, dJdeps_nonlinear
 import autograd.numpy as npa
 
 

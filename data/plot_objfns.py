@@ -78,17 +78,15 @@ def plot_two_port(D):
     # scale_bar_pad = 0.1
     pad_grids = 50
 
-    f = plt.figure(figsize=(7, 6))
-    gs = gridspec.GridSpec(3, 2, figure=f, height_ratios=[1, 1, 0.7])
+    f = plt.figure(figsize=(7, 3.9))
+    gs = gridspec.GridSpec(2, 2, figure=f, height_ratios=[1, 1])
     ax_drawing = plt.subplot(gs[0, 0])
-    ax_eps = plt.subplot(gs[0, 1])
+    ax_power = plt.subplot(gs[0, 1])
     ax_lin = plt.subplot(gs[1, 0])
     ax_nl = plt.subplot(gs[1, 1])
-    ax_obj = plt.subplot(gs[2, 0])
-    ax_power = plt.subplot(gs[2, 1])
 
-    eps_disp, design_region = two_port(D.L, D.H, D.w, D.l, D.spc, D.dl, D.NPML, D.eps_m)
-    eps_disp = pad_array(eps_disp, pad_grids, 1)
+    _, design_region = two_port(D.L, D.H, D.w, D.l, D.spc, D.dl, D.NPML, D.eps_m)
+    eps_disp = pad_array(D.simulation.eps_r, pad_grids, 1)
 
     # draw structure
     y_range = pad_list(list(D.y_range), pad_grids, D.dl)
@@ -99,7 +97,7 @@ def plot_two_port(D):
     ax_drawing.set_ylabel('y position ($\mu$m)')
     base_in = 9.5
     tip_in = 5.5
-    y_shift = 0.05
+    y_shift = 0.0
     y_dist = 1.5    
     arrow_in = mpatches.FancyArrowPatch((-base_in, y_shift), (-tip_in, y_shift),
                                         mutation_scale=20, facecolor='#cc99ff')
@@ -111,7 +109,7 @@ def plot_two_port(D):
                                          mutation_scale=20, facecolor='#ff5050')
     ax_drawing.add_patch(arrow_bot)
     design_box = mpatches.Rectangle(xy=(-D.L/2, -D.H/2), width=D.L, height=D.H,
-                                    alpha=0.5, edgecolor='k', linestyle='--')
+                                    alpha=1, facecolor='none', edgecolor='k', linestyle='--')
     ax_drawing.add_patch(design_box)
     ax_drawing.annotate('design region', (0.5, 0.5), xytext=(0.0, 1),
                     xycoords='axes fraction',
@@ -152,46 +150,22 @@ def plot_two_port(D):
                                size_vertical=0.3,
                                fontproperties=fontprops)
     ax_drawing.add_artist(scalebar)
-    ax_drawing.annotate('optimization', xy=(0.5, 0.5), xytext=(0.5, 0.9),
-                    xycoords='axes fraction',
-                    textcoords='axes fraction',
-                    size='medium',
-                    color='k',
-                    horizontalalignment='center',
-                    verticalalignment='center')
+    # ax_drawing.annotate('optimization', xy=(0.5, 0.5), xytext=(0.5, 0.9),
+    #                 xycoords='axes fraction',
+    #                 textcoords='axes fraction',
+    #                 size='medium',
+    #                 color='k',
+    #                 horizontalalignment='center',
+    #                 verticalalignment='center')
     ax_drawing.set_aspect('equal', anchor='C', share=True)
 
-    # permittivity
-    eps_final = pad_array(D.simulation.eps_r, pad_grids, 1)
-
-    im = ax_eps.pcolormesh(D.x_range, y_range, eps_final, cmap='Greys')
-    im.set_rasterized(True)
-
-    ax_eps.set_xlabel('x position ($\mu$m)')
-    ax_eps.set_ylabel('y position ($\mu$m)')
-    # ax_eps.set_title('relative permittivity')
-    cbar = colorbar(im)
-    cbar.ax.set_title('$\epsilon_r$')
-
-    ax_eps.get_xaxis().set_visible(False)
-    ax_eps.get_yaxis().set_visible(False)
-    scalebar = AnchoredSizeBar(ax_eps.transData,
-                               5, '5 $\mu$m', 'lower left', 
-                               pad=scale_bar_pad,
-                               color='black',
-                               frameon=False,
-                               size_vertical=0.3,
-                               fontproperties=fontprops)
-
-    ax_eps.add_artist(scalebar)
-    ax_eps.annotate('final structure', xy=(0.5, 0.5), xytext=(0.5, 0.9),
-                    xycoords='axes fraction',
-                    textcoords='axes fraction',
-                    size='medium',
-                    color='k',
-                    horizontalalignment='center',
-                    verticalalignment='center')
-    ax_eps.set_aspect('equal', anchor='C', share=True)
+    # power plot
+    ax_power.plot(D.powers, D.transmissions[0], color='#0066cc')
+    ax_power.plot(2*[D.W_in], [0, 1], linestyle='dashed', linewidth=1, color='k')    
+    ax_power.set_xscale('log')
+    ax_power.set_xlabel('input power (W / $\mu$m)')
+    ax_power.set_ylabel('transmission')
+    ax_power.set_ylim([-0.01, 1.01])
 
     # linear fields
     E_lin = np.abs(D.Ez)
@@ -204,7 +178,7 @@ def plot_two_port(D):
     im = ax_lin.pcolormesh(D.x_range, y_range, E_lin, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
     im.set_rasterized(True)
 
-    ax_lin.contour(D.x_range, y_range, eps_final, levels=2, linewidths=0.2, colors='w')
+    ax_lin.contour(D.x_range, y_range, eps_disp, levels=2, linewidths=0.2, colors='w')
     ax_lin.set_xlabel('x position ($\mu$m)')
     ax_lin.set_ylabel('y position ($\mu$m)')
     # ax_lin.set_title('linear fields')
@@ -241,7 +215,7 @@ def plot_two_port(D):
     im = ax_nl.pcolormesh(D.x_range, y_range, E_nl, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
     im.set_rasterized(True)
 
-    ax_nl.contour(D.x_range, y_range, eps_final, levels=2, linewidths=0.2, colors='w')
+    ax_nl.contour(D.x_range, y_range, eps_disp, levels=2, linewidths=0.2, colors='w')
     ax_nl.set_xlabel('x position ($\mu$m)')
     ax_nl.set_ylabel('y position ($\mu$m)')
     cbar = colorbar(im)
@@ -267,42 +241,17 @@ def plot_two_port(D):
     ax_nl.set_aspect('equal', anchor='C', share=True)
 
 
-    # objective function
-    obj_list = D.optimization.objfn_list
-    iter_list = range(1, len(obj_list) + 1)
-    ax_obj.plot(iter_list, obj_list, color='k')
-    ax_obj.set_xlabel('iteration')
-    ax_obj.set_ylabel('objective function')
-    ax_obj.set_ylim([-0.01, 1.01])
+    # # objective function
+    # obj_list = D.optimization.objfn_list
+    # iter_list = range(1, len(obj_list) + 1)
+    # ax_obj.plot(iter_list, obj_list, color='k')
+    # ax_obj.set_xlabel('iteration')
+    # ax_obj.set_ylabel('objective function')
+    # ax_obj.set_ylim([-0.01, 1.01])
 
-    f0 = 3e8/D.lambda0
-    freqs_scaled = [(f0 - f)/1e9 for f in D.freqs]
-    objs = D.objs
-    # inset = inset_axes(ax_obj,
-    #                 width="40%", # width = 30% of parent_bbox
-    #                 height=0.5, # height : 1 inch
-    #                 loc=7)
-    # inset.plot(freqs_scaled, objs, linewidth=1)
-    # inset.set_xlabel('$\Delta f$ $(GHz)$')
-    # inset.set_ylabel('objective')    
-    # set_axis_font(inset, 6)
 
-    # power scan
 
-    ax_power.plot(D.powers, D.transmissions[0], color='#0066cc')
-    ax_power.plot(2*[D.W_in], [0, 1], linestyle='dashed', linewidth=1, color='k')    
-    ax_power.set_xscale('log')
-    ax_power.set_xlabel('input power (W / $\mu$m)')
-    ax_power.set_ylabel('transmission')
-    ax_power.set_ylim([-0.01, 1.01])
-
-    # ax_power.plot(D.powers, D.transmissions[0])
-    # ax_power.set_xscale('log')
-    # ax_power.set_xlabel('input power (W / $\mu$m)')
-    # ax_power.set_ylabel('transmission')
-    # ax_power.legend(('right', 'top'))
-
-    apply_sublabels([ax_drawing, ax_eps, ax_lin, ax_nl, ax_obj, ax_power], invert_color_inds=[False, False, True, True, False, False])
+    apply_sublabels([ax_drawing, ax_power, ax_lin, ax_nl], invert_color_inds=[False, False, True, True])
     f.tight_layout()
 
     return f
@@ -498,241 +447,6 @@ def plot_three_port(D):
     ax_obj.set_xlabel('iteration')
     ax_obj.set_ylabel('objective function')
 
-    # power scan
-    ax_power.plot(D.powers, D.transmissions[0], color='#0066cc')
-    ax_power.plot(D.powers, D.transmissions[1], color='#ff6666') 
-    ax_power.set_xscale('log')
-    ax_power.set_xlabel('input power (W / $\mu$m)')
-    ax_power.set_ylabel('transmission')
-    ax_power.set_ylim([0, 1])
-    ax_power.legend(('top', 'bottom'), loc='best')
-    # ax_power.set_aspect('equal', anchor='C', share=True)
-
-    apply_sublabels([ax_drawing, ax_eps, ax_lin, ax_nl, ax_obj, ax_power], invert_color_inds=[False, False, True, True, False, False])
-    f.tight_layout()
-
-    return f
-
-
-############################################################################################################################################
-############################################################################################################################################
-############################################################################################################################################
-############################################################################################################################################
-
-def plot_ortho_port(D):
-
-    # max_shift = np.max(D.simulation.compute_index_shift())
-
-    # print(np.sum(D.simulation.eps_r[1,:]>1))
-    # print(np.sum(D.simulation.eps_r[:,1]>1))
-    # print(np.sum(D.simulation.eps_r[:,-1]>1))
-
-    eps_disp, design_region = ortho_port(D.L, D.L2, D.H, D.H2, D.w, D.l, D.dl, D.NPML, D.eps_m)
-    # f, (ax_top, ax_mid, ax_bot) = plt.subplots(3, 2, figsize=(7, 10), constrained_layout=True)
-
-    f = plt.figure(figsize=(7, 8))
-    gs = gridspec.GridSpec(3, 2, figure=f, height_ratios=[1, 1, 0.5])
-    ax_drawing = plt.subplot(gs[0, 0])
-    ax_eps = plt.subplot(gs[0, 1])
-    ax_lin = plt.subplot(gs[1, 0])
-    ax_nl = plt.subplot(gs[1, 1])
-    ax_obj = plt.subplot(gs[2, 0])
-    ax_power = plt.subplot(gs[2, 1])
-
-    eps_disp = np.flipud(eps_disp.T)
-
-    # draw structure
-    im = ax_drawing.pcolormesh(D.x_range, D.y_range, eps_disp, cmap='Greys')
-    im.set_rasterized(True)
-
-    ax_drawing.set_xlabel('x position ($\mu$m)')
-    ax_drawing.set_ylabel('y position ($\mu$m)')
-    y_dist = 0
-    base_in = 6
-    tip_in = 3.5
-    y_shift = 0.00
-    arrow_in = mpatches.FancyArrowPatch((-base_in, +y_shift), (-tip_in, y_shift),
-                                     mutation_scale=20, facecolor='#cc99ff')
-    ax_drawing.add_patch(arrow_in)
-    arrow_top = mpatches.FancyArrowPatch((tip_in, y_dist+y_shift), (base_in, y_dist+y_shift),
-                                     mutation_scale=20, facecolor='#3366ff',
-                                     edgecolor='k')
-    ax_drawing.add_patch(arrow_top)
-    arrow_bot = mpatches.FancyArrowPatch((0, -tip_in), (0, -tip_in-(base_in-tip_in)),
-                                     mutation_scale=20, facecolor='#ff5050')
-    ax_drawing.add_patch(arrow_bot)
-
-    design_box = mpatches.Rectangle(xy=(-D.L/2, -D.H/2), width=D.L, height=D.H,
-                                    alpha=0.5,
-                                    edgecolor='k',
-                                    linestyle='--')
-    ax_drawing.add_patch(design_box)
-
-    ax_drawing.annotate('design\nregion', (0.5, 0.5), xytext=(0.0, 1.5),
-                    xycoords='axes fraction',
-                    textcoords='data',
-                    size='medium',
-                    color='k',
-                    horizontalalignment='center',
-                    verticalalignment='center')
-    ax_drawing.annotate('linear', (0, 0), xytext=(3.7, -0.8),
-                    xycoords='axes fraction',
-                    textcoords='data',
-                    size='medium',
-                    color='k',
-                    horizontalalignment='left',
-                    verticalalignment='center')
-    ax_drawing.annotate('nonlinear', (0, 0), xytext=(0.5, -4.5),
-                    xycoords='axes fraction',
-                    textcoords='data',
-                    size='medium',
-                    color='k',
-                    horizontalalignment='left',
-                    verticalalignment='center')
-
-    ax_drawing.get_xaxis().set_visible(False)
-    ax_drawing.get_yaxis().set_visible(False)
-    scalebar = AnchoredSizeBar(ax_drawing.transData,
-                               5, '5 $\mu$m', 'lower left', 
-                               pad=scale_bar_pad,
-                               color='black',
-                               frameon=False,
-                               size_vertical=0.3,
-                               fontproperties=fontprops)
-    ax_drawing.add_artist(scalebar)
-    ax_drawing.annotate('optimization', xy=(0.5, 0.5), xytext=(0.5, 0.94),
-                    xycoords='axes fraction',
-                    textcoords='axes fraction',
-                    size='medium',
-                    color='k',
-                    horizontalalignment='center',
-                    verticalalignment='center')
-    ax_drawing.set_aspect('equal', anchor='C', share=True)
-
-    # permittivity
-    eps_final = np.flipud(D.simulation.eps_r.T)
-    im = ax_eps.pcolormesh(D.x_range, D.y_range, eps_final, cmap='Greys')
-    im.set_rasterized(True)
-
-    ax_eps.set_xlabel('x position ($\mu$m)')
-    ax_eps.set_ylabel('y position ($\mu$m)')
-    # ax_eps.set_title('relative permittivity')
-    cbar = colorbar(im)
-    cbar.ax.set_title('$\epsilon_r$')
-
-    ax_eps.get_xaxis().set_visible(False)
-    ax_eps.get_yaxis().set_visible(False)
-    scalebar = AnchoredSizeBar(ax_eps.transData,
-                               5, '5 $\mu$m', 'lower left', 
-                               pad=scale_bar_pad,
-                               color='black',
-                               frameon=False,
-                               size_vertical=0.3,
-                               fontproperties=fontprops)
-
-    ax_eps.add_artist(scalebar)
-    ax_eps.annotate('final structure', xy=(0.5, 0.5), xytext=(0.5, 0.94),
-                    xycoords='axes fraction',
-                    textcoords='axes fraction',
-                    size='medium',
-                    color='k',
-                    horizontalalignment='center',
-                    verticalalignment='center')
-    ax_eps.set_aspect('equal', anchor='C', share=True)
-
-    # linear fields
-    E_lin = np.flipud(np.abs(D.Ez.T))
-    E_lin = E_lin / np.sqrt(D.W_in)
-
-    vmin = 8
-    vmax = E_lin.max()/1.5
-    im = ax_lin.pcolormesh(D.x_range, D.y_range, E_lin, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
-    im.set_rasterized(True)
-
-    ax_lin.contour(D.x_range, D.y_range, eps_final, levels=2, linewidths=0.2, colors='w')
-    ax_lin.set_xlabel('x position ($\mu$m)')
-    ax_lin.set_ylabel('y position ($\mu$m)')
-    # ax_lin.set_title('linear fields')
-    cbar = colorbar(im)
-    cbar.ax.set_title('$|E_z|/P_{in}^{1/2}$')    
-    # cbar.ax.tick_params(axis='x', direction='in', labeltop=True)
-    ax_lin.annotate('low power', xy=(0.5, 0.5), xytext=(0.5, 0.94),
-                    xycoords='axes fraction',
-                    textcoords='axes fraction',
-                    size='medium',
-                    color='w',
-                    horizontalalignment='center',
-                    verticalalignment='center')
-
-    ax_lin.get_xaxis().set_visible(False)
-    ax_lin.get_yaxis().set_visible(False)
-    scalebar = AnchoredSizeBar(ax_lin.transData,
-                               5, '5 $\mu$m', 'lower left', 
-                               pad=scale_bar_pad,
-                               color='white',
-                               frameon=False,
-                               size_vertical=0.3,
-                               fontproperties=fontprops)
-    ax_lin.add_artist(scalebar)
-    ax_lin.set_aspect('equal', anchor='C', share=True)
-
-    # nonlinear fields
-    E_nl = np.flipud(np.abs(D.Ez_nl.T))
-    E_nl = E_nl / np.sqrt(D.W_in)
-
-    vmin = 8
-    im = ax_nl.pcolormesh(D.x_range, D.y_range, E_nl, cmap='inferno', norm=LogNorm(vmin=vmin, vmax=vmax))
-    im.set_rasterized(True)
-
-    ax_nl.contour(D.x_range, D.y_range, eps_final, levels=2, linewidths=0.2, colors='w')
-    ax_nl.set_xlabel('x position ($\mu$m)')
-    ax_nl.set_ylabel('y position ($\mu$m)')
-    cbar = colorbar(im)
-    cbar.ax.set_title('$|E_z|/P_{in}^{1/2}$')    
-    ax_nl.annotate('high power', xy=(0.5, 0.5), xytext=(0.5, 0.94),
-                    xycoords='axes fraction',
-                    textcoords='axes fraction',
-                    size='medium',
-                    color='w',
-                    horizontalalignment='center',
-                    verticalalignment='center')
-
-    ax_nl.get_xaxis().set_visible(False)
-    ax_nl.get_yaxis().set_visible(False)
-    scalebar = AnchoredSizeBar(ax_nl.transData,
-                               5, '5 $\mu$m', 'lower left', 
-                               pad=scale_bar_pad,
-                               color='white',
-                               frameon=False,
-                               size_vertical=0.3,
-                               fontproperties=fontprops)
-    ax_nl.add_artist(scalebar)
-    ax_nl.set_aspect('equal', anchor='C', share=True)
-
-    # objective function
-    obj_list = D.optimization.objfn_list
-    iter_list = range(1, len(obj_list) + 1)
-    ax_obj.plot(iter_list, obj_list, color='k')
-    ax_obj.set_ylim([-0.01, 1.01])
-    ax_obj.set_xlabel('iteration')
-    ax_obj.set_ylabel('objective function')
-
-    # power scan
-
-    ax_power.plot(D.powers, D.transmissions[0], color='#0066cc')
-    ax_power.plot(D.powers, D.transmissions[1], color='#ff6666')
-    ax_power.plot(2*[D.W_in], [0, 1], linestyle='dashed', linewidth=1, color='k')    
-    ax_power.set_xscale('log')
-    ax_power.set_xlabel('input power (W / $\mu$m)')
-    ax_power.set_ylabel('transmission')
-    ax_power.set_ylim([-0.01, 1.01])
-    ax_power.legend(('right port', 'bottom port'), loc='best')
-    # ax_power.set_aspect('equal', anchor='C', share=True)
-
-    apply_sublabels([ax_drawing, ax_eps, ax_lin, ax_nl, ax_obj, ax_power], invert_color_inds=[False, False, True, True, False, False])
-    f.tight_layout()
-    return f
-
 
 ############################################################################################################################################
 ############################################################################################################################################
@@ -758,21 +472,39 @@ def apply_sublabels(axs, invert_color_inds, x=19, y=-5, size='large', ha='right'
                     horizontalalignment=ha,
                     verticalalignment=va)
 
+def plot_objs(D2, DT):
+
+    f, (ax1, ax2) = plt.subplots(1, 2, constrained_layout=True, figsize=(8, 2.5))
+
+    # objective function
+    obj_list2 = D2.optimization.objfn_list
+    iter_list2 = range(1, len(obj_list2) + 1)
+
+    obj_listT = DT.optimization.objfn_list
+    iter_listT = range(1, len(obj_listT) + 1)
+
+    ax1.plot(iter_list2, obj_list2)
+    ax1.set_xlabel('iteration')
+    ax1.set_ylabel('objective function')
+    ax1.set_ylim(0, 1)
+
+    ax2.plot(iter_listT, obj_listT)
+    ax2.set_xlabel('iteration')
+    ax2.set_ylabel('objective function')
+    ax2.set_ylim(0, 1)
+
+    # ax2.set_xscale('log')
+
+    apply_sublabels([ax1, ax2], [False, False], x=19, y=-5, size='large', ha='right', va='top', prefix='(', postfix=')')    
+    plt.savefig('data/figs/img/objfns_11_1.pdf', dpi=400)
+    plt.show()
+
 if __name__ == '__main__':
 
-    # fname2 = "data/figs/devices/2_port.p"
-    # D2 = load_device(fname2)
-    # fig = plot_Device(D2)
-    # plt.savefig('data/figs/img/2_port_10_29.pdf', dpi=400)
-    # plt.show()
-
-    # fname3 = "data/figs/devices/3_port.p"
-    # D3 = load_device(fname3)
-    # fig = plot_Device(D3)
-    # plt.show()
+    fname2 = "data/figs/devices/2_port.p"
+    D2 = load_device(fname2)
 
     fnameT = "data/figs/devices/T_port.p"
     DT = load_device(fnameT)
-    fig = plot_Device(DT)
-    plt.savefig('data/figs/img/T_port_10_29.pdf', dpi=400)
-    plt.show()
+    
+    plot_objs(D2, DT)

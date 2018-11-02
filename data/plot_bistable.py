@@ -8,7 +8,7 @@ from string import ascii_lowercase
 from device_saver import load_device
 
 
-def trans_bistable(D, omega=None, Np=50, s_min=1e-1, s_max=1e3):
+def trans_bistable(D, omega=None, Np=50, s_min=1e-1, s_max=1e3, solver='newton'):
 
     if D.structure_type == 'two_port':
         probe_out = lambda simulation: simulation.flux_probe('x', [-D.NPML[0]-int(D.l/2/D.dl), D.ny], int(D.Ny/2), nl=True)
@@ -24,11 +24,11 @@ def trans_bistable(D, omega=None, Np=50, s_min=1e-1, s_max=1e3):
         probe_top = lambda simulation: simulation.flux_probe('y', [D.nx, -D.NPML[1]-int(D.l/2/D.dl)], int(D.H/2/D.dl), nl=True)
         probes = [probe_right, probe_top]
 
-    powers, T_up, T_down = scan_power(D.simulation, probes=probes, omega=omega, Ns=Np, s_min=s_min, s_max=s_max)
+    powers, T_up, T_down = scan_power(D.simulation, probes=probes, omega=omega, Ns=Np, s_min=s_min, s_max=s_max, solver=solver)
 
     return powers, T_up, T_down
 
-def scan_power(simulation, probes=None, omega=None, Ns=50, s_min=1e-2, s_max=1e2, solver='hybrid'):
+def scan_power(simulation, probes=None, omega=None, Ns=50, s_min=1e-2, s_max=1e2, solver='newton'):
     """ Scans the source amplitude and computes the objective function
         probes is a list of functions for computing the power, for example:
         [lambda simulation: simulation.flux_probe('x', [-NPML[0]-int(l/2/dl), ny + int(d/2/dl)], int(H/2/dl))]
@@ -47,8 +47,8 @@ def scan_power(simulation, probes=None, omega=None, Ns=50, s_min=1e-2, s_max=1e2
     transmissions_up = [[] for _ in range(num_probes)]
     powers = []
 
-    (_,_,E_prev) = simulation.solve_fields()
-
+    # (_,_,E_prev) = simulation.solve_fields()
+    E_prev = np.zeros(simulation.eps_r.shape)
     for i, s in enumerate(s_list):
 
         bar.update(i)
@@ -68,12 +68,14 @@ def scan_power(simulation, probes=None, omega=None, Ns=50, s_min=1e-2, s_max=1e2
         (_,_,E_prev,c) = sim_new.solve_fields_nl(timing=False, averaging=True,
                     Estart=E_prev, solver_nl=solver, conv_threshold=1e-10,
                     max_num_iter=100)
+        plt.plot(c)
 
         # compute power transmission using each probe
         for probe_index, probe in enumerate(probes):
             W_out = probe(sim_new)
             transmissions_up[probe_index].append(W_out / W_in)
-
+    plt.show()
+    plt.clf()
 
     # transmission
     transmissions_down = [[] for _ in range(num_probes)]
@@ -95,14 +97,15 @@ def scan_power(simulation, probes=None, omega=None, Ns=50, s_min=1e-2, s_max=1e2
         (_,_,E_prev,c) = sim_new.solve_fields_nl(timing=False, averaging=True,
                     Estart=E_prev, solver_nl=solver, conv_threshold=1e-10,
                     max_num_iter=100)
-
+        plt.plot(c)
         # compute power transmission using each probe
         for probe_index, probe in enumerate(probes):
             W_out = probe(sim_new)
             transmissions_down[probe_index].append(W_out / W_in)
 
     transmissions_down = [list(reversed(t)) for t in transmissions_down]
-
+    plt.show()
+    plt.clf()
     return powers, transmissions_up, transmissions_down
 
 
@@ -114,7 +117,7 @@ if __name__ == '__main__':
 
     # print(detuning)
 
-    powers, T_up, T_down = trans_bistable(D, omega=D.omega+detuning, Np=10, s_min=1e-1, s_max=1e3)
+    powers, T_up, T_down = trans_bistable(D, omega=D.omega+detuning, Np=10, s_min=1e-1, s_max=1e3, solver='newton')
     for i in range(2):
         plt.plot(powers, T_up[i])
         plt.plot(powers, T_down[i])
