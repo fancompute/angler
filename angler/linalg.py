@@ -87,7 +87,7 @@ def construct_A(omega, xrange, yrange, eps_r, NPML, pol, L0,
 
         A = Dxf.dot(T_eps_x_inv).dot(Dxb) \
             + Dyf.dot(T_eps_y_inv).dot(Dyb) \
-            + omega**2*MU_0_*eye(M)
+            + omega**2*MU_0_*sp.eye(M)
 
         # A = A / (omega**2*MU_0)     # normalize A to be unitless.  (note, this isn't in original fdfdpy)
 
