@@ -634,7 +634,7 @@ def plot_ortho_port(D):
     ax_power.set_xlabel('input power (W / $\mu$m)')
     ax_power.set_ylabel('transmission')
     ax_power.set_ylim([-0.01, 1.01])
-    ax_power.legend(('right port', 'bottom port'), loc='best')
+    ax_power.legend(('right port', 'bottom port'), loc='center left')
     # ax_power.set_aspect('equal', anchor='C', share=True)
 
     apply_sublabels([ax_drawing, ax_power, ax_lin, ax_nl], invert_color_inds=[False, False, True, True])
@@ -668,11 +668,11 @@ def apply_sublabels(axs, invert_color_inds, x=19, y=-5, size='large', ha='right'
 
 if __name__ == '__main__':
 
-    fname2 = "data/figs/devices/2_port.p"
-    D2 = load_device(fname2)
-    fig = plot_Device(D2)
-    plt.savefig('data/figs/img/2_port_11_1.pdf', dpi=400)
-    plt.show()
+    # fname2 = "data/figs/devices/2_port.p"
+    # D2 = load_device(fname2)
+    # fig = plot_Device(D2)
+    # plt.savefig('data/figs/img/2_port_11_1.pdf', dpi=400)
+    # plt.show()
 
     # fname3 = "data/figs/devices/3_port.p"
     # D3 = load_device(fname3)
