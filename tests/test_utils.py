@@ -4,14 +4,10 @@ import autograd.numpy as npa
 from numpy.random import random
 import copy
 
-import sys
-sys.path.append("..")
-sys.path.append("../fdfdpy")
-
-from structures import three_port, two_port
-from fdfdpy import Simulation
-from utils import Binarizer
-from optimization import Optimization
+from angler.structures import three_port, two_port
+from angler import Simulation
+from angler.utils import Binarizer
+from angler.optimization import Optimization
 
 class TestUtils(unittest.TestCase):
 
@@ -99,7 +95,7 @@ class TestUtils(unittest.TestCase):
             objfn = linear_top - nonlinear_top + nonlinear_bot - linear_top
             return objfn
 
-        self.optimization = Optimization(J=J, Nsteps=4, eps_max=eps_m, field_start='linear', nl_solver='newton')
+        self.optimization = Optimization(J=J, simulation=self.simulation, design_region=self.design_region, eps_m=eps_m)
 
     def test_binarize(self):
 

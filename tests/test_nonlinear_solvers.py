@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pylab as plt
 from numpy.testing import assert_allclose
 
-from fdfdpy import Simulation
+from angler import Simulation
 
 
 class Test_NLSolve(unittest.TestCase):

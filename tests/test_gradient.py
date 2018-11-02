@@ -4,10 +4,9 @@ from numpy.testing import assert_allclose
 import copy
 import sys
 sys.path.append('..')
-from fdfdpy import Simulation
-from nonlinear_avm.structures import three_port
-from nonlinear_avm.optimization_scipy import Optimization_Scipy as Optimization
-from nonlinear_avm.adjoint import dJdeps_linear, dJdeps_nonlinear
+from angler import Simulation
+from angler.structures import three_port
+from angler.optimization import Optimization
 import autograd.numpy as npa
 
 
@@ -38,7 +37,7 @@ class TestGradient(unittest.TestCase):
         spc = 2       # space between box and PML (L0)
 
         # define permittivity of three port system
-        eps_r = three_port(L, H, w, d, dl, l, spc, NPML, eps_start=eps_m)
+        (eps_r, design_region) = three_port(L, H, w, d, dl, l, spc, NPML, eps_start=eps_m)
         (Nx, Ny) = eps_r.shape
         nx, ny = int(Nx/2), int(Ny/2)            # halfway grid points
 
@@ -46,6 +45,7 @@ class TestGradient(unittest.TestCase):
         self.simulation = Simulation(omega, eps_r, dl, NPML, 'Ez')
         self.simulation.add_mode(np.sqrt(eps_m), 'x', [NPML[0]+int(l/2/dl), ny], int(H/2/dl), scale=source_amp)
         self.simulation.setup_modes()
+        self.simulation.init_design_region(design_region, eps_m)
 
         # top modal profile
         top = Simulation(omega, eps_r, dl, NPML, 'Ez')
@@ -60,9 +60,9 @@ class TestGradient(unittest.TestCase):
         J_bot = np.abs(bot.src)
 
         # define linear and nonlinear parts of objective function + the total objective function form
-        J = lambda e, e_nl, eps: npa.sum(npa.square(npa.abs(e))*J_top) + npa.sum(npa.square(npa.abs(e_nl))*J_bot)
+        J = lambda e, e_nl: npa.sum(npa.square(npa.abs(e))*J_top) + npa.sum(npa.square(npa.abs(e_nl))*J_bot)
         import autograd.numpy as npa
-        def J(e, e_nl, eps):
+        def J(e, e_nl):
             linear_top    =  1*npa.sum(npa.square(npa.abs(e))*J_top)
             linear_bot    = -1*npa.sum(npa.square(npa.abs(e))*J_bot)
             nonlinear_top = -1*npa.sum(npa.square(npa.abs(e_nl))*J_top)
@@ -70,16 +70,12 @@ class TestGradient(unittest.TestCase):
             objfn = linear_top + nonlinear_top + nonlinear_bot + linear_top
             return objfn
 
-        # define the design and nonlinear regions
-        self.design_region = np.array(eps_r > 1).astype(int)
-        self.design_region[:nx-int(L/2/dl),:] = 0
-        self.design_region[nx+int(L/2/dl):,:] = 0
-
-        self.optimization = Optimization(J=J, Nsteps=100, eps_max=5, field_start='linear', nl_solver='newton')
+        self.design_region = design_region
+        self.optimization = Optimization(J=J, simulation=self.simulation, design_region=self.design_region, eps_m=eps_m)
 
     def test_linear_gradient(self):
 
-        avm_grads, num_grads = self.optimization.check_deriv(self.simulation, self.design_region)
+        avm_grads, num_grads = self.optimization.check_deriv(Npts=5, d_rho=1e-6)
 
         avm_grads = np.array(avm_grads)
         num_grads = np.array(num_grads)
@@ -94,10 +90,10 @@ class TestGradient(unittest.TestCase):
 
         # add nonlinearity
         nl_region = copy.deepcopy(self.design_region)
-        self.simulation.nonlinearity = []  # This is needed in case you re-run this cell, for example (or you can re-initialize simulation every time)
-        self.simulation.add_nl(chi3, nl_region, eps_scale=True, eps_max=self.optimization.eps_max)
+        self.simulation.nonlinearity = [] 
+        self.simulation.add_nl(chi3, nl_region, eps_scale=True, eps_max=self.optimization.eps_m)
 
-        avm_grads, num_grads = self.optimization.check_deriv(self.simulation, self.design_region)
+        avm_grads, num_grads = self.optimization.check_deriv(Npts=5, d_rho=1e-6)
 
         avm_grads = np.array(avm_grads)
         num_grads = np.array(num_grads)
