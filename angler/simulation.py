@@ -18,10 +18,10 @@ class Simulation:
         # initializes Fdfd object
 
         self.L0 = L0
-        self.omega = float(omega)
-        self.dl = float(dl)
-        self.NPML = [int(n) for n in NPML]
+        self.omega = omega
+        self.NPML = NPML
         self.pol = pol
+        self.dl = dl
 
         self._check_inputs()
 
@@ -33,6 +33,10 @@ class Simulation:
 
         self.xrange = [0, float(Nx*self.dl)]
         self.yrange = [0, float(Ny*self.dl)]
+
+        self.NPML = [int(n) for n in self.NPML]
+        self.omega = float(self.omega)
+        self.dl = float(dl)
 
         # construct the system matrix
         self.eps_r = eps_r
@@ -242,9 +246,10 @@ class Simulation:
         # checks the inputs and makes sure they are kosher
 
         assert self.L0 > 0, "L0 must be a positive number, was supplied {},".format(str(self.L0))
+        assert self.omega > 0, "omega must be a positive number, was supplied {},".format(str(self.omega))
+        assert isinstance(self.NPML, list), "NPML must be a list of integers"
         assert len(self.NPML) == 2, "yrange must be a list of length 2, was supplied {}, which is of length {}".format(str(self.NPML), len(self.NPML))
         assert self.NPML[0] >= 0 and self.NPML[1] >= 0, "both elements of NPML must be >= 0"
-
         assert self.pol in ['Ez', 'Hz'], "pol must be one of 'Ez' or 'Hz'"
         # to do, check for correct types as well.
 

@@ -1,0 +1,6 @@
+pyMKL
+numpy==1.14.0
+scipy
+matplotlib
+progressbar2
+autograd
