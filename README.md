@@ -14,9 +14,10 @@ It also provides an easy to use package for inverse design and optimization of l
 
 ## Installation
 
-	pip install angler
+	pip install -i https://test.pypi.org/simple/ angler
+	pip install -r requirements.txt
 	
-(TO DO)
+These will be put on the official PyPI distribution later.
 
 ## Examples / Quickstart
 
