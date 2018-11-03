@@ -154,8 +154,7 @@ def nl_eq_and_jac(simulation,
 def newton_krylov_solve(simulation, Estart=None, conv_threshold=1e-10, max_num_iter=50,
 				 averaging=True, solver=DEFAULT_SOLVER, jac_solver='c2r',
 				 matrix_format=DEFAULT_MATRIX_FORMAT):
-	# solves for the nonlinear fields using Newton's method
-	# THIS DONT WORK!
+	# THIS DOESNT WORK YET! 
 
 	# Stores convergence parameters
 	conv_array = np.zeros((max_num_iter, 1))
@@ -182,7 +181,7 @@ def newton_krylov_solve(simulation, Estart=None, conv_threshold=1e-10, max_num_i
 
 	print(_f(E0))
 
-	E_nl = anderson(_f, E0, verbose=True)
+	E_nl = newton_krylov(_f, E0, verbose=True)
 
 	# I'm returning these in place of Hx and Hy to not break things
 	return (E_nl, E_nl, E_nl, conv_array)

@@ -33,7 +33,7 @@ class Binarizer():
     """
     Warning: Experimental Feature!!
 
-        Basically takes a normal objective function and adds a binarization component to it
+        Takes a normal objective function and adds a binarization component to it
         For example:
 
             binarizer = Binarizer(design_region, eps_m)
@@ -140,16 +140,7 @@ class Binarizer():
             # gray level map
             M_nd = 4 * rho * (1 - rho)
 
-            # # radius of curvature (pixels)
-            # R = 5
             (Nx, Ny) = eps.shape
-            # N_conv = min(Nx, Ny) // 4
-            # k = np.zeros((N_conv, N_conv))
-            # xs = np.linspace(-N_conv/2, N_conv/2, N_conv)
-            # ys = np.linspace(-N_conv/2, N_conv/2, N_conv)
-            # for i in range(N_conv):
-            #     for j in range(N_conv):
-            #         k[i, j] = 1*(xs[i]**2 + ys[j]**2 < R**2)
 
             width = 1
             N_conv = min(Nx, Ny)

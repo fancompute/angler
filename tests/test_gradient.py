@@ -4,9 +4,9 @@ from numpy.testing import assert_allclose
 import copy
 import sys
 sys.path.append('..')
-from angler import Simulation
+from angler import Simulation, Optimization
 from angler.structures import three_port
-from angler.optimization import Optimization
+
 import autograd.numpy as npa
 
 

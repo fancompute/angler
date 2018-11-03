@@ -4,10 +4,9 @@ import autograd.numpy as npa
 from numpy.random import random
 import copy
 
+from angler import Simulation, Optimization
 from angler.structures import three_port, two_port
-from angler import Simulation
 from angler.utils import Binarizer
-from angler.optimization import Optimization
 
 class TestUtils(unittest.TestCase):
 

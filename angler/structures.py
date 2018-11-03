@@ -1,5 +1,10 @@
 import numpy as np
 
+"""
+This is where you can custom define functions that create relative permittivities
+given a set of geometric parameters.
+See three_port, two_port, ortho_port, and accelerator for exampels
+"""
 
 def get_grid(shape, dl):
     # computes the coordinates in the grid
@@ -16,7 +21,7 @@ def get_grid(shape, dl):
 
 
 def apply_regions(reg_list, xs, ys, eps_start):
-    # constructs the permittivity given a list of regions
+    # feed this function a list of regions and some coordinates and it spits out a permittivity
 
     # if it's not a list, make it one
     if not isinstance(reg_list, list):
@@ -58,7 +63,7 @@ def three_port(L, H, w, d, l, spc, dl, NPML, eps_start):
     # x and y coordinate arrays
     xs, ys = get_grid(shape, dl)
 
-    # define regions
+    # define the regions
     box    = lambda x, y: (np.abs(x) < L/2) * (np.abs(y-y_mid) < H/2)
     wg_in  = lambda x, y: (x < 0)           * (np.abs(y-y_mid) < dl*wg_width_px/2)  # note, this slight offset is to fix gridding issues
     wg_top = lambda x, y: (x > 0)           * (np.abs(y-y_bot) < dl*wg_width_px/2)
@@ -133,7 +138,6 @@ def ortho_port(L, L2, H, H2, w, l, dl, NPML, eps_start):
 
     eps_r         = apply_regions([wg, wg2], xs, ys, eps_start=eps_start)
     design_region = apply_regions([box, box2, box3], xs, ys, eps_start=2)
-
     design_region = design_region - 1
 
     return eps_r, design_region
@@ -141,7 +145,7 @@ def ortho_port(L, L2, H, H2, w, l, dl, NPML, eps_start):
 
 def accelerator(beta, gap, lambda0, L, spc, dl, NPML, eps_start):
 
-    # CONSTRUCTS A DIELECTRIC LASER ACCELERATOR STRUCTURE
+    # CONSTRUCTS A periodic structure in y with two slabs surrounding a central gap
     # beta      : electron speed / speed of light
     # gap       : gap size in L0
     # lambda0   : free space wavelength in L0

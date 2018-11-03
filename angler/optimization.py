@@ -26,6 +26,7 @@ class Optimization():
         self.R = R
 
         (Nx, Ny) = self.simulation.eps_r.shape
+
         if self.R is not None:
             self.W = get_W(Nx, Ny, self.design_region,  NPML=self.simulation.NPML, R=self.R)
         else:
@@ -99,30 +100,6 @@ class Optimization():
             Ez_nl = simulation.fields_nl['Ez']
 
         return self._grad_linear(Ez, Ez_nl) + self._grad_nonlinear(Ez, Ez_nl)
-
-    # def _grad_linear(self, Ez, Ez_nl):
-    #     """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
-
-    #     b_aj = -self.dJ['lin'](Ez, Ez_nl)
-    #     Ez_aj = adjoint_linear(self.simulation, b_aj)
-
-    #     EPSILON_0_ = EPSILON_0*self.simulation.L0
-    #     omega = self.simulation.omega
-    #     dAdeps = self.design_region*omega**2*EPSILON_0_
-
-    #     rho = self.simulation.rho
-    #     rho_t = rho2rhot(rho, self.W)
-    #     rho_b = rhot2rhob(rho_t, eta=self.eta, beta=self.beta)
-
-    #     eps_mat = (self.eps_m - 1)
-    #     filt_mat = drhot_drho(self.W)
-    #     proj_mat = drhob_drhot(rho_t, eta=self.eta, beta=self.beta)
-
-    #     Ez_vec = np.reshape(Ez, (-1,))
-    #     Ez_proj_vec = eps_mat * proj_mat * filt_mat.dot(Ez_vec)
-    #     Ez_proj = np.reshape(Ez_proj_vec, Ez.shape)
-
-    #     return 1*np.real(Ez_aj * dAdeps * Ez_proj)
 
     def _grad_linear(self, Ez, Ez_nl):
         """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
@@ -557,6 +534,8 @@ class Optimization():
             powers.append(W_in)
 
             if solver == 'hybrid':
+                # NOTE: sometimes a mix of born and newtons method (hybrid) works best.  dont know why yet
+
                 # compute the fields
                 (_,_,_,c) = sim_new.solve_fields_nl(timing=False, averaging=True,
                             Estart=None, solver_nl='born', conv_threshold=1e-10,

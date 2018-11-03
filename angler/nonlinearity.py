@@ -6,6 +6,7 @@ from angler.linalg import *
 class Nonlinearity:
 
     def __init__(self, chi, nl_region, nl_type='kerr', eps_scale=False, eps_max=None):
+
         self.chi = chi
         self.nl_region = nl_region
         self.nl_type = nl_type
@@ -16,8 +17,8 @@ class Nonlinearity:
         self.dnl_deps = []
 
         if self.nl_type == 'kerr':
-            if self.eps_scale == True:
-                if self.eps_max == None:
+            if self.eps_scale:
+                if self.eps_max is None:
                     raise AssertionError("Must provide eps_max when eps_scale is True") 
 
                 else:
@@ -29,9 +30,10 @@ class Nonlinearity:
                 kerr_nonlinearity     = lambda e, eps_r:3*chi*nl_region*np.square(np.abs(e))
                 kerr_nl_de            = lambda e, eps_r:3*chi*nl_region*np.conj(e)
                 kerr_nl_deps          = lambda e, eps_r:0
+
             self.eps_nl = kerr_nonlinearity
             self.dnl_de = kerr_nl_de
             self.dnl_deps = kerr_nl_deps
 
         else:
-            raise AssertionError("Only 'kerr' type nonlinearity is supported") 
+            raise AssertionError("Only 'kerr' type nonlinearity is currently supported") 

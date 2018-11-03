@@ -7,8 +7,6 @@ import progressbar
 from autograd import grad
 from functools import partial
 
-# eps = np.load('data/figs/data/2port_eps.npy')
-
 def wrap(i, N):
     return i + (i >= N)*(i - N) + (i < 0)*(i + N)
 
@@ -146,6 +144,9 @@ def deps_drhob(rhob, eps_m):
 
 
 if __name__ == '__main__':
+
+    ## NOTE: Running this file directly will generate some filtering plots used for testing
+    # and as some figures in the supplementary information.
 
     """ some isolated tests of the filtering and projection """
     import matplotlib.style

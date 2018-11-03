@@ -32,6 +32,7 @@ def dL(N, xrange, yrange=None):
 
 def is_equal(matrix1, matrix2):
     # checks if two sparse matrices are equal
+
     return (matrix1 != matrix2).nnz == 0
 
 
@@ -61,7 +62,6 @@ def construct_A(omega, xrange, yrange, eps_r, NPML, pol, L0,
         A = (Dxf*1/MU_0_).dot(Dxb) \
             + (Dyf*1/MU_0_).dot(Dyb) \
             + omega**2*T_eps_z
-        # A = A / (omega**2*EPSILON_0)        # normalize A to be unitless.  (note, this isn't in original fdfdpy)
 
     elif pol == 'Hz':
         if averaging:
@@ -88,8 +88,6 @@ def construct_A(omega, xrange, yrange, eps_r, NPML, pol, L0,
         A = Dxf.dot(T_eps_x_inv).dot(Dxb) \
             + Dyf.dot(T_eps_y_inv).dot(Dyb) \
             + omega**2*MU_0_*sp.eye(M)
-
-        # A = A / (omega**2*MU_0)     # normalize A to be unitless.  (note, this isn't in original fdfdpy)
 
     else:
         raise ValueError("something went wrong and pol is not one of Ez, Hz, instead was given {}".format(pol))
