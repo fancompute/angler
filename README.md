@@ -58,6 +58,10 @@ For examples of optimizing nonlinear devices, see
 
 Generally, `Simulation` objects are used to perform FDFD simulations, and `Optimization` classes run inverse design and optimization algorithms over `Simulation`s.  To learn more about how `angler` works and how to use it, please take a look at `angler/README.md` for a more detailed explanation.
 
+## Contributing
+
+`angler` is under development and we welcome suggestions, pull-requests, feature-requests, etc.  Please feel free to get in touch with us.
+
 ## Tests
 
 To run all tests:
