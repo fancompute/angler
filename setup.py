@@ -6,18 +6,13 @@ with open('README.md', 'r') as f:
     readme = f.read()
 
 dependencies = [
-        'MKL',
         'pyMKL',
         'numpy',
         'scipy',
         'matplotlib>=2.2.2',
         'progressbar2',
         'autograd',
-        'future',
-        'billiard',
-        'celery',
-        'kombu',
-        'amqp'
+        'future'
 ]
 
 setup(
