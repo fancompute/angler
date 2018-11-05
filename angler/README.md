@@ -1,7 +1,7 @@
 
 Here we'll go into more detail on the angler package, outlining the main steps for successfully running a simulation and inverse design.
 
-# Simulation
+# Simulations
 
 `Simulation` objects are at the core of `angler` and provide methods for modeling your electromagentic system (solving fields, adding sources and nonlinearities, plotting).
 
@@ -17,11 +17,11 @@ simulation = Simulation(omega, eps_r, dl, NPML, pol)
 `NPML` is a list containing the number of PML grids in x and y directions
 `pol` is the polarization (`'Ez'` or `'Hz'`)
 
-Note:  a keyword argument `L0` may be supplied as the default length scale.  All length parameters (including `dl`) are be specified in units of L0.
+> Note:  a keyword argument `L0` may be supplied as the default length scale (1 micron by default).  All length parameters (including `dl`) are be specified in units of `L0`.
 
-Note: a reciprocal and non-magnetic system is assumed.  If you want to extend this, feel free to submit a pull request.
+> Note: a reciprocal and non-magnetic system is assumed.  If you want to extend this, feel free to submit a pull request.
 
-Note: once initialized, the FDFD system matrix is constructed and ready to solve given a source.  If the `simulation.eps_r` is changed, the system matrix will automatically be re-constructed given the mew permittivity.
+Once initialized, the FDFD system matrix is constructed and ready to solve given a source.  If the `simulation.eps_r` is changed, the system matrix will automatically be re-constructed given the mew permittivity.
 
 For convenience, one may set the permittivity within some region, `design_region`, using the following method:
 
@@ -29,6 +29,8 @@ For convenience, one may set the permittivity within some region, `design_region
 simulation.init_design_region(design_region, eps_m, style='')
 ```
 where `eps_m` is the maximum permittivity and `style` is one of `('full', 'halfway', 'empty', 'random', 'random_sym')`.  
+
+## Adding sources (is exciting)
 
 Current sources may be specified by assigning a numpy array to `S.src`.  This is assumed to be a `Jz` source for `Ez` polarization or `Mz` source for `Hz` polarization.
 
@@ -41,6 +43,8 @@ simulation.flux_probe(direction_normal='x', center=[0,0], width=10, nl=False)
 ```
 where `direction_normal` is one of `x`, `y` and `center` / `width` define the line in terms of pixels.  If `nl=True`, this will compute and use the nonlinear fields (more on this later).
 
+## Solving the electromagnetic fields
+
 With the source in place, one can solve for the electric and magnetic fields as 
 
 ```python
@@ -52,6 +56,8 @@ if `Ez` polarization and
 ```
 if `Hz` polarization.
 
+## Adding nonlinearity
+
 Adding nonlinearity to the system can be done simply as
 
 ```python
@@ -62,7 +68,7 @@ simulation.add_nl(chi3, nl_region, eps_scale=True, eps_max=5)
 `nl_region` is a boolean array indicating the spatial extent of the nonlinearity in the domain.
 if `eps_scale` is `True`, the nonlinearity will be proportional to the density of material in the `nl_region` where `eps_max` is the maximum relative permittivity.
 
-Note:  Right now only self-frequency, Kerr nonlinearity is currently supported, but feel free to add your own according to the template in the file `angler/nonlinearity.py`.
+> Note:  Right now only self-frequency, Kerr nonlinearity is currently supported, but feel free to add your own according to the template in the file [`nonlinearity.py`](nonlinearity.py).
 
 With nonlinearity added, one can solve for the nonlinear fields as 
 
@@ -80,6 +86,8 @@ With nonlinear regions defined, one may compute the refractive index shift distr
 dn_map = simulation.compute_index_shift()
 ```
 
+## Plotting
+
 Finally, `Simulation` objects offer the following methods for plotting field patterns and permittivities
 
 ```python
@@ -92,11 +100,13 @@ more plotting utilities are defined in `angler/plot.py`
 
 For more info on `Simulation`s, see `angler/simulation.py`
 
-# Optimization
+# Optimizations
 
 Whereas `Simulation` objects define the physical system being solved, `Optimization` objects allow one to perform inverse design on top of these `Simulation`s.
 
 Before defining an `Optimization` object one needs to construct a `Simulation` object, define a `design_region` (boolean array) and an objective function `J`.
+
+## Defining the objective
 
 The objective function must be defined using the `autograd` wrapper for `numpy`.  This package allows us to automatically take partial derivatives of even complicated objective functions, greatly simplifying the process of solving for adjoint sensitivities.  For an example, we can define the objective funcion corresponding to concentration of `Ez` at a single point `P` with the following
 
@@ -109,11 +119,13 @@ def J(Ez, Ez_nl):
 	return I_P
 ```
 
-Note: `angler` assumes you are trying to maximize `J`, so define your objective function accordingly.
+> Note: `angler` assumes you are trying to maximize `J`, so define your objective function accordingly.
 
-Note: Please make sure you use `autograd.numpy` to define operations in your objective function.
+> Note: Please make sure you use `autograd.numpy` to define operations in your objective function.
 
-Note: Objective functions are generally defined as a function of the linear fields `Ez` and nonlinear fields `Ez_nl`.  If you are working on a purely linear problem, you must still include `Ez_nl` but there is no need to use it within `J`.  We're currently working on a more flexible way to define objective functions.
+> Note: Objective functions are generally defined as a function of the linear fields `Ez` and nonlinear fields `Ez_nl`.  If you are working on a purely linear problem, you must still include `Ez_nl` but there is no need to use it within `J`.  We're currently working on a more flexible way to define objective functions.
+
+## Definining the optimization problem
 
 With our problem defined, we may construct an optimization object simply as 
 
@@ -144,6 +156,8 @@ where `N_pts` is the number of points to perturb and `d_rho` is the amount to pe
 
 `avm_grads` and `num_grads` are lists of the derivatives for each of the `Npts` points and can be directly compared.  They should be close within a reasonable relative tolerance although this can depend on the problem, value of `d_rho`, and the projection and filtering parameters.
 
+## Running an optimization
+
 With the `opimitzation` defined, one may now perform inverse design using
 
 ```python
@@ -157,6 +171,8 @@ The `run` method accepts the following keyword arugments:
 `method` defines the optimization method and can be one of `LBFGS`, `gd`, `adam`.
 
 For `LBFGS` no other parameters are necesssary. For `gd` (gradient descent), a `step_size` must be supplied.  For `adam`, a `beta1` and `beta2` for the adam update may be supplied as well.
+
+## Plotting and post-processing
 
 After running, the objective function can be plotted with 
 
