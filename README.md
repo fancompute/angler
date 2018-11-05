@@ -94,7 +94,7 @@ If you contribute a new feature, please also write a few tests and document your
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details. Copyright 2018 Tyler Hughes.
 
 ## Acknowledgments
 
