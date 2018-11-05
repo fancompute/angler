@@ -5,9 +5,24 @@ from setuptools import setup, find_packages
 with open('README.md', 'r') as f:
     readme = f.read()
 
+dependencies = [
+        'MKL',
+        'pyMKL',
+        'numpy',
+        'scipy',
+        'matplotlib>=2.2.2',
+        'progressbar2',
+        'autograd',
+        'future',
+        'billiard',
+        'celery',
+        'kombu',
+        'amqp'
+]
+
 setup(
     name='angler',
-    version='0.0.6',
+    version='0.0.9',
     description='Adjoint Nonlinear Gradients',
     long_description=readme,
     long_description_content_type="text/markdown",
@@ -15,14 +30,7 @@ setup(
     author_email='tylerwhughes91@gmail.com',
     url='https://github.com/fancompute/angler',
     packages=find_packages(),
-    install_requires=[
-        'pyMKL',
-        'numpy',
-        'scipy',
-        'matplotlib',
-        'progressbar2',
-        'autograd'
-    ],
+    install_requires=dependencies,
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",

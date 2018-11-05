@@ -1,7 +1,7 @@
 # used for setup.py
 name = "angler"
 
-__version__ = '0.0.6'
+__version__ = '0.0.9'
 
 # import the main classes
 from .optimization import Optimization
