@@ -96,9 +96,9 @@ simulation.plt_re()    # Re{} of field z component
 simulation.plt_diff()  # diff between linear and nonlinear fields
 simulation.plt_eps()   # plots relative permittivity
 ```
-more plotting utilities are defined in `angler/plot.py`
+more plotting utilities are defined in [`plot.py`](plot.py).
 
-For more info on `Simulation`s, see `angler/simulation.py`
+For more info on `Simulations`s, see [`simulation.py`](simulation.py).
 
 # Optimizations
 
@@ -187,4 +187,4 @@ freqs, objs, FWHM = optimization.scan_frequency(Nf=50, df=1/20)
 ```
 where `Nf` is the number of frequencies and `df` is the frequency range (relative to central frequency).
 
-Power scanning and transmission plotting utilities are available but still a work in progress.  See `angler/optimization.py` for more details.
+Power scanning and transmission plotting utilities are available but still a work in progress.  See [`optimization.py`](optimization.py) for more details.
