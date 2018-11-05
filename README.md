@@ -75,11 +75,11 @@ Generally, `Simulation` objects are used to perform FDFD simulations, and `Optim
 
 To run all tests:
 
-	python -im unittest discover tests
+	python -m unittest discover tests
 
 Or to run individually:
 	
-	python tests/your_test.py
+	python tests/individual_test.py
 
 ## Contributing
 
