@@ -21,31 +21,36 @@ These will be put on the official PyPI distribution later.
 
 ## Examples / Quickstart
 
-There are several jupyter notebook examples in the `Notebooks/` directory:
+There are several jupyter notebook examples in the `Notebooks/` directory.
+
+For a good introduction, try:
+
+	Notebooks/Splitter.ipynb
+
+For more specific applications:
 
 #### Electromagnetic simulations
 
-For modeling linear devices with our FDFD solver, see
+For modeling linear devices with our FDFD solver (no optimization), see
 
 	Notebooks/Simple.ipynb
 
-For modeling nonlinear devices wuth FDFD, see 
+For modeling nonlinear devices wuth FDFD (no optimization), see 
 
 	Notebooks/Nonlinear_system.ipynb
 
 #### Inverse design & optimization
 
-For an example of optimizing a linear device, see 
+For examples optimizing a linear device, see 
 
+	Notebooks/Splitter.ipynb
 	Notebooks/accelerator.ipynb
 
-For several examples of optimizing nonlinear devices, the notebooks
+For examples of optimizing nonlinear devices, see
 
 	Notebooks/2_port.ipynb
 	Notebooks/3_port.ipynb
 	Notebooks/T_port.ipynb
-
-were used for the devices in the paper.
 
 ## Package Structure
 
