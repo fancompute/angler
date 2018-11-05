@@ -6,16 +6,6 @@ import matplotlib.pylab as plt
 from scipy.optimize import minimize, fmin_l_bfgs_b
 from autograd import grad
 
-# ignore autograd warnings if E_nl not used
-import warnings
-
-def fxn():
-    warnings.warn("UserWarning", UserWarning)
-
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    fxn()
-
 from angler.constants import *
 from angler.adjoint import adjoint_linear, adjoint_nonlinear
 from angler.filter import (eps2rho, rho2eps, get_W, deps_drhob, drhob_drhot,
