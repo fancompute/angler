@@ -4,8 +4,6 @@
 
 It provides a finite-difference frequency-domain (FDFD) solver for simulating for linear and nonlinear devices in the frequency domain.
 
-	"A finite-difference makes an infinite difference"
-
 It also provides an easy to use package for inverse design and optimization of linear and nonlinear devices.
 
 `angler` is released as part of a paper `Adjoint method and inverse design for nonlinear optical devices`, which can be downloaded [here](broken_link).  If you use this package, kindly cite us as:
@@ -14,8 +12,7 @@ It also provides an easy to use package for inverse design and optimization of l
 
 ## Installation
 
-	pip install -i https://test.pypi.org/simple/ angler
-	pip install -r requirements.txt
+	python setup.py install
 	
 These will be put on the official PyPI distribution later.
 
@@ -71,4 +68,3 @@ To run all tests:
 Or to run individually:
 	
 	python tests/your_test.py
-
