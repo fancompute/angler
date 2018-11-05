@@ -10,6 +10,8 @@ It also provides an easy to use package for adjoint-based inverse design and opt
 
 `angler` is released as part of a paper `Adjoint method and inverse design for nonlinear optical devices`, which can be viewed [here](broken_link).
 
+If you use `angler`, please cite us.
+
 ## Prerequisites
 
 For angler to work, you must have MKL installed on your device.
@@ -55,7 +57,7 @@ For modeling nonlinear devices wuth FDFD (no optimization), see
 For examples optimizing a linear device, see 
 
 	Notebooks/Splitter.ipynb
-	Notebooks/accelerator.ipynb
+	Notebooks/Accelerator.ipynb
 
 For examples of optimizing nonlinear devices, see
 
@@ -67,7 +69,7 @@ For examples of optimizing nonlinear devices, see
 
 `angler` provides two main classes, `Simulation` and `Optimization`, which perform most of the functionality.
 
-Generally, `Simulation` objects are used to perform FDFD simulations, and `Optimization` classes run inverse design and optimization algorithms over `Simulation`s.  To learn more about how `angler` works and how to use it, please take a look at `angler/README.md` for a more detailed explanation.
+Generally, `Simulation` objects are used to perform FDFD simulations, and `Optimization` classes run inverse design and optimization algorithms over `Simulation`s.  To learn more about how `angler` works and how to use it, please take a look at [angler/README.md](angler/README.md) for a more detailed explanation.
 
 ## Tests
 
@@ -81,9 +83,9 @@ Or to run individually:
 
 ## Contributing
 
-`angler` is under development and we welcome suggestions, pull-requests, feature-requests, etc.  
+`angler` is under development and we welcome suggestions, pull-requests, feature-requests, etc.
 
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests to us.
+If you contribute a new feature, please also write a few tests and document your changes in [angler/README.md](angler/README.md) or the wiki.
 
 ## Authors
 
