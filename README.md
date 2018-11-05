@@ -14,7 +14,7 @@ It also provides an easy to use package for inverse design and optimization of l
 
 	python setup.py install
 	
-These will be put on the official PyPI distribution later.
+These will be put on PyPI later
 
 ## Examples / Quickstart
 
