@@ -1,3 +1,4 @@
+<link rel="icon" href="img/anglerlogos/rainbow.png" type="image/x-icon" />
 <img src="img/anglerlogos/rainbow.png" title="Angler" alt="Angler">
 
 # angler
