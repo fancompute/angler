@@ -12,7 +12,13 @@ It also provides an easy to use package for inverse design and optimization of l
 
 ## Installation
 
+	git clone https://github.com/fancompute/angler.git
+	cd angler
 	python setup.py install
+	
+For angler to work, you must have MKL installed on your device.  The best way to do this is through conda as pip installing MKL will not work with the python wrapper we are using.
+
+	conda install MKL	
 	
 ## Examples / Quickstart
 
