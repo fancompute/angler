@@ -14,8 +14,6 @@ It also provides an easy to use package for inverse design and optimization of l
 
 	python setup.py install
 	
-These will be put on PyPI later
-
 ## Examples / Quickstart
 
 There are several jupyter notebook examples in the `Notebooks/` directory.
