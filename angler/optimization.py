@@ -236,11 +236,24 @@ class Optimization():
             pbar.update(iteration, ObjectiveFn=J)
 
     def run(self, method='LBFGS', Nsteps=100, step_size=0.1,
-            beta1=0.9, beta2=0.999, verbose=True):
+            beta1=0.9, beta2=0.999, verbose=True, temp_plt=None):
         """ Runs an optimization."""
 
         self.Nsteps = Nsteps
         self.verbose = verbose
+        self.temp_plt = temp_plt
+
+        if temp_plt is not None:
+            # Clear the temp_plt folder from previous runs
+            import os, shutil
+            folder = temp_plt.folder
+            for the_file in os.listdir(folder):
+                file_path = os.path.join(folder, the_file)
+                try:
+                    if os.path.isfile(file_path):
+                        os.unlink(file_path)
+                except Exception as e:
+                    print(e)
 
         # get the material density from the simulation if only the first time being run
         if self.simulation.rho is None:
@@ -277,6 +290,10 @@ class Optimization():
 
             grad = self.compute_dJ(self.simulation, self.design_region)
 
+            if self.temp_plt is not None:
+                if np.mod(iteration, self.temp_plt.it_plot) == 0:
+                    self.plot_it(iteration)
+
             self._update_rho(grad, step_size)
 
     def _run_ADAM(self, step_size, beta1, beta2):
@@ -300,6 +317,10 @@ class Optimization():
                 vopt = np.zeros(grad.shape)
 
             (grad_adam, mopt, vopt) = self._step_adam(grad, mopt, vopt, iteration, beta1, beta2,)
+
+            if self.temp_plt is not None:
+                if np.mod(iteration, self.temp_plt.it_plot) == 0:
+                    self.plot_it(iteration)
 
             self._update_rho(grad_adam, step_size)
 
@@ -336,10 +357,14 @@ class Optimization():
         def _update_iter_count(x_current):
             J = self.compute_J(self.simulation)
             self._update_progressbar(pbar, iter_list[0], J)
-            iter_list[0] += 1
             self.objfn_list.append(J)
             self._set_design_region(x_current)
             self._set_source_amplitude()
+            if self.temp_plt is not None:
+                if np.mod(iter_list[0], self.temp_plt.it_plot) == 0:
+                    self.plot_it(iter_list[0])
+
+            iter_list[0] += 1
 
         N_des = np.sum(self.design_region == 1)              # num points in design region
         rho_bounds = tuple([(0, 1) for _ in range(N_des)])   # bounds on rho {0, 1}
@@ -358,6 +383,35 @@ class Optimization():
 
         # finally, set the simulation permittivity to that found via optimization
         self._set_design_region(rho_final)
+
+    def plot_it(self, iteration):
+        Nplots = len(self.temp_plt.plot_what)
+
+        if Nplots == 4:
+            f, axs = plt.subplots(2, 2, figsize=(10, 12))
+        else:
+            f, axs = plt.subplots(1, Nplots, figsize=(Nplots*6,4))
+
+        for n, plots in enumerate(self.temp_plt.plot_what):
+            if plots == 'eps':
+                ax = axs[n]
+                self.simulation.plt_eps(outline=False, cbar=False, ax=ax)
+                ax.set_title('Permittivity')
+            if plots == 'of':
+                ax = axs[n]
+                self.plt_objs(ax=ax)
+                ax.set_title('Objective')
+            if plots == 'elin':
+                ax = axs[n]
+                self.simulation.plt_abs(outline=False, cbar=False, ax=ax)
+                ax.set_title('Linear field')
+            if plots == 'enl':
+                ax = axs[n]
+                self.simulation.plt_abs(outline=False, cbar=False, ax=ax, nl=True)
+                ax.set_title('Nonlinear field')
+        
+        fname = self.temp_plt.folder + ('it%06d.png' % np.int(iteration))
+        plt.savefig(fname, dpi=100)
 
     def _set_design_region(self, x):
         """ Inserts a vector x into design region of simulation.rho """
