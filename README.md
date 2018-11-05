@@ -28,7 +28,7 @@ For more specific applications:
 
 For modeling linear devices with our FDFD solver (no optimization), see
 
-	Notebooks/Simple.ipynb
+	Notebooks/Linear_system.ipynb
 
 For modeling nonlinear devices wuth FDFD (no optimization), see 
 
