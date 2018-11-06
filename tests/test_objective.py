@@ -70,10 +70,20 @@ class TestGradient(unittest.TestCase):
     def test_gradient_selector(self):
         # test whether correct gradients were selected
 
+        # test the args directly
         self.assertEqual(self.f1.gradient, grad_linear_Ez)
         self.assertEqual(self.f2.gradient, grad_linear_Ez)
         self.assertEqual(self.f3.gradient, grad_linear_Ez)
         self.assertEqual(self.f3_nl.gradient, grad_kerr_Ez)
+
+        # test the loaded gradients (linear)
+        for grad_fn in self.objective_lin.grad_fn_list:
+            self.assertEqual(grad_fn, grad_linear_Ez)
+
+        # test the loaded gradients (nonlinear)
+        correct_grads_nl = 3*[grad_linear_Ez] + [grad_kerr_Ez]
+        for i, grad_fn in enumerate(self.objective_lin.grad_fn_list):
+            self.assertEqual(grad_fn, correct_grads_nl[i])
 
 if __name__ == '__main__':
     unittest.main()
