@@ -106,7 +106,8 @@ R = 5          # filter radius of curvature (pixels)  (takes a while to set up a
 beta = 500     # projection strength
 eta= 0.50      # projection halfway
 
-temp_plt = Temp_plt(it_plot=1, plot_what=('eps', 'elin', 'enl'), folder='figs/data/temp_im/', figsize=(14,4), dpi=50)
+temp_plt = Temp_plt(it_plot=1, plot_what=('eps', 'elin', 'enl'), folder='figs/data/temp_im/', 
+						figsize=(14,4), dpi=100)
 optimization = Optimization(J=J, simulation=simulation, design_region=design_region, eps_m=eps_m, R=R, beta=beta, eta=eta)
 (grad_avm, grad_num) = optimization.check_deriv(Npts=5, d_rho=5e-4)
 # print('adjoint gradient   = {}\nnumerical gradient = {}'.format(grad_avm, grad_num))
