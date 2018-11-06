@@ -11,9 +11,16 @@ It also provides an easy to use package for adjoint-based inverse design and opt
 
 <img src="img/fields.png" title="Fields" alt="Fields">
 
-`angler` is released as part of a paper `Adjoint method and inverse design for nonlinear optical devices`, which can be viewed [here](broken_link).
+`angler` is released as part of a paper `Adjoint method and inverse design for nonlinear optical devices`, which can be viewed [here](https://arxiv.org/abs/1811.01255).
 
-If you use `angler`, please cite us.
+If you use `angler`, please cite us using
+
+	@misc{1811.01255,
+	Author = {Tyler W. Hughes and Momchil Minkov and Ian A. D. Williamson and Shanhui Fan},
+	Title = {Adjoint method and inverse design for nonlinear nanophotonic devices},
+	Year = {2018},
+	Eprint = {arXiv:1811.01255},
+	}
 
 ## Prerequisites
 
