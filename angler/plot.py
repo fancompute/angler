@@ -17,7 +17,7 @@ def plt_base(field_val, outline_val, cmap, vmin, vmax, label,
     if not logscale:
         h = ax.imshow(field_val, cmap=cmap, vmin=vmin, vmax=vmax, origin='lower')
     else:
-        h = ax.imshow(field_val, cmap=cmap, vmin=vmin, vmax=vmax, origin='lower', norm=LogNorm(vmin=0.01, vmax=1))
+        h = ax.imshow(field_val, cmap=cmap, vmin=vmin, vmax=vmax, origin='lower', norm=LogNorm(vmin=vmin, vmax=vmax))
 
     if cbar:
         plt.colorbar(h, label=label, ax=ax)

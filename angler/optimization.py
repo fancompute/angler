@@ -380,7 +380,7 @@ class Optimization():
         Ez_lin = self.simulation.fields['Ez']
 
         # This is what was used for the T-port in the paper    
-        vmin = 8 * np.sqrt(self.simulation.W_in)
+        vmin = 4 * np.sqrt(self.simulation.W_in)
         vmax = np.abs(Ez_lin).max()/1.5
 
         # # This is more general but less flexible
@@ -404,7 +404,7 @@ class Optimization():
                 ax = axs[n]
                 self.simulation.plt_eps(outline=False, cbar=False, ax=ax)
                 ax.set_title('Permittivity')
-                ax.annotate('Iteration:%4d' % np.int(iteration), (0.2, 0.11),
+                ax.annotate('Iteration:%4d' % np.int(iteration), (0.2, 0.92),
                     xycoords='axes fraction',
                     size='medium',
                     color='k',
@@ -646,7 +646,7 @@ class Optimization():
             folder = self.temp_plt.folder
             if not os.path.exists(folder):
                 os.makedirs(folder)
-                for the_file in os.listdir(folder):
-                    file_path = os.path.join(folder, the_file)
-                    if os.path.isfile(file_path):
-                        os.unlink(file_path)
+            for the_file in os.listdir(folder):
+                file_path = os.path.join(folder, the_file)
+                if os.path.isfile(file_path):
+                    os.unlink(file_path)
