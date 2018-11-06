@@ -20,41 +20,40 @@ def born_solve(simulation,
 	# Stores convergence parameters
 	conv_array = np.zeros((max_num_iter, 1))
 
-	if simulation.pol == 'Ez':
-		# Defne the starting field for the simulation
-		if Estart is None:
-			if simulation.fields['Ez'] is None:
-				(_, _, Ez) = simulation.solve_fields()
-			else:
-				Ez = deepcopy(simulation.fields['Ez'])
+	# Defne the starting field for the simulation
+	if Estart is None:
+		if simulation.fields[simulation.pol] is None:
+			# if its not specified, nor already, solve for the linear fields			
+			(_, _, Fz) = simulation.solve_fields()
 		else:
-			Ez = Estart
-
-		# Solve iteratively
-		for istep in range(max_num_iter):
-
-			Eprev = Ez
-
-			# set new permittivity
-			simulation.compute_nl(Eprev)
-
-			(Hx, Hy, Ez) = simulation.solve_fields(include_nl=True)
-
-			# get convergence and break
-			convergence = la.norm(Ez - Eprev)/la.norm(Ez)
-			conv_array[istep] = convergence
-
-			# if below threshold, break and return
-			if convergence < conv_threshold:
-				break
-
-		if convergence > conv_threshold:
-			print("the simulation did not converge, reached {}".format(convergence))
-		return (Hx, Hy, Ez, conv_array)
-
+			# if its not specified, but stored, use that one
+			Fz = deepcopy(simulation.fields[simulation.pol])
 	else:
-		raise ValueError('Invalid polarization: {}'.format(str(self.pol)))
+		# otherwise, use the specified version
+		Fz = Estart
 
+	# Solve iteratively
+	for istep in range(max_num_iter):
+
+		Fprev = Fz
+
+		# set new permittivity
+		simulation.compute_nl(Fprev)
+
+		(Fx, Fy, Fz) = simulation.solve_fields(include_nl=True)
+
+		# get convergence and break
+		convergence = la.norm(Fz - Fprev)/la.norm(Fz)
+		conv_array[istep] = convergence
+
+		# if below threshold, break and return
+		if convergence < conv_threshold:
+			break
+
+	if convergence > conv_threshold:
+		print("the simulation did not converge, reached {}".format(convergence))
+
+	return (Fx, Fy, Fz, conv_array)
 
 def newton_solve(simulation,
 				 Estart=None, conv_threshold=1e-10, max_num_iter=50,
@@ -141,6 +140,9 @@ def nl_eq_and_jac(simulation,
 			dAde = (simulation.dnl_de).reshape((-1,))*omega**2*EPSILON_0_
 			Jac11 = Anl + sp.spdiags(dAde*Ez.reshape((-1,)), 0, Nbig, Nbig, format=matrix_format)
 			Jac12 = sp.spdiags(np.conj(dAde)*Ez.reshape((-1,)), 0, Nbig, Nbig, format=matrix_format)
+
+	elif simulation.pol == 'Hz':
+		raise ValueError('angler doesnt support newton method for Hz polarization yet')		
 
 	else:
 		raise ValueError('Invalid polarization: {}'.format(str(self.pol)))
