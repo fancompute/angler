@@ -16,7 +16,7 @@ It also provides an easy to use package for adjoint-based inverse design and opt
 
 ## Prerequisites
 
-For angler to work, you must have MKL installed on your device.
+For angler to work, you must have MKL installed.
 
 The best way to do this is through conda
 
