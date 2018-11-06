@@ -1,4 +1,4 @@
-<link rel="icon" href="img/anglerlogos/rainbow.png" type="image/x-icon" />
+<link rel="icon" href="img/favicon.png" type="image/x-icon" />
 <img src="img/anglerlogos/rainbow.png" title="Angler" alt="Angler">
 
 # angler
@@ -100,3 +100,4 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 * our logo was made by [Nadine Gilmer](http://nadinegilmer.com/)
 * RIP Ian's contributions before the code merge
+* We made use of a lot of code snippets (and advice) from [Jerry Shi](https://yujerryshi.github.io/index.html)
