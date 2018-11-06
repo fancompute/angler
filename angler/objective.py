@@ -10,12 +10,17 @@ class Objective():
     """
     def __init__(self, J, arg_list):        
 
+        # if arg_list is just a single arg, create a list for compatibility
+        if not isinstance(arg_list, list):
+            arg_list = [arg_list]
         self.arg_list = arg_list
+        
+        # make sure number of arguments is consistent between J and arglist
         self.J = J
-
         sig = signature(J)
         num_args_J = len(sig.parameters.items())
-        assert len(arg_list) == num_args_J
+        if (len(arg_list) != num_args_J):
+            raise ValueError("number of arguemnts in J ({}) doesnt match that of arg_list ({})".format(len(arg_list), num_args_J))
 
     def is_linear(self):
         # is the objective function purely a function of linear fields?

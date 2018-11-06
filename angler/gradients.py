@@ -4,15 +4,15 @@ from inspect import signature
 from angler.adjoint import adjoint_linear, adjoint_kerr
 from angler.filter import (eps2rho, rho2eps, get_W, deps_drhob, drhob_drhot,
                     drhot_drho, rho2rhot, drhot_drho, rhot2rhob)
-
+from angler.constants import *
 """ This is where the gradients are defined
     These are selected when you define an objective function
 """
 
-def grad_linear_Ez(optimization, args):
+def grad_linear_Ez(optimization, dJ, Ez, args):
     """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
 
-    b_aj = -optimization.dJ['lin'](Ez, Ez_nl)
+    b_aj = -dJ(*args)
     Ez_aj = adjoint_linear(optimization.simulation, b_aj)
 
     EPSILON_0_ = EPSILON_0*optimization.simulation.L0
@@ -36,10 +36,10 @@ def grad_linear_Ez(optimization, args):
 
     return 1*np.real(np.reshape(sensitivity_vec, rho.shape))
 
-def grad_kerr_Ez(optimization, Ez, Ez_nl):
+def grad_kerr_Ez(optimization, dJ, Ez_nl, args):
     """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
 
-    b_aj = -optimization.dJ['nl'](Ez, Ez_nl)
+    b_aj = -dJ(*args)
     Ez_aj = adjoint_kerr(optimization.simulation, b_aj)
     optimization.simulation.compute_nl(Ez_nl)
 

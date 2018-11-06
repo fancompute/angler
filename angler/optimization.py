@@ -18,91 +18,91 @@ class Optimization():
                  R=None, eta=0.5, beta=1e-9,
                  field_start='linear', nl_solver='newton', max_ind_shift=None):
 
+        # store essential objects
         self.objective = objective
         self.simulation = simulation
         self.design_region = design_region
 
-        self.eps_m = eps_m
+        # store and compute filter and projection objects
         self.R = R
-
         (Nx, Ny) = self.simulation.eps_r.shape
-
         if self.R is not None:
             self.W = get_W(Nx, Ny, self.design_region,  NPML=self.simulation.NPML, R=self.R)
         else:
             self.W = sp.eye(Nx*Ny, dtype=np.complex64)
-
         self.eta = eta
         self.beta = beta
 
+        # stre other optional parameters
+        self.eps_m = eps_m
         self.field_start = field_start
         self.nl_solver = nl_solver
         self.max_ind_shift = max_ind_shift
 
+        # store things that will be used later
         self.src_amplitudes = []
         self.objfn_list = []
+        self.fields_current = False     # are the field_args current?  if not, will need to recompute
 
-        # compute the jacobians of the objective and store these
-        self._autograd_objective()
+    def _solve_objfn_arg_fields(self, simulation):
+        """ 
+            solves for all of the fields needed in the objective function.
+            also checks if it's linear (and if so, doesnt solve_nl)
+        """
 
-    @property
-    def objective(self):
-        # make objective a property (see next method for explanation)
-        return self._objective
+        # do something only if the fields are not current, or there are no stored fields
+        if not self.fields_current or not self.field_arg_list:
 
-    @objective.setter
-    def objective(self, objective):
-        # ensures that whenever objective is reassigned, re-solve for the autograd partials
-        self._objective = objective
-        self._autograd_objective()
+            (Fx, Fy, Fz) = simulation.solve_fields()
+            if not self.objective.is_linear():
+                (Fx_nl, Fy_nl, Fz_nl, _) = simulation.solve_fields_nl()
 
-    def _autograd_objective(self):
-        """ Uses autograd to automatically compute Jacobians of J with respect to each argument"""
+            # prepare a list of arguments that correspond to obj_fn arguments
+            field_arg_list = []
+            for arg in self.objective.arg_list:
+                if not arg.nl:
+                    field = simulation.fields[arg.component]
+                else:
+                    field = simulation.fields_nl[arg.component]
+                field_arg_list.append(field)
 
-        J = self._objective.J
+            # store these arguments (so that they dont have to be recomputed)
+            self.field_arg_list = field_arg_list
 
-        sig = signature(J)
-        num_args = len(sig.parameters.items())
+            # lets other functions know the field_arg_list is up to date
+            self.fields_current = True
 
-        # note: eventually want to check whether J has eps_nl argument, then switch between linear and nonlinear depending.
-        dJ = []
-
-        for arg_index in range(num_args):
-            dJ.append(grad(J, i))
-
-        # save to the objective function
-        self._objective.dJ = dJ
 
     def compute_J(self, simulation):
         """ Returns the current objective function of a simulation"""
 
+        # stores all of the fields for the objective function in self.field_arg_list
+        self._solve_objfn_arg_fields(simulation)
 
-        (Hx, Hy, Ez) = simulation.solve_fields()
-
-        return self.J(Ez, Hz)
+        # pass these arguments to the objective function
+        return self.objective.J(*self.field_arg_list)
 
     def compute_dJ(self, simulation, design_region):
         """ Returns the current grad of a simulation"""
 
-        if simulation.fields['Ez'] is None:
-            (_, _, Ez) = simulation.solve_fields()
-        else:
-            Ez = simulation.fields['Ez']
+        # stores all of the fields for the objective function in self.field_arg_list
+        self._solve_objfn_arg_fields(simulation)
 
-        if simulation.fields_nl['Ez'] is None:
-            (_, _, Ez_nl, _) = simulation.solve_fields_nl()
-        else:
-            Ez_nl = simulation.fields_nl['Ez']
+        # sum up gradient contributions from each argument in J
+        gradient_sum = 0
+        for arg_i, (gradient_fn, dJ) in enumerate(zip(self.objective.grad_fn_list, self.objective.dJ_list)):
+            field_i = self.field_arg_list[arg_i]
+            gradient = gradient_fn(self, dJ, field_i, self.field_arg_list)
+            gradient_sum += gradient
 
-        return self._grad_linear(Ez, Ez_nl) + self._grad_nonlinear(Ez, Ez_nl)
+        return gradient_sum
 
     def check_deriv(self, Npts=5, d_rho=1e-3):
         """ Returns a list of analytical and numerical derivatives to check grad accuracy"""
 
+        self.fields_current = False
         self.simulation.eps_r = rho2eps(rho=self.simulation.rho, eps_m=self.eps_m, W=self.W,
                                         eta=self.eta, beta=self.beta)
-        self.simulation.solve_fields()
-        self.simulation.solve_fields_nl()
 
         # solve for the linear fields and grad of the linear objective function
         grad_avm = self.compute_dJ(self.simulation, self.design_region)
@@ -131,8 +131,7 @@ class Optimization():
             sim_new.rho = rho_new
             sim_new.eps_r = eps_new
 
-            sim_new.solve_fields()
-            sim_new.solve_fields_nl()
+            self.fields_current = False
 
             # solve for the fields with this new permittivity
             J_new = self.compute_J(sim_new)
