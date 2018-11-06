@@ -85,7 +85,7 @@ def plt_base_ani(field_val, cbar=True, Nframes=40, interval=80):
 
 class Temp_plt():
 
-    def __init__(self, it_plot=1, plot_what=('eps'), folder='../data/figs/data/temp_im/', 
+    def __init__(self, it_plot=1, plot_what=('eps'), folder='data/figs/data/temp_im/', 
                     dpi=100, figsize=(4, 4)):
         self.it_plot = it_plot
         self.plot_what = plot_what 
