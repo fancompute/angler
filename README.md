@@ -30,10 +30,6 @@ The python wrapper for MKL that we are using does not work well when MKL is pip 
 	cd angler
 	python setup.py install
 	
-For angler to work, you must have MKL installed on your device.  The best way to do this is through conda as pip installing MKL will not work with the python wrapper we are using.
-
-	conda install MKL	
-	
 ## Examples / Quickstart
 
 There are several jupyter notebook examples in the `Notebooks/` directory.
@@ -97,7 +93,7 @@ If you contribute a new feature, please also write a few tests and document your
 
 If you use `angler`, please cite us using
 
-	@misc{1811.01255,
+	@misc{hughes2018adjoint,
 	Author = {Tyler W. Hughes and Momchil Minkov and Ian A. D. Williamson and Shanhui Fan},
 	Title = {Adjoint method and inverse design for nonlinear nanophotonic devices},
 	Year = {2018},
