@@ -7,7 +7,9 @@
 
 It provides a finite-difference frequency-domain (FDFD) solver for simulating for linear and nonlinear devices in the frequency domain.
 
-It also provides an easy to use package for adjoint-based inverse design and optimization of linear and nonlinear devices.
+It also provides an easy to use package for adjoint-based inverse design and optimization of linear and nonlinear devices.  For example, you can inverse design optical switches to transport power to different ports for different input powers:
+
+<img src="img/fields.png" title="Fields" alt="Fields">
 
 `angler` is released as part of a paper `Adjoint method and inverse design for nonlinear optical devices`, which can be viewed [here](broken_link).
 
