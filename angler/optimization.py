@@ -18,8 +18,6 @@ class Optimization():
                  R=None, eta=0.5, beta=1e-9,
                  field_start='linear', nl_solver='newton', max_ind_shift=None):
 
-        # import pdb; pdb.set_trace()
-        
         # store essential objects
         self.objective = objective
         self.simulation = simulation
@@ -63,9 +61,9 @@ class Optimization():
             field_arg_list = []
             for arg in self.objective.arg_list:
                 if not arg.nl:
-                    field = simulation.fields[simulation.pol]
+                    field = simulation.fields[arg.component]
                 else:
-                    field = simulation.fields_nl[simulation.pol]
+                    field = simulation.fields_nl[arg.component]
                 if field is None:
                     raise ValueError("couldn't find a field defined for component '{}'.  Could be the wrong polarization (simulation is '{}' polarization).".format(arg.component, self.simulation.pol))
                 field_arg_list.append(field)
@@ -94,9 +92,12 @@ class Optimization():
 
         # sum up gradient contributions from each argument in J
         gradient_sum = 0
-        for arg_i, (gradient_fn, dJ) in enumerate(zip(self.objective.grad_fn_list, self.objective.dJ_list)):
-            field_i = self.field_arg_list[arg_i]
-            gradient = gradient_fn(self, dJ, field_i, self.field_arg_list)
+        for gradient_fn, dJ, arg in zip(self.objective.grad_fn_list, self.objective.dJ_list, self.objective.arg_list):
+            if not arg.nl:
+                Fz = simulation.fields[simulation.pol]
+            else:
+                Fz = simulation.fields_nl[simulation.pol]
+            gradient = gradient_fn(self, dJ, Fz, self.field_arg_list)
             gradient_sum += gradient
 
         return gradient_sum

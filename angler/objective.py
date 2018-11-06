@@ -10,10 +10,10 @@ GRADIENT_MAP = {
         'nl': grad_kerr_Ez},
     'Hx': {
         'lin': grad_linear_Hx,
-        'nl': None },
+        'nl': grad_kerr_Hx},
     'Hy': {
-        'lin': None,
-        'nl': None },
+        'lin': grad_linear_Hy,
+        'nl': grad_kerr_Hy},
     'Hz': {
         'lin': None,
         'nl': None },
