@@ -64,7 +64,7 @@ def adjoint_linear(simulation, b_aj, averaging=False, solver=DEFAULT_SOLVER, mat
     return Ez
 
 
-def adjoint_nonlinear(simulation, b_aj,
+def adjoint_kerr(simulation, b_aj,
                      averaging=False, solver=DEFAULT_SOLVER, matrix_format=DEFAULT_MATRIX_FORMAT):
     # Compute the adjoint field for a nonlinear problem
     # Note: written only for Ez!

@@ -7,18 +7,18 @@ from scipy.optimize import minimize, fmin_l_bfgs_b
 from autograd import grad
 
 from angler.constants import *
-from angler.adjoint import adjoint_linear, adjoint_nonlinear
+from angler.adjoint import adjoint_linear, adjoint_kerr
 from angler.filter import (eps2rho, rho2eps, get_W, deps_drhob, drhob_drhot,
                     drhot_drho, rho2rhot, drhot_drho, rhot2rhob)
 
 
 class Optimization():
 
-    def __init__(self, J=None, simulation=None, design_region=None, eps_m=5,
+    def __init__(self, objective, simulation, design_region, eps_m=5,
                  R=None, eta=0.5, beta=1e-9,
                  field_start='linear', nl_solver='newton', max_ind_shift=None):
 
-        self.J = J
+        self.objective = objective
         self.simulation = simulation
         self.design_region = design_region
 
@@ -42,49 +42,44 @@ class Optimization():
         self.src_amplitudes = []
         self.objfn_list = []
 
-        # compute the jacobians of J and store these
-        self.dJ = self._autograd_dJ(J)
+        # compute the jacobians of the objective and store these
+        self._autograd_objective()
 
     @property
-    def J(self):
-        return self._J
+    def objective(self):
+        # make objective a property (see next method for explanation)
+        return self._objective
 
-    @J.setter
-    def J(self, J):
-        self._J = J
-        self.dJ = self._autograd_dJ(J)
+    @objective.setter
+    def objective(self, objective):
+        # ensures that whenever objective is reassigned, re-solve for the autograd partials
+        self._objective = objective
+        self._autograd_objective()
 
-    def _is_linear(self, J):
-        # checks number of arguments to J, if <= 1, it's a linear problem (not used yet)
-        sig = signature(J)
-        if len(sig.parameters.items()) <= 1:
-            return True
-        else:
-            return False
-
-    def _autograd_dJ(self, J):
+    def _autograd_objective(self):
         """ Uses autograd to automatically compute Jacobians of J with respect to each argument"""
 
+        J = self._objective.J
+
+        sig = signature(J)
+        num_args = len(sig.parameters.items())
+
         # note: eventually want to check whether J has eps_nl argument, then switch between linear and nonlinear depending.
-        dJ = {}
-        dJ['lin'] = grad(J, 0)
-        dJ['nl'] = grad(J, 1)
-        return dJ
+        dJ = []
+
+        for arg_index in range(num_args):
+            dJ.append(grad(J, i))
+
+        # save to the objective function
+        self._objective.dJ = dJ
 
     def compute_J(self, simulation):
         """ Returns the current objective function of a simulation"""
 
-        if simulation.fields['Ez'] is None:
-            (_, _, Ez) = simulation.solve_fields()
-        else:
-            Ez = simulation.fields['Ez']
 
-        if simulation.fields_nl['Ez'] is None:
-            (_, _, Ez_nl, _) = simulation.solve_fields_nl()
-        else:
-            Ez_nl = simulation.fields_nl['Ez']
+        (Hx, Hy, Ez) = simulation.solve_fields()
 
-        return self.J(Ez, Ez_nl)
+        return self.J(Ez, Hz)
 
     def compute_dJ(self, simulation, design_region):
         """ Returns the current grad of a simulation"""
@@ -100,58 +95,6 @@ class Optimization():
             Ez_nl = simulation.fields_nl['Ez']
 
         return self._grad_linear(Ez, Ez_nl) + self._grad_nonlinear(Ez, Ez_nl)
-
-    def _grad_linear(self, Ez, Ez_nl):
-        """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
-
-        b_aj = -self.dJ['lin'](Ez, Ez_nl)
-        Ez_aj = adjoint_linear(self.simulation, b_aj)
-
-        EPSILON_0_ = EPSILON_0*self.simulation.L0
-        omega = self.simulation.omega
-        dAdeps = self.design_region*omega**2*EPSILON_0_
-
-        rho = self.simulation.rho
-        rho_t = rho2rhot(rho, self.W)
-        rho_b = rhot2rhob(rho_t, eta=self.eta, beta=self.beta)
-        eps_mat = (self.eps_m - 1)
-
-        filt_mat = drhot_drho(self.W)
-        proj_mat = drhob_drhot(rho_t, eta=self.eta, beta=self.beta)
-
-        Ez_vec = np.reshape(Ez, (-1,))
-
-        dAdeps_vec = np.reshape(dAdeps, (-1,))
-        dfdrho = eps_mat*filt_mat.multiply(Ez_vec*proj_mat*dAdeps_vec)
-        Ez_aj_vec = np.reshape(Ez_aj, (-1,))
-        sensitivity_vec = dfdrho.dot(Ez_aj_vec)        
-
-        return 1*np.real(np.reshape(sensitivity_vec, rho.shape))
-
-    def _grad_nonlinear(self, Ez, Ez_nl):
-        """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
-
-        b_aj = -self.dJ['nl'](Ez, Ez_nl)
-        Ez_aj = adjoint_nonlinear(self.simulation, b_aj)
-        self.simulation.compute_nl(Ez_nl)
-
-        EPSILON_0_ = EPSILON_0*self.simulation.L0
-        omega = self.simulation.omega
-        dAdeps = self.design_region*omega**2*EPSILON_0_
-        dAnldeps = dAdeps + self.design_region*omega**2*EPSILON_0_*self.simulation.dnl_deps
-
-        rho = self.simulation.rho
-        rho_t = rho2rhot(rho, self.W)
-        rho_b = rhot2rhob(rho_t, eta=self.eta, beta=self.beta)
-        eps_mat = (self.eps_m - 1)
-
-        filt_mat = drhot_drho(self.W)
-        proj_mat = drhob_drhot(rho_t, eta=self.eta, beta=self.beta)
-
-        Ez_vec = np.reshape(Ez_nl, (-1,))
-
-        dfdrho = eps_mat*filt_mat.multiply(Ez_vec*proj_mat*np.reshape(dAnldeps, (-1,)))
-        return 1*np.real(np.reshape(dfdrho.dot(np.reshape(Ez_aj, (-1,))), rho.shape))
 
     def check_deriv(self, Npts=5, d_rho=1e-3):
         """ Returns a list of analytical and numerical derivatives to check grad accuracy"""
