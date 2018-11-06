@@ -3,6 +3,28 @@ import numpy as np
 
 from angler.gradients import *
 
+# maps components and nonlinearities to the corresponding grad function
+GRADIENT_MAP = {
+    'Ez': {
+        'lin': grad_linear_Ez,
+        'nl': grad_kerr_Ez},
+    'Hx': {
+        'lin': grad_linear_Hx,
+        'nl': None },
+    'Hy': {
+        'lin': None,
+        'nl': None },
+    'Hz': {
+        'lin': None,
+        'nl': None },
+    'Ex': {
+        'lin': None,
+        'nl': None },
+    'Ey': {
+        'lin': None,
+        'nl': None },
+}
+
 class Objective():
 
     """ Stores the objective function and its arguments 
@@ -73,7 +95,8 @@ class obj_arg():
         self.name = str(name)
 
         # get field component
-        assert component in ['Ex','Ey','Ez','Hx','Hy','Hz']
+        if not component in {'Ex','Ey','Ez','Hx','Hy','Hz'}:
+            raise ValueError("component must be in ['Ex','Ey','Ez','Hx','Hy','Hz'], was given '{}'".format(component))
         self.component = component
 
         # whether this is nonlinear field
@@ -82,24 +105,13 @@ class obj_arg():
         self._select_gradient()
 
     def _select_gradient(self):
-
         # selects the correct gradient function.  
-        self.gradient = None    # default
 
-        if self.component == 'Ez':
-            if not self.nl:
-                self.gradient = grad_linear_Ez
-            else:
-                self.gradient = grad_kerr_Ez
-
-        if self.component == 'Hz':
-            if not self.nl:
-                self.gradient = grad_linear_Ez
-            else:
-                self.gradient = grad_kerr_Ez
+        lin_nl_selector = 'lin' if not self.nl else 'nl'
+        self.gradient = GRADIENT_MAP[self.component][lin_nl_selector]
 
         if self.gradient is None:
-            raise ValueError("Couldn't find gradient for argument: '{}'".format(self.name))
+            raise ValueError("Couldn't find a gradient for argument '{}' defined in gradient.py.".format(self.name))
 
 if __name__ == "__main__":
 

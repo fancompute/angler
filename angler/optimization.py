@@ -18,6 +18,8 @@ class Optimization():
                  R=None, eta=0.5, beta=1e-9,
                  field_start='linear', nl_solver='newton', max_ind_shift=None):
 
+        # import pdb; pdb.set_trace()
+        
         # store essential objects
         self.objective = objective
         self.simulation = simulation
@@ -53,17 +55,19 @@ class Optimization():
         # do something only if the fields are not current, or there are no stored fields
         if not self.fields_current or not self.field_arg_list:
 
-            (Fx, Fy, Fz) = simulation.solve_fields()
+            _ = simulation.solve_fields()
             if not self.objective.is_linear():
-                (Fx_nl, Fy_nl, Fz_nl, _) = simulation.solve_fields_nl()
+                _ = simulation.solve_fields_nl()
 
             # prepare a list of arguments that correspond to obj_fn arguments
             field_arg_list = []
             for arg in self.objective.arg_list:
                 if not arg.nl:
-                    field = simulation.fields[arg.component]
+                    field = simulation.fields[simulation.pol]
                 else:
-                    field = simulation.fields_nl[arg.component]
+                    field = simulation.fields_nl[simulation.pol]
+                if field is None:
+                    raise ValueError("couldn't find a field defined for component '{}'.  Could be the wrong polarization (simulation is '{}' polarization).".format(arg.component, self.simulation.pol))
                 field_arg_list.append(field)
 
             # store these arguments (so that they dont have to be recomputed)
@@ -191,7 +195,9 @@ class Optimization():
         if self.simulation.rho is None:
             eps = copy.deepcopy(self.simulation.eps_r)
             self.simulation.rho = eps2rho(eps)
-
+        
+        self.fields_current = False
+        
         allowed = ['LBFGS', 'GD', 'ADAM']
 
         if method.lower() in ['lbfgs']:
@@ -363,6 +369,8 @@ class Optimization():
                               eta=self.eta, beta=self.beta)
             self.simulation.eps_r = eps_new
 
+        self.fields_current = False
+
     def _get_design_region(self, spatial_array):
         """ Returns a vector of the elements of spatial_array that are in design_region"""
 
@@ -392,6 +400,7 @@ class Optimization():
                 ratio = self.max_ind_shift / max_dn
 
                 self.simulation.src = self.simulation.src * (np.sqrt(ratio) - epsilon)
+        self.fields_current = False
 
     def _update_rho(self, grad, step_size):
         """ Manually updates the permittivity with the grad info """
@@ -402,6 +411,7 @@ class Optimization():
 
         self.simulation.eps_r = rho2eps(self.simulation.rho, self.eps_m, self.W,
                                         eta=self.eta, beta=self.beta)
+        self.fields_current = False
 
     def _step_adam(self, gradient, mopt_old, vopt_old, iteration, beta1, beta2, epsilon=1e-8):
         """ Performs one step of adam optimization"""
@@ -459,9 +469,7 @@ class Optimization():
             sim_new.omega = 2*np.pi*f
             sim_new.eps_r = self.simulation.eps_r
 
-            # # compute the fields
-            # (_, _, Ez) = sim_new.solve_fields()
-            # (_, _, Ez_nl, _) = sim_new.solve_fields_nl()
+            self.fields_current = False
 
             # compute objective function and append to list
             obj_fn = self.compute_J(sim_new)
