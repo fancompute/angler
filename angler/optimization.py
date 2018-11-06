@@ -617,7 +617,7 @@ class Optimization():
             plt.legend(legend)
         plt.show()
 
-    def check_temp_plt(self):
+    def _check_temp_plt(self):
         if self.temp_plt is not None:
         # Clear the temp_plt folder from previous runs
             import os, shutil
