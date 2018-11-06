@@ -1,4 +1,4 @@
-<link rel="icon" href="img/anglerlogos/rainbow.png" type="image/x-icon" />
+<link rel="icon" href="img/favicon.png" type="image/x-icon" />
 <img src="img/anglerlogos/rainbow.png" title="Angler" alt="Angler">
 
 # angler
@@ -7,15 +7,16 @@
 
 It provides a finite-difference frequency-domain (FDFD) solver for simulating for linear and nonlinear devices in the frequency domain.
 
-It also provides an easy to use package for adjoint-based inverse design and optimization of linear and nonlinear devices.
+It also provides an easy to use package for adjoint-based inverse design and optimization of linear and nonlinear devices.  For example, you can inverse design optical switches to transport power to different ports for different input powers:
 
-`angler` is released as part of a paper `Adjoint method and inverse design for nonlinear optical devices`, which can be viewed [here](broken_link).
+<img src="img/fields.png" title="Fields" alt="Fields">
 
-If you use `angler`, please cite us.
+`angler` is released as part of a paper `Adjoint method and inverse design for nonlinear optical devices`, which can be viewed [here](https://arxiv.org/abs/1811.01255).
+
 
 ## Prerequisites
 
-For angler to work, you must have MKL installed on your device.
+For angler to work, you must have MKL installed.
 
 The best way to do this is through conda
 
@@ -92,6 +93,17 @@ If you contribute a new feature, please also write a few tests and document your
 
 `angler` was written by Tyler Hughes, Momchil Minkov, and Ian Williamson.
 
+## Citing
+
+If you use `angler`, please cite us using
+
+	@misc{1811.01255,
+	Author = {Tyler W. Hughes and Momchil Minkov and Ian A. D. Williamson and Shanhui Fan},
+	Title = {Adjoint method and inverse design for nonlinear nanophotonic devices},
+	Year = {2018},
+	Eprint = {arXiv:1811.01255},
+	}
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details. Copyright 2018 Tyler Hughes.
@@ -100,3 +112,4 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 * our logo was made by [Nadine Gilmer](http://nadinegilmer.com/)
 * RIP Ian's contributions before the code merge
+* We made use of a lot of code snippets (and advice) from [Jerry Shi](https://yujerryshi.github.io/index.html)
