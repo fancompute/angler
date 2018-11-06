@@ -1,10 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from matplotlib.colors import LogNorm
 
 
 def plt_base(field_val, outline_val, cmap, vmin, vmax, label,
-             cbar=True, outline=None, ax=None):
+             cbar=True, outline=None, ax=None, logscale=False):
     # Base plotting function for fields
 
     field_val = field_val.transpose()
@@ -13,7 +14,10 @@ def plt_base(field_val, outline_val, cmap, vmin, vmax, label,
     if ax is None:
         fig, ax = plt.subplots(1, constrained_layout=True)
 
-    h = ax.imshow(field_val, cmap=cmap, vmin=vmin, vmax=vmax, origin='lower')
+    if not logscale:
+        h = ax.imshow(field_val, cmap=cmap, vmin=vmin, vmax=vmax, origin='lower')
+    else:
+        h = ax.imshow(field_val, cmap=cmap, vmin=vmin, vmax=vmax, origin='lower', norm=LogNorm(vmin=0.01, vmax=1))
 
     if cbar:
         plt.colorbar(h, label=label, ax=ax)
@@ -85,7 +89,7 @@ def plt_base_ani(field_val, cbar=True, Nframes=40, interval=80):
 
 class Temp_plt():
 
-    def __init__(self, it_plot=1, plot_what=('eps'), folder='data/figs/data/temp_im/', 
+    def __init__(self, it_plot=1, plot_what=('eps'), folder='figs/data/temp_im/', 
                     dpi=100, figsize=(4, 4)):
         self.it_plot = it_plot
         self.plot_what = plot_what 

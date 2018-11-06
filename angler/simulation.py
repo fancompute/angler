@@ -334,7 +334,7 @@ class Simulation:
         index_lin = np.sqrt(np.real(self.eps_r))
         return np.abs(index_nl - index_lin)
 
-    def plt_abs(self, nl=False, cbar=True, outline=True, ax=None, vmax=None, tiled_y=1):
+    def plt_abs(self, nl=False, cbar=True, outline=True, ax=None, vmin=None, vmax=None, logscale=False, tiled_y=1):
         # plot np.absolute value of primary field (e.g. Ez/Hz)
 
         if self.fields[self.pol] is None:
@@ -351,15 +351,16 @@ class Simulation:
         field_val = np.hstack(tiled_y*[field_val])
 
         outline_val = np.abs(eps_r)
-        vmin = 0.0
-
+        
         if vmax is None:
             vmax = field_val.max()
+        if vmin is None:
+            vmin = 0.0
 
         cmap = "magma"
 
         return plt_base(field_val, outline_val, cmap, vmin, vmax, self.pol,
-                        cbar=cbar, outline=outline, ax=ax)
+                        cbar=cbar, outline=outline, ax=ax, logscale=logscale)
 
     def plt_re(self, nl=False, cbar=True, outline=True, ax=None, tiled_y=1):
         """ Plots the real part of primary field (e.g. Ez/Hz)"""

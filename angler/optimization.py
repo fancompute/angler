@@ -377,6 +377,11 @@ class Optimization():
         Nplots = len(self.temp_plt.plot_what)
         plt.close('all')
 
+        Ez_lin = self.simulation.fields['Ez']
+
+        vmin = 8 * np.sqrt(self.simulation.W_in)
+        vmax = np.abs(Ez_lin).max()/1.5
+
         if Nplots == 4:
             f, faxs = plt.subplots(2, 2, figsize=self.temp_plt.figsize)
             axs = faxs.ravel()
@@ -394,11 +399,11 @@ class Optimization():
                 ax.set_title('Objective')
             if plots == 'elin':
                 ax = axs[n]
-                self.simulation.plt_abs(outline=True, cbar=False, ax=ax)
+                self.simulation.plt_abs(outline=True, cbar=False, ax=ax, logscale=True, vmin=vmin, vmax=vmax)
                 ax.set_title('Linear field')
             if plots == 'enl':
                 ax = axs[n]
-                self.simulation.plt_abs(outline=True, cbar=False, ax=ax, nl=True)
+                self.simulation.plt_abs(outline=True, cbar=False, ax=ax, nl=True, logscale=True, vmin=vmin, vmax=vmax)
                 ax.set_title('Nonlinear field')
         
         fname = self.temp_plt.folder + ('it%06d.png' % np.int(iteration))
