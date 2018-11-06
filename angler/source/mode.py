@@ -56,8 +56,6 @@ class mode:
 
         # save this value in the original simulation
         simulation.W_in = W_in
-        simulation.E2_in = np.sum(np.square(np.abs(
-                        simulation_norm.fields['Ez']))*np.abs(simulation_norm.src))
 
     def insert_mode(self, simulation, destination, matrix_format=DEFAULT_MATRIX_FORMAT):
         EPSILON_0_ = EPSILON_0*simulation.L0

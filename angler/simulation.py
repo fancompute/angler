@@ -168,79 +168,57 @@ class Simulation:
                         matrix_format=DEFAULT_MATRIX_FORMAT):
         # solves for the nonlinear fields of the simulation.
 
-        if self.pol == 'Ez':
-            if solver_nl == 'born':
-                (Hx, Hy, Ez, conv_array) = born_solve(self, Estart,
-                                                      conv_threshold,
-                                                      max_num_iter,
-                                                      averaging=averaging)
-            elif solver_nl == 'newton':
-                (Hx, Hy, Ez, conv_array) = newton_solve(self, Estart,
-                                                        conv_threshold,
-                                                        max_num_iter,
-                                                        averaging=averaging)
-            elif solver_nl == 'LM':
-                (Hx, Hy, Ez, conv_array) = LM_solve(self, Estart,
+        # note: F just stands for the field component (could be H or E depending on polarization)
+        if solver_nl == 'born':
+            (Fx, Fy, Fz, conv_array) = born_solve(self, Estart,
+                                                  conv_threshold,
+                                                  max_num_iter,
+                                                  averaging=averaging)
+        elif solver_nl == 'newton':
+            (Fx, Fy, Fz, conv_array) = newton_solve(self, Estart,
                                                     conv_threshold,
                                                     max_num_iter,
                                                     averaging=averaging)
-            elif solver_nl == 'krylov':
-                (Hx, Hy, Ez, conv_array) = newton_krylov_solve(self, Estart,
-                                                    conv_threshold,
-                                                    max_num_iter,
-                                                    averaging=averaging)
-            elif solver_nl == 'hybrid':
-                (Hx, Hy, Ez, conv_array) = born_solve(self, Estart,
-                                                  conv_threshold, 20,
-                                                  averaging=averaging) 
-                if conv_array[-1] > 1e-10:
-                    (Hx, Hy, Ez, conv_array) = newton_solve(self, Ez,
-                                                        conv_threshold, 20,
-                                                        averaging=averaging)                                       
-            else:
-                raise AssertionError("solver must be one of "
-                                     "{'born', 'newton', 'LM'}")
+        elif solver_nl == 'LM':
+            (Fx, Fy, Fz, conv_array) = LM_solve(self, Estart,
+                                                conv_threshold,
+                                                max_num_iter,
+                                                averaging=averaging)
+        elif solver_nl == 'krylov':
+            (Fx, Fy, Fz, conv_array) = newton_krylov_solve(self, Estart,
+                                                conv_threshold,
+                                                max_num_iter,
+                                                averaging=averaging)
+        elif solver_nl == 'hybrid':
+            (Fx, Fy, Fz, conv_array) = born_solve(self, Estart,
+                                              conv_threshold, 20,
+                                              averaging=averaging) 
+            if conv_array[-1] > 1e-10:
+                (Fx, Fy, Fz, conv_array) = newton_solve(self, Fz,
+                                                    conv_threshold, 20,
+                                                    averaging=averaging)                                       
+        else:
+            raise AssertionError("solver must be one of "
+                                 "{'born', 'newton', 'LM'}")
 
             # return final nonlinear fields and an array of the convergences
 
-            self.fields_nl['Hx'] = Hx
-            self.fields_nl['Hy'] = Hy
-            self.fields_nl['Ez'] = Ez
+        if self.pol == 'Ez':
 
-            return (Hx, Hy, Ez, conv_array)
+            self.fields_nl['Hx'] = Fx
+            self.fields_nl['Hy'] = Fy
+            self.fields_nl['Ez'] = Fz
 
         elif self.pol == 'Hz':
-            # if born solver
-            if solver_nl == 'born':
 
-                (Ex, Ey, Hz, conv_array) = born_solve(self, Estart,
-                                                      conv_threshold,
-                                                      max_num_iter,
-                                                      averaging=averaging)
-
-            # if newton solver
-            elif solver_nl == 'newton':
-
-                (Ex, Ey, Hz, conv_array) = newton_solve(self,
-                                                        Estart, conv_threshold,
-                                                        max_num_iter,
-                                                        averaging=averaging)
-
-            # incorrect solver_nl argument
-            else:
-                raise AssertionError("solver must be one of "
-                                     "{'born', 'newton'}")
-
-            # return final nonlinear fields and an array of the convergences
-
-            self.fields_nl['Ex'] = Ex
-            self.fields_nl['Ey'] = Ey
-            self.fields_nl['Hz'] = Hz
-
-            return (Ex, Ey, Hz, conv_array)
+            self.fields_nl['Ex'] = Fx
+            self.fields_nl['Ey'] = Fy
+            self.fields_nl['Hz'] = Fz
 
         else:
             raise ValueError('Invalid polarization: {}'.format(str(self.pol)))
+
+        return (Fx, Fy, Fz, conv_array)
 
     def _check_inputs(self):
         # checks the inputs and makes sure they are kosher

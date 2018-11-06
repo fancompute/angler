@@ -8,6 +8,7 @@ import sys
 sys.path.append('../angler')
 from angler import Optimization
 
+
 def load_device(fname):
     """ Loads the pickled Device object """
     D_dict = pickle.load(open(fname, "rb"))
