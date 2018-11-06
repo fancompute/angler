@@ -46,13 +46,13 @@ For modeling linear devices with our FDFD solver (no optimization), see
 
 	Notebooks/Linear_system.ipynb
 
-For modeling nonlinear devices wuth FDFD (no optimization), see 
+For modeling nonlinear devices with FDFD (no optimization), see 
 
 	Notebooks/Nonlinear_system.ipynb
 
 #### Inverse design & optimization
 
-For examples optimizing a linear device, see 
+For examples of optimizing linear devices, see 
 
 	Notebooks/Splitter.ipynb
 	Notebooks/Accelerator.ipynb
