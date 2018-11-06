@@ -243,17 +243,7 @@ class Optimization():
         self.verbose = verbose
         self.temp_plt = temp_plt
 
-        if temp_plt is not None:
-            # Clear the temp_plt folder from previous runs
-            import os, shutil
-            folder = temp_plt.folder
-            for the_file in os.listdir(folder):
-                file_path = os.path.join(folder, the_file)
-                try:
-                    if os.path.isfile(file_path):
-                        os.unlink(file_path)
-                except Exception as e:
-                    print(e)
+        self._check_temp_plt()
 
         # get the material density from the simulation if only the first time being run
         if self.simulation.rho is None:
@@ -298,7 +288,6 @@ class Optimization():
 
     def _run_ADAM(self, step_size, beta1, beta2):
         """ Performs simple grad descent optimization"""
-
         pbar = self._make_progressbar(self.Nsteps)
 
         for iteration in range(self.Nsteps):
@@ -386,11 +375,13 @@ class Optimization():
 
     def plot_it(self, iteration):
         Nplots = len(self.temp_plt.plot_what)
+        plt.close('all')
 
         if Nplots == 4:
-            f, axs = plt.subplots(2, 2, figsize=(10, 12))
+            f, faxs = plt.subplots(2, 2, figsize=self.temp_plt.figsize)
+            axs = faxs.ravel()
         else:
-            f, axs = plt.subplots(1, Nplots, figsize=(Nplots*6,4))
+            f, axs = plt.subplots(1, Nplots, figsize=self.temp_plt.figsize)
 
         for n, plots in enumerate(self.temp_plt.plot_what):
             if plots == 'eps':
@@ -403,15 +394,15 @@ class Optimization():
                 ax.set_title('Objective')
             if plots == 'elin':
                 ax = axs[n]
-                self.simulation.plt_abs(outline=False, cbar=False, ax=ax)
+                self.simulation.plt_abs(outline=True, cbar=False, ax=ax)
                 ax.set_title('Linear field')
             if plots == 'enl':
                 ax = axs[n]
-                self.simulation.plt_abs(outline=False, cbar=False, ax=ax, nl=True)
+                self.simulation.plt_abs(outline=True, cbar=False, ax=ax, nl=True)
                 ax.set_title('Nonlinear field')
         
         fname = self.temp_plt.folder + ('it%06d.png' % np.int(iteration))
-        plt.savefig(fname, dpi=100)
+        plt.savefig(fname, dpi=self.temp_plt.dpi)
 
     def _set_design_region(self, x):
         """ Inserts a vector x into design region of simulation.rho """
@@ -625,3 +616,15 @@ class Optimization():
         if legend is not None:
             plt.legend(legend)
         plt.show()
+
+    def check_temp_plt(self):
+        if self.temp_plt is not None:
+        # Clear the temp_plt folder from previous runs
+            import os, shutil
+            folder = self.temp_plt.folder
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+                for the_file in os.listdir(folder):
+                    file_path = os.path.join(folder, the_file)
+                    if os.path.isfile(file_path):
+                        os.unlink(file_path)
