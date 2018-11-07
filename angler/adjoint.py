@@ -9,7 +9,7 @@ from angler.derivatives import unpack_derivs
 from angler.filter import deps_drhob, drhob_drhot
 from angler.constants import *
 
-def adjoint_linear(simulation, b_aj, averaging=False, solver=DEFAULT_SOLVER, matrix_format=DEFAULT_MATRIX_FORMAT):
+def adjoint_linear_Ez(simulation, b_aj, averaging=False, solver=DEFAULT_SOLVER, matrix_format=DEFAULT_MATRIX_FORMAT):
     # Compute the adjoint field for a linear problem
     # Note: the correct definition requires simulating with the transpose matrix A.T
     EPSILON_0_ = EPSILON_0*simulation.L0
@@ -26,7 +26,42 @@ def adjoint_linear(simulation, b_aj, averaging=False, solver=DEFAULT_SOLVER, mat
     return Ez
 
 
-def adjoint_kerr(simulation, b_aj,
+def adjoint_linear_Hz(simulation, b_aj, averaging=False, solver=DEFAULT_SOLVER, matrix_format=DEFAULT_MATRIX_FORMAT):
+    # Compute the adjoint field for a linear problem
+    # Note: the correct definition requires simulating with the transpose matrix A.T
+    EPSILON_0_ = EPSILON_0*simulation.L0
+    MU_0_ = MU_0*simulation.L0
+    omega = simulation.omega
+
+    (Nx, Ny) = (simulation.Nx, simulation.Ny)
+    M = Nx*Ny
+    A = simulation.A
+
+    hz = solver_direct(A.T, b_aj, solver=solver)
+    (Dyb, Dxb, Dxf, Dyf) = unpack_derivs(simulation.derivs) 
+    (Dyb_T, Dxb_T, Dxf_T, Dyf_T) = (Dyb.T, Dxb.T, Dxf.T, Dyf.T)
+
+    if averaging:
+        vector_eps_x = grid_average(EPSILON_0_*simulation.eps_r, 'x').reshape((-1,))
+        vector_eps_y = grid_average(EPSILON_0_*simulation.eps_r, 'y').reshape((-1,))
+    else:
+        vector_eps_x = EPSILON_0_*simulation.eps_r.reshape((-1,))
+        vector_eps_y = EPSILON_0_*simulation.eps_r.reshape((-1,))
+
+    T_eps_x_inv = sp.spdiags(1/vector_eps_x, 0, M, M, format=matrix_format)
+    T_eps_y_inv = sp.spdiags(1/vector_eps_y, 0, M, M, format=matrix_format)
+    
+    # Note: to get the correct gradient in the end, we must use Dxf, Dyf here   
+    ex =  1/1j/omega * T_eps_y_inv.dot(Dyf_T).dot(hz).T
+    ey = -1/1j/omega * T_eps_x_inv.dot(Dxf_T).dot(hz).T
+
+    Ex = ex.reshape((Nx, Ny))
+    Ey = ey.reshape((Nx, Ny))
+
+    return (Ex, Ey)
+
+
+def adjoint_kerr_Ez(simulation, b_aj,
                      averaging=False, solver=DEFAULT_SOLVER, matrix_format=DEFAULT_MATRIX_FORMAT):
     # Compute the adjoint field for a nonlinear problem
     # Note: written only for Ez!

@@ -7,7 +7,6 @@ from scipy.optimize import minimize, fmin_l_bfgs_b
 from autograd import grad
 
 from angler.constants import *
-from angler.adjoint import adjoint_linear, adjoint_kerr
 from angler.filter import (eps2rho, rho2eps, get_W, deps_drhob, drhob_drhot,
                     drhot_drho, rho2rhot, drhot_drho, rhot2rhob)
 
@@ -533,17 +532,17 @@ class Optimization():
                 # NOTE: sometimes a mix of born and newtons method (hybrid) works best.  dont know why yet
 
                 # compute the fields
-                (_,_,_,c) = sim_new.solve_fields_nl(timing=False, averaging=True,
+                (_,_,_,c) = sim_new.solve_fields_nl(timing=False, averaging=False,
                             Estart=None, solver_nl='born', conv_threshold=1e-10,
                             max_num_iter=100)
 
                 if c[-1] > 1e-10:
                     # compute the fields
-                    (_,_,_,c) = sim_new.solve_fields_nl(timing=False, averaging=True,
+                    (_,_,_,c) = sim_new.solve_fields_nl(timing=False, averaging=False,
                                 Estart=None, solver_nl='newton', conv_threshold=1e-10,
                                 max_num_iter=100)
             else:
-                (_,_,_,c) = sim_new.solve_fields_nl(timing=False, averaging=True,
+                (_,_,_,c) = sim_new.solve_fields_nl(timing=False, averaging=False,
                             Estart=None, solver_nl=solver, conv_threshold=1e-10,
                             max_num_iter=100)
 

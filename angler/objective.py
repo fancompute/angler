@@ -15,14 +15,14 @@ GRADIENT_MAP = {
         'lin': grad_linear_Hy,
         'nl': grad_kerr_Hy},
     'Hz': {
-        'lin': None,
-        'nl': None },
+        'lin': grad_linear_Hz,
+        'nl': grad_kerr_Hz},
     'Ex': {
-        'lin': None,
-        'nl': None },
+        'lin': grad_linear_Ex,
+        'nl': grad_kerr_Ex},
     'Ey': {
-        'lin': None,
-        'nl': None },
+        'lin': grad_linear_Ey,
+        'nl': grad_kerr_Ey},
 }
 
 class Objective():
