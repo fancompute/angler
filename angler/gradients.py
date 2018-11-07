@@ -120,7 +120,7 @@ def grad_kerr_Ez(optimization, dJ, Ez_nl, args):
     """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
 
     b_aj = -dJ(*args)
-    Ez_aj = adjoint_kerr(optimization.simulation, b_aj)
+    Ez_aj = adjoint_linear_Ez(optimization.simulation, b_aj)
     optimization.simulation.compute_nl(Ez_nl)
 
     EPSILON_0_ = EPSILON_0*optimization.simulation.L0
@@ -156,7 +156,7 @@ def grad_kerr_Hx(optimization, dJ, Ez_nl, args):
     b_aj = b_aj_vec.reshape(Ez.shape)
 
     # everything else is the same
-    Ez_aj = adjoint_kerr(optimization.simulation, b_aj)
+    Ez_aj = adjoint_linear_Ez(optimization.simulation, b_aj)
     optimization.simulation.compute_nl(Ez_nl)
 
     EPSILON_0_ = EPSILON_0*optimization.simulation.L0
@@ -194,7 +194,7 @@ def grad_kerr_Hy(optimization, dJ, Ez_nl, args):
     b_aj = b_aj_vec.reshape(Ez.shape)
 
     # everything else is the same
-    Ez_aj = adjoint_kerr(optimization.simulation, b_aj)
+    Ez_aj = adjoint_linear_Ez(optimization.simulation, b_aj)
     optimization.simulation.compute_nl(Ez_nl)
 
     EPSILON_0_ = EPSILON_0*optimization.simulation.L0
