@@ -26,10 +26,21 @@ The python wrapper for MKL that we are using does not work well when MKL is pip 
 
 ## Installation
 
+One can install the current version of `angler` and all of its dependencies (apart from MKL) using
+
 	git clone https://github.com/fancompute/angler.git
 	cd angler
 	python setup.py install
 	
+Alternatively, the dependencies can be installed separately with
+
+	pip install -r requirements.txt
+
+And then this directory can be added to path to import angler, i.e.
+
+	import sys
+	sys.path.append('path/to/angler')
+
 ## Examples / Quickstart
 
 There are several jupyter notebook examples in the `Notebooks/` directory.
