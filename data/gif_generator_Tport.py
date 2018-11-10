@@ -102,12 +102,13 @@ def J(e, e_nl):
     return objfn
 
 # make optimization object
-R = None       # filter radius of curvature (pixels)  (takes a while to set up as R > 5-10)
-beta = 1e-8     # projection strength
+R = 5          # filter radius of curvature (pixels)  (takes a while to set up as R > 5-10)
+beta = 500     # projection strength
 eta= 0.50      # projection halfway
 
-temp_plt = Temp_plt(it_plot=1, plot_what=('eps', 'elin', 'enl'), folder='../data/figs/data/temp_im/', figsize=(15,4))
+temp_plt = Temp_plt(it_plot=1, plot_what=('eps', 'elin', 'enl'), folder='figs/data/temp_im/', 
+						figsize=(14,4), dpi=100)
 optimization = Optimization(J=J, simulation=simulation, design_region=design_region, eps_m=eps_m, R=R, beta=beta, eta=eta)
 (grad_avm, grad_num) = optimization.check_deriv(Npts=5, d_rho=5e-4)
 # print('adjoint gradient   = {}\nnumerical gradient = {}'.format(grad_avm, grad_num))
-optimization.run(method='adam', Nsteps=500, temp_plt=temp_plt)
+optimization.run(method='lbfgs', Nsteps=400, temp_plt=temp_plt)

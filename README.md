@@ -7,15 +7,16 @@
 
 It provides a finite-difference frequency-domain (FDFD) solver for simulating for linear and nonlinear devices in the frequency domain.
 
-It also provides an easy to use package for adjoint-based inverse design and optimization of linear and nonlinear devices.
+It also provides an easy to use package for adjoint-based inverse design and optimization of linear and nonlinear devices.  For example, you can inverse design optical switches to transport power to different ports for different input powers:
 
-`angler` is released as part of a paper `Adjoint method and inverse design for nonlinear optical devices`, which can be viewed [here](broken_link).
+<img src="img/Tport.gif" title="Fields" alt="Fields">
 
-If you use `angler`, please cite us.
+`angler` is released as part of a paper `Adjoint method and inverse design for nonlinear optical devices`, which can be viewed [here](https://arxiv.org/abs/1811.01255).
+
 
 ## Prerequisites
 
-For angler to work, you must have MKL installed on your device.
+For angler to work, you must have MKL installed.
 
 The best way to do this is through conda
 
@@ -25,14 +26,21 @@ The python wrapper for MKL that we are using does not work well when MKL is pip 
 
 ## Installation
 
+One can install the current version of `angler` and all of its dependencies (apart from MKL) using
+
 	git clone https://github.com/fancompute/angler.git
 	cd angler
 	python setup.py install
 	
-For angler to work, you must have MKL installed on your device.  The best way to do this is through conda as pip installing MKL will not work with the python wrapper we are using.
+Alternatively, the dependencies can be installed separately with
 
-	conda install MKL	
-	
+	pip install -r requirements.txt
+
+And then this directory can be added to path to import angler, i.e.
+
+	import sys
+	sys.path.append('path/to/angler')
+
 ## Examples / Quickstart
 
 There are several jupyter notebook examples in the `Notebooks/` directory.
@@ -49,13 +57,13 @@ For modeling linear devices with our FDFD solver (no optimization), see
 
 	Notebooks/Linear_system.ipynb
 
-For modeling nonlinear devices wuth FDFD (no optimization), see 
+For modeling nonlinear devices with FDFD (no optimization), see 
 
 	Notebooks/Nonlinear_system.ipynb
 
 #### Inverse design & optimization
 
-For examples optimizing a linear device, see 
+For examples of optimizing linear devices, see 
 
 	Notebooks/Splitter.ipynb
 	Notebooks/Accelerator.ipynb
@@ -91,6 +99,17 @@ If you contribute a new feature, please also write a few tests and document your
 ## Authors
 
 `angler` was written by Tyler Hughes, Momchil Minkov, and Ian Williamson.
+
+## Citing
+
+If you use `angler`, please cite us using
+
+	@misc{hughes2018adjoint,
+	Author = {Tyler W. Hughes and Momchil Minkov and Ian A. D. Williamson and Shanhui Fan},
+	Title = {Adjoint method and inverse design for nonlinear nanophotonic devices},
+	Year = {2018},
+	Eprint = {arXiv:1811.01255},
+	}
 
 ## License
 

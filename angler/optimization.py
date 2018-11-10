@@ -377,6 +377,22 @@ class Optimization():
         Nplots = len(self.temp_plt.plot_what)
         plt.close('all')
 
+        Ez_lin = self.simulation.fields['Ez']
+
+        # This is what was used for the T-port in the paper    
+        vmin = 4 * np.sqrt(self.simulation.W_in)
+        vmax = np.abs(Ez_lin).max()/1.5
+
+        # # This is more general but less flexible
+        # if self.temp_plt.vlims[0] == None:
+        #     vmin = np.abs(Ez_lin).min()
+        # else:
+        #     vmin = self.temp_plt.vlims[0]
+        # if self.temp_plt.vlims[1] == None:
+        #     vmax = np.abs(Ez_lin).max()
+        # else:
+        #     vmax = self.temp_plt.vlims[1]
+
         if Nplots == 4:
             f, faxs = plt.subplots(2, 2, figsize=self.temp_plt.figsize)
             axs = faxs.ravel()
@@ -388,17 +404,23 @@ class Optimization():
                 ax = axs[n]
                 self.simulation.plt_eps(outline=False, cbar=False, ax=ax)
                 ax.set_title('Permittivity')
+                ax.annotate('Iteration:%4d' % np.int(iteration), (0.2, 0.92),
+                    xycoords='axes fraction',
+                    size='medium',
+                    color='k',
+                    horizontalalignment='center',
+                    verticalalignment='center')
             if plots == 'of':
                 ax = axs[n]
                 self.plt_objs(ax=ax)
                 ax.set_title('Objective')
             if plots == 'elin':
                 ax = axs[n]
-                self.simulation.plt_abs(outline=True, cbar=False, ax=ax)
+                self.simulation.plt_abs(outline=True, cbar=False, ax=ax, logscale=True, vmin=vmin, vmax=vmax)
                 ax.set_title('Linear field')
             if plots == 'enl':
                 ax = axs[n]
-                self.simulation.plt_abs(outline=True, cbar=False, ax=ax, nl=True)
+                self.simulation.plt_abs(outline=True, cbar=False, ax=ax, nl=True, logscale=True, vmin=vmin, vmax=vmax)
                 ax.set_title('Nonlinear field')
         
         fname = self.temp_plt.folder + ('it%06d.png' % np.int(iteration))
@@ -624,7 +646,7 @@ class Optimization():
             folder = self.temp_plt.folder
             if not os.path.exists(folder):
                 os.makedirs(folder)
-                for the_file in os.listdir(folder):
-                    file_path = os.path.join(folder, the_file)
-                    if os.path.isfile(file_path):
-                        os.unlink(file_path)
+            for the_file in os.listdir(folder):
+                file_path = os.path.join(folder, the_file)
+                if os.path.isfile(file_path):
+                    os.unlink(file_path)
