@@ -395,9 +395,9 @@ class Simulation:
         outline_val = np.abs(eps_r)
 
         # get the fields and tile them
-        field_lin = np.abs(self.fields['Ez'])
+        field_lin = np.abs(self.fields[self.pol])
         field_lin = np.hstack(tiled_y*[field_lin])
-        field_nl = np.abs(self.fields_nl['Ez'])
+        field_nl = np.abs(self.fields_nl[self.pol])
         field_nl = np.hstack(tiled_y*[field_nl])
 
         # take the difference, normalize by the max E_lin field if desired
