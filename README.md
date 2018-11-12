@@ -29,8 +29,7 @@ The python wrapper for MKL that we are using does not work well when MKL is pip 
 One can install the current version of `angler` and all of its dependencies (apart from MKL) using
 
 	git clone https://github.com/fancompute/angler.git
-	cd angler
-	python setup.py install
+	pip install -e angler
 	
 Alternatively, the dependencies can be installed separately with
 
