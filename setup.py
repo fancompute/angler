@@ -10,7 +10,7 @@ dependencies = [
         'numpy',
         'scipy',
         'matplotlib>=2.2.2',
-        'progressbar2',
+        'progressbar2==3.37.1',
         'autograd',
         'future'
 ]
