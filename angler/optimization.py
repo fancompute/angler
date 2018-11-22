@@ -7,159 +7,106 @@ from scipy.optimize import minimize, fmin_l_bfgs_b
 from autograd import grad
 
 from angler.constants import *
-from angler.adjoint import adjoint_linear, adjoint_nonlinear
 from angler.filter import (eps2rho, rho2eps, get_W, deps_drhob, drhob_drhot,
                     drhot_drho, rho2rhot, drhot_drho, rhot2rhob)
 
 
 class Optimization():
 
-    def __init__(self, J=None, simulation=None, design_region=None, eps_m=5,
+    def __init__(self, objective, simulation, design_region, eps_m=5,
                  R=None, eta=0.5, beta=1e-9,
                  field_start='linear', nl_solver='newton', max_ind_shift=None):
 
-        self.J = J
+        # store essential objects
+        self.objective = objective
         self.simulation = simulation
         self.design_region = design_region
 
-        self.eps_m = eps_m
+        # store and compute filter and projection objects
         self.R = R
-
         (Nx, Ny) = self.simulation.eps_r.shape
-
         if self.R is not None:
             self.W = get_W(Nx, Ny, self.design_region,  NPML=self.simulation.NPML, R=self.R)
         else:
             self.W = sp.eye(Nx*Ny, dtype=np.complex64)
-
         self.eta = eta
         self.beta = beta
 
+        # stre other optional parameters
+        self.eps_m = eps_m
         self.field_start = field_start
         self.nl_solver = nl_solver
         self.max_ind_shift = max_ind_shift
 
+        # store things that will be used later
         self.src_amplitudes = []
         self.objfn_list = []
+        self.fields_current = False     # are the field_args current?  if not, will need to recompute
 
-        # compute the jacobians of J and store these
-        self.dJ = self._autograd_dJ(J)
+    def _solve_objfn_arg_fields(self, simulation):
+        """ 
+            solves for all of the fields needed in the objective function.
+            also checks if it's linear (and if so, doesnt solve_nl)
+        """
 
-    @property
-    def J(self):
-        return self._J
+        # do something only if the fields are not current, or there are no stored fields
+        if not self.fields_current or not self.field_arg_list:
 
-    @J.setter
-    def J(self, J):
-        self._J = J
-        self.dJ = self._autograd_dJ(J)
+            _ = simulation.solve_fields()
+            if not self.objective.is_linear():
+                _ = simulation.solve_fields_nl()
 
-    def _is_linear(self, J):
-        # checks number of arguments to J, if <= 1, it's a linear problem (not used yet)
-        sig = signature(J)
-        if len(sig.parameters.items()) <= 1:
-            return True
-        else:
-            return False
+            # prepare a list of arguments that correspond to obj_fn arguments
+            field_arg_list = []
+            for arg in self.objective.arg_list:
+                if not arg.nl:
+                    field = simulation.fields[arg.component]
+                else:
+                    field = simulation.fields_nl[arg.component]
+                if field is None:
+                    raise ValueError("couldn't find a field defined for component '{}'.  Could be the wrong polarization (simulation is '{}' polarization).".format(arg.component, self.simulation.pol))
+                field_arg_list.append(field)
 
-    def _autograd_dJ(self, J):
-        """ Uses autograd to automatically compute Jacobians of J with respect to each argument"""
+            # store these arguments (so that they dont have to be recomputed)
+            self.field_arg_list = field_arg_list
 
-        # note: eventually want to check whether J has eps_nl argument, then switch between linear and nonlinear depending.
-        dJ = {}
-        dJ['lin'] = grad(J, 0)
-        dJ['nl'] = grad(J, 1)
-        return dJ
+            # lets other functions know the field_arg_list is up to date
+            self.fields_current = True
+
 
     def compute_J(self, simulation):
         """ Returns the current objective function of a simulation"""
 
-        if simulation.fields['Ez'] is None:
-            (_, _, Ez) = simulation.solve_fields()
-        else:
-            Ez = simulation.fields['Ez']
+        # stores all of the fields for the objective function in self.field_arg_list
+        self._solve_objfn_arg_fields(simulation)
 
-        if simulation.fields_nl['Ez'] is None:
-            (_, _, Ez_nl, _) = simulation.solve_fields_nl()
-        else:
-            Ez_nl = simulation.fields_nl['Ez']
-
-        return self.J(Ez, Ez_nl)
+        # pass these arguments to the objective function
+        return self.objective.J(*self.field_arg_list)
 
     def compute_dJ(self, simulation, design_region):
         """ Returns the current grad of a simulation"""
 
-        if simulation.fields['Ez'] is None:
-            (_, _, Ez) = simulation.solve_fields()
-        else:
-            Ez = simulation.fields['Ez']
+        # stores all of the fields for the objective function in self.field_arg_list
+        self._solve_objfn_arg_fields(simulation)
 
-        if simulation.fields_nl['Ez'] is None:
-            (_, _, Ez_nl, _) = simulation.solve_fields_nl()
-        else:
-            Ez_nl = simulation.fields_nl['Ez']
+        # sum up gradient contributions from each argument in J
+        gradient_sum = 0
+        for gradient_fn, dJ, arg in zip(self.objective.grad_fn_list, self.objective.dJ_list, self.objective.arg_list):
+            if not arg.nl:
+                Fz = simulation.fields[simulation.pol]
+            else:
+                Fz = simulation.fields_nl[simulation.pol]
+            gradient = gradient_fn(self, dJ, Fz, self.field_arg_list)
+            gradient_sum += gradient
 
-        return self._grad_linear(Ez, Ez_nl) + self._grad_nonlinear(Ez, Ez_nl)
-
-    def _grad_linear(self, Ez, Ez_nl):
-        """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
-
-        b_aj = -self.dJ['lin'](Ez, Ez_nl)
-        Ez_aj = adjoint_linear(self.simulation, b_aj)
-
-        EPSILON_0_ = EPSILON_0*self.simulation.L0
-        omega = self.simulation.omega
-        dAdeps = self.design_region*omega**2*EPSILON_0_
-
-        rho = self.simulation.rho
-        rho_t = rho2rhot(rho, self.W)
-        rho_b = rhot2rhob(rho_t, eta=self.eta, beta=self.beta)
-        eps_mat = (self.eps_m - 1)
-
-        filt_mat = drhot_drho(self.W)
-        proj_mat = drhob_drhot(rho_t, eta=self.eta, beta=self.beta)
-
-        Ez_vec = np.reshape(Ez, (-1,))
-
-        dAdeps_vec = np.reshape(dAdeps, (-1,))
-        dfdrho = eps_mat*filt_mat.multiply(Ez_vec*proj_mat*dAdeps_vec)
-        Ez_aj_vec = np.reshape(Ez_aj, (-1,))
-        sensitivity_vec = dfdrho.dot(Ez_aj_vec)        
-
-        return 1*np.real(np.reshape(sensitivity_vec, rho.shape))
-
-    def _grad_nonlinear(self, Ez, Ez_nl):
-        """gives the linear field gradient: partial J/ partial * E_lin dE_lin / deps"""
-
-        b_aj = -self.dJ['nl'](Ez, Ez_nl)
-        Ez_aj = adjoint_nonlinear(self.simulation, b_aj)
-        self.simulation.compute_nl(Ez_nl)
-
-        EPSILON_0_ = EPSILON_0*self.simulation.L0
-        omega = self.simulation.omega
-        dAdeps = self.design_region*omega**2*EPSILON_0_
-        dAnldeps = dAdeps + self.design_region*omega**2*EPSILON_0_*self.simulation.dnl_deps
-
-        rho = self.simulation.rho
-        rho_t = rho2rhot(rho, self.W)
-        rho_b = rhot2rhob(rho_t, eta=self.eta, beta=self.beta)
-        eps_mat = (self.eps_m - 1)
-
-        filt_mat = drhot_drho(self.W)
-        proj_mat = drhob_drhot(rho_t, eta=self.eta, beta=self.beta)
-
-        Ez_vec = np.reshape(Ez_nl, (-1,))
-
-        dfdrho = eps_mat*filt_mat.multiply(Ez_vec*proj_mat*np.reshape(dAnldeps, (-1,)))
-        return 1*np.real(np.reshape(dfdrho.dot(np.reshape(Ez_aj, (-1,))), rho.shape))
+        return gradient_sum
 
     def check_deriv(self, Npts=5, d_rho=1e-3):
         """ Returns a list of analytical and numerical derivatives to check grad accuracy"""
 
+        self.fields_current = False
         self.simulation.eps_r = rho2eps(rho=self.simulation.rho, eps_m=self.eps_m, W=self.W,
                                         eta=self.eta, beta=self.beta)
-        self.simulation.solve_fields()
-        self.simulation.solve_fields_nl()
 
         # solve for the linear fields and grad of the linear objective function
         grad_avm = self.compute_dJ(self.simulation, self.design_region)
@@ -188,8 +135,7 @@ class Optimization():
             sim_new.rho = rho_new
             sim_new.eps_r = eps_new
 
-            sim_new.solve_fields()
-            sim_new.solve_fields_nl()
+            self.fields_current = False
 
             # solve for the fields with this new permittivity
             J_new = self.compute_J(sim_new)
@@ -249,7 +195,9 @@ class Optimization():
         if self.simulation.rho is None:
             eps = copy.deepcopy(self.simulation.eps_r)
             self.simulation.rho = eps2rho(eps)
-
+        
+        self.fields_current = False
+        
         allowed = ['LBFGS', 'GD', 'ADAM']
 
         if method.lower() in ['lbfgs']:
@@ -443,6 +391,8 @@ class Optimization():
                               eta=self.eta, beta=self.beta)
             self.simulation.eps_r = eps_new
 
+        self.fields_current = False
+
     def _get_design_region(self, spatial_array):
         """ Returns a vector of the elements of spatial_array that are in design_region"""
 
@@ -472,6 +422,7 @@ class Optimization():
                 ratio = self.max_ind_shift / max_dn
 
                 self.simulation.src = self.simulation.src * (np.sqrt(ratio) - epsilon)
+        self.fields_current = False
 
     def _update_rho(self, grad, step_size):
         """ Manually updates the permittivity with the grad info """
@@ -482,6 +433,7 @@ class Optimization():
 
         self.simulation.eps_r = rho2eps(self.simulation.rho, self.eps_m, self.W,
                                         eta=self.eta, beta=self.beta)
+        self.fields_current = False
 
     def _step_adam(self, gradient, mopt_old, vopt_old, iteration, beta1, beta2, epsilon=1e-8):
         """ Performs one step of adam optimization"""
@@ -539,9 +491,7 @@ class Optimization():
             sim_new.omega = 2*np.pi*f
             sim_new.eps_r = self.simulation.eps_r
 
-            # # compute the fields
-            # (_, _, Ez) = sim_new.solve_fields()
-            # (_, _, Ez_nl, _) = sim_new.solve_fields_nl()
+            self.fields_current = False
 
             # compute objective function and append to list
             obj_fn = self.compute_J(sim_new)
@@ -604,17 +554,17 @@ class Optimization():
                 # NOTE: sometimes a mix of born and newtons method (hybrid) works best.  dont know why yet
 
                 # compute the fields
-                (_,_,_,c) = sim_new.solve_fields_nl(timing=False, averaging=True,
+                (_,_,_,c) = sim_new.solve_fields_nl(timing=False, averaging=False,
                             Estart=None, solver_nl='born', conv_threshold=1e-10,
                             max_num_iter=100)
 
                 if c[-1] > 1e-10:
                     # compute the fields
-                    (_,_,_,c) = sim_new.solve_fields_nl(timing=False, averaging=True,
+                    (_,_,_,c) = sim_new.solve_fields_nl(timing=False, averaging=False,
                                 Estart=None, solver_nl='newton', conv_threshold=1e-10,
                                 max_num_iter=100)
             else:
-                (_,_,_,c) = sim_new.solve_fields_nl(timing=False, averaging=True,
+                (_,_,_,c) = sim_new.solve_fields_nl(timing=False, averaging=False,
                             Estart=None, solver_nl=solver, conv_threshold=1e-10,
                             max_num_iter=100)
 

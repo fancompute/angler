@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 
 """
 This is where you can custom define functions that create relative permittivities
@@ -171,3 +172,43 @@ def accelerator(beta, gap, lambda0, L, spc, dl, NPML, eps_start):
     design_region = design_region - 1
 
     return eps_r, design_region
+
+def accelerator_multi(beta, gap, lambda0, L, spc, num_channels, dl, NPML, eps_start):
+
+    # CONSTRUCTS A periodic structure in y with two slabs surrounding a central gap
+    # beta      : electron speed / speed of light
+    # gap       : gap size in L0
+    # lambda0   : free space wavelength in L0
+    # L         : length of design region in L0
+    # spc       : distance between PML and src.  src and design region
+    # dl        : grid size in L0
+    # NPML      : number of pml points in x and y
+    # eps_start : starting relative permittivity
+
+    if num_channels % 2 == 1:
+        Nx = 2*NPML[0] + int((4*spc + 2*L*num_channels + gap*num_channels)/dl)
+    else:
+        raise ValueError("must be odd number of channels")
+
+    Ny = int(beta*lambda0/dl)
+    nx, ny = int(Nx/2), int(Ny/2)            # halfway grid points
+    shape = (Nx, Ny)                          # shape of domain (in num. grids)
+
+
+    # x and y coordinate arrays
+    xs, ys = get_grid(shape, dl)
+
+    des_list = []
+    centers = []
+    for i in range(num_channels//2+1):
+        centers.append(copy.deepcopy(i * (gap + L)))
+        lambda_i = lambda x, y, i=i: (np.abs(x) - centers[i] > gap/2) * (np.abs(x) - centers[i] < gap/2 + L)
+        des_list.append(lambda_i)
+
+    print(centers)
+
+    eps_r = apply_regions(des_list, xs, ys, eps_start=eps_start)
+    design_region = apply_regions(des_list, xs, ys, eps_start=2)
+    design_region = design_region - 1
+
+    return eps_r, design_region    

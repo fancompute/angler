@@ -93,7 +93,7 @@ class Simulation:
         self.fields = {f: None for f in ['Ex', 'Ey', 'Ez', 'Hx', 'Hy', 'Hz']}
         self.fields_nl = {f: None for f in ['Ex', 'Ey', 'Ez', 'Hx', 'Hy', 'Hz']}
 
-    def solve_fields(self, include_nl=False, timing=False, averaging=True, solver=DEFAULT_SOLVER,
+    def solve_fields(self, include_nl=False, timing=False, averaging=False, solver=DEFAULT_SOLVER,
                      matrix_format=DEFAULT_MATRIX_FORMAT):
         # performs direct solve for A given source
 
@@ -129,7 +129,7 @@ class Simulation:
             T_eps_y_inv = sp.spdiags(1/vector_eps_y, 0, M, M,
                                   format=matrix_format)
 
-            ex = 1/1j/self.omega * T_eps_y_inv.dot(Dyb).dot(X)
+            ex =  1/1j/self.omega * T_eps_y_inv.dot(Dyb).dot(X)
             ey = -1/1j/self.omega * T_eps_x_inv.dot(Dxb).dot(X)
 
             Ex = ex.reshape((Nx, Ny))
@@ -162,7 +162,7 @@ class Simulation:
             raise ValueError('Invalid polarization: {}'.format(str(self.pol)))
 
     def solve_fields_nl(self,
-                        timing=False, averaging=True,
+                        timing=False, averaging=False,
                         Estart=None, solver_nl='hybrid', conv_threshold=1e-10,
                         max_num_iter=50, solver=DEFAULT_SOLVER,
                         matrix_format=DEFAULT_MATRIX_FORMAT):
@@ -396,9 +396,9 @@ class Simulation:
         outline_val = np.abs(eps_r)
 
         # get the fields and tile them
-        field_lin = np.abs(self.fields['Ez'])
+        field_lin = np.abs(self.fields[self.pol])
         field_lin = np.hstack(tiled_y*[field_lin])
-        field_nl = np.abs(self.fields_nl['Ez'])
+        field_nl = np.abs(self.fields_nl[self.pol])
         field_nl = np.hstack(tiled_y*[field_nl])
 
         # take the difference, normalize by the max E_lin field if desired
