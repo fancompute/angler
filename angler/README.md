@@ -108,15 +108,29 @@ Before defining an `Optimization` object one needs to construct a `Simulation` o
 
 ## Defining the objective
 
-The objective function must be defined using the `autograd` wrapper for `numpy`.  This package allows us to automatically take partial derivatives of even complicated objective functions, greatly simplifying the process of solving for adjoint sensitivities.  For an example, we can define the objective funcion corresponding to concentration of `Ez` at a single point `P` with the following
+To perform an optimization, one must define the objective to maximize.  To do this, `angler` provides tools for specifying the objective function and its arguments.
+
+Each argument must be specified through `obj_arg` objects, where one may give a name to the argument, specify the field component, and whether to use the nonlinear field solution.
+
+Then, objective function, itself, must be defined using the `autograd` wrapper for `numpy`.  This package allows us to automatically take partial derivatives of even complicated objective functions, greatly simplifying the process of solving for adjoint sensitivities.  For an example, we can define the objective funcion corresponding to concentration of `Ez` at a single point `P` with the following
 
 ```python
 import autograd.numpy as npa
+from angler.objective import Objective, obj_arg
+
+arg1 = obj_arg('Ez', component='Ez', nl=False)
+arg2 = obj_arg('Ez_nl', component='Ez', nl=True)
+
 def J(Ez, Ez_nl):
 	E_P = Ez * P                # Ez at point P
 	abs_E_P = npa.abs(E_P)      # |Ez| at point P
 	I_P = npa.square(abs_E_P)   # intensity at point P
-	return I_P
+    E_P_nl = Ez_nl * P                # nonlinear Ez at point P
+    abs_E_P_nl = npa.abs(E_P_nl)      # nonlinear |Ez| at point P
+    I_P_nl = npa.square(abs_E_P_nl)   # nonlinear intensity at point P
+	return I_P - I_P_nl
+
+objective = Objective(J, arg_list=[arg1, arg2])
 ```
 
 > Note: `angler` assumes you are trying to maximize `J`, so define your objective function accordingly.
@@ -130,7 +144,7 @@ def J(Ez, Ez_nl):
 With our problem defined, we may construct an optimization object simply as 
 
 ```python
-optimization = Optimization(J, simulation, design_region, eps_m)
+optimization = Optimization(objective, simulation, design_region, eps_m)
 ```
 
 where `eps_m` is the upper bound on the relative permittivity.  (1 is assumed to be the lower bound).

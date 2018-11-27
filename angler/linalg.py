@@ -85,7 +85,7 @@ def construct_A(omega, xrange, yrange, eps_r, NPML, pol, L0,
         Dxf = Sxf.dot(createDws('x', 'f', dL(N, xrange, yrange), N, matrix_format=matrix_format))
         Dyf = Syf.dot(createDws('y', 'f', dL(N, xrange, yrange), N, matrix_format=matrix_format))
 
-        A = Dxf.dot(T_eps_x_inv).dot(Dxb) \
+        A =   Dxf.dot(T_eps_x_inv).dot(Dxb) \
             + Dyf.dot(T_eps_y_inv).dot(Dyb) \
             + omega**2*MU_0_*sp.eye(M)
 
