@@ -29,7 +29,7 @@ class Simulation:
         self.Nx = Nx
         self.Ny = Ny
         self.mu_r = np.ones((self.Nx, self.Ny))
-        self.src = np.zeros((self.Nx, self.Ny))
+        self.src = np.zeros((self.Nx, self.Ny), dtype=np.complex64)
 
         self.xrange = [0, float(Nx*self.dl)]
         self.yrange = [0, float(Ny*self.dl)]
