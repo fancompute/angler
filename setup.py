@@ -17,7 +17,7 @@ dependencies = [
 
 setup(
     name='angler',
-    version='0.0.14',
+    version='0.0.15',
     description='Adjoint Nonlinear Gradients',
     long_description=readme,
     long_description_content_type="text/markdown",
@@ -31,4 +31,5 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
+    include_package_data=True,
 )
