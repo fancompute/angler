@@ -13,32 +13,30 @@ It also provides an easy to use package for adjoint-based inverse design and opt
 
 `angler` is released as part of a paper `Adjoint method and inverse design for nonlinear optical devices`, which can be viewed [here](https://arxiv.org/abs/1811.01255).
 
-
-## Prerequisites
-
-For angler to work, you must have MKL installed.
-
-The best way to do this is through conda
-
-	conda install MKL
-	
-The python wrapper for MKL that we are using does not work well when MKL is pip installed.
-
 ## Installation
 
-One can install the current version of `angler` and all of its dependencies (apart from MKL) using
+One can install the most stable version of `angler` and all of its dependencies (apart from MKL) using
+
+	pip install angler
+	
+Alternatively, to use the most current version
 
 	git clone https://github.com/fancompute/angler.git
 	pip install -e angler
-	
-Alternatively, the dependencies can be installed separately with
-
-	pip install -r requirements.txt
 
 And then this directory can be added to path to import angler, i.e.
 
 	import sys
 	sys.path.append('path/to/angler')
+
+
+## Make angler faster
+
+The most computationally expensive operation in `angler` is the sparse linear system solve.  This is done with [`scipy.sparse.linalg.spsolve()`](https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.sparse.linalg.spsolve.html) by default.  If MKL is installed, `angler` instead uses this with a python wrapper [`pyMKL`](https://github.com/dwfmarchant/pyMKL), which makes things significantly faster, depending on the problem.  The best way to install MKL, if using anaconda, is
+
+	conda install MKL
+	
+(pyMKL does not work when MKL is pip installed.)
 
 ## Examples / Quickstart
 
