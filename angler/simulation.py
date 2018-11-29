@@ -110,7 +110,7 @@ class Simulation:
         self.fields = {f: None for f in ['Ex', 'Ey', 'Ez', 'Hx', 'Hy', 'Hz']}
         self.fields_nl = {f: None for f in ['Ex', 'Ey', 'Ez', 'Hx', 'Hy', 'Hz']}
 
-    def solve_fields(self, include_nl=False, timing=False, averaging=False, solver=DEFAULT_SOLVER,
+    def solve_fields(self, include_nl=False, timing=False, averaging=False,
                      matrix_format=DEFAULT_MATRIX_FORMAT):
         # performs direct solve for A given source
 
@@ -119,12 +119,10 @@ class Simulation:
 
         if include_nl==False:
             eps_tot = self.eps_r
-            X = solver_direct(self.A, self.src*1j*self.omega, timing=timing,
-                solver=solver)
+            X = solver_direct(self.A, self.src*1j*self.omega, timing=timing)
         else:
             eps_tot = self.eps_r + self.eps_nl
-            X = solver_direct(self.A + self.Anl, self.src*1j*self.omega, timing=timing,
-                solver=solver)
+            X = solver_direct(self.A + self.Anl, self.src*1j*self.omega, timing=timing)
 
 
         (Nx, Ny) = self.src.shape
@@ -181,7 +179,7 @@ class Simulation:
     def solve_fields_nl(self,
                         timing=False, averaging=False,
                         Estart=None, solver_nl='hybrid', conv_threshold=1e-10,
-                        max_num_iter=50, solver=DEFAULT_SOLVER,
+                        max_num_iter=50,
                         matrix_format=DEFAULT_MATRIX_FORMAT):
         # solves for the nonlinear fields of the simulation.
 

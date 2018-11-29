@@ -1,7 +1,13 @@
 import numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as spl
-from pyMKL import pardisoSolver
+
+try:
+    from pyMKL import pardisoSolver
+    SOLVER = 'pardiso'
+except:
+    SOLVER = 'scipy'
+
 from time import time
 
 from angler.constants import DEFAULT_MATRIX_FORMAT, DEFAULT_SOLVER
@@ -114,7 +120,7 @@ def solver_eigs(A, Neigs, guess_value=0, guess_vector=None, timing=False):
     return (values, vectors)
 
 
-def solver_direct(A, b, timing=False, solver=DEFAULT_SOLVER):
+def solver_direct(A, b, timing=False, solver=SOLVER):
     # solves linear system of equations
 
     b = b.astype(np.complex128)
@@ -144,7 +150,7 @@ def solver_direct(A, b, timing=False, solver=DEFAULT_SOLVER):
     return x
 
 
-def solver_complex2real(A11, A12, b, timing=False, solver=DEFAULT_SOLVER):
+def solver_complex2real(A11, A12, b, timing=False, solver=SOLVER):
     # solves linear system of equations [A11, A12; A21*, A22*]*[x; x*] = [b; b*]
 
     b = b.astype(np.complex128)

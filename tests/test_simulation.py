@@ -34,6 +34,7 @@ class Test_Simulation(unittest.TestCase):
         S.src[Nx//2, 0] = 1j
         (Hx, Hy, Ez) = S.solve_fields()
 
+
     """ These functions ensuring that an error is thrown
     when passing certain arguments to Simulation """
 
