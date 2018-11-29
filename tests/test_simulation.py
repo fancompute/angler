@@ -1,5 +1,6 @@
 import unittest
 import numpy as np
+import matplotlib.pylab as plt
 
 from angler import Simulation
 
@@ -12,15 +13,27 @@ class Test_Simulation(unittest.TestCase):
         # the 'good' inputs
         Nx = 100
         Ny = 50
-        self.omega = 100
+        self.omega = 2*np.pi*200e12
         self.eps_r = np.ones((Nx, Ny))
-        self.dl = 0.001
+        self.dl = 0.01
         self.NPML = [10, 10]
-        self.pol = 'Hz'
-        self.L0 = 1e-4
+        self.pol = 'Ez'
+        self.L0 = 1e-6
 
     """ all of the functions below get run by the unittest module as long as the 
     function names start with 'test' """
+
+
+    def test_1D(self):
+        Nx = self.eps_r.shape[0]
+        eps_1d = np.ones((Nx, 1))
+        S = Simulation(self.omega, eps_1d, self.dl, [0, 0], self.pol)
+        S.src = np.zeros(eps_1d.shape, dtype=np.complex64)
+        S.src[Nx//2, 0] = 1j
+        (Hx, Hy, Ez) = S.solve_fields()
+        plt.plot(np.real(Ez))
+        plt.plot(np.imag(Ez))        
+        plt.show()
 
 
     """ These functions ensuring that an error is thrown

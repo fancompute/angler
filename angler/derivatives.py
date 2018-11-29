@@ -16,7 +16,7 @@ def createDws(w, s, dL, N, matrix_format=DEFAULT_MATRIX_FORMAT):
         dy = dL[1]
     else:
         Ny = 1
-        dy = np.inf
+        dy = 1
     if w is 'x':
         if s is 'f':
             dxf = sp.diags([-1, 1, 1], [0, 1, -Nx+1], shape=(Nx, Nx))
@@ -33,7 +33,7 @@ def createDws(w, s, dL, N, matrix_format=DEFAULT_MATRIX_FORMAT):
                 dyb = sp.diags([1, -1, -1], [0, -1, Ny-1], shape=(Ny, Ny))
                 Dws = 1/dy*sp.kron(sp.eye(Nx), dyb, format=matrix_format)
         else:
-            Dws = np.array([[1]])
+            Dws = sp.eye(Nx)
     return Dws
 
 
