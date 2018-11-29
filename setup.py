@@ -17,7 +17,7 @@ dependencies = [
 
 setup(
     name='angler',
-    version='0.0.9',
+    version='0.0.14',
     description='Adjoint Nonlinear Gradients',
     long_description=readme,
     long_description_content_type="text/markdown",
