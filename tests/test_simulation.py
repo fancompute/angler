@@ -28,15 +28,11 @@ class Test_Simulation(unittest.TestCase):
         Nx = self.eps_r.shape[0]
         eps_1d = np.ones((Nx,))
 
-        S = Simulation(self.omega, eps_1d, self.dl, [0, 0], self.pol)
+        S = Simulation(self.omega, eps_1d, self.dl, [10, 0], self.pol)
 
         S.src = np.zeros(S.eps_r.shape, dtype=np.complex64)
         S.src[Nx//2, 0] = 1j
         (Hx, Hy, Ez) = S.solve_fields()
-        plt.plot(np.real(Ez))
-        plt.plot(np.imag(Ez))        
-        plt.show()
-
 
     """ These functions ensuring that an error is thrown
     when passing certain arguments to Simulation """
