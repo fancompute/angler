@@ -26,9 +26,11 @@ class Test_Simulation(unittest.TestCase):
 
     def test_1D(self):
         Nx = self.eps_r.shape[0]
-        eps_1d = np.ones((Nx, 1))
+        eps_1d = np.ones((Nx,))
+
         S = Simulation(self.omega, eps_1d, self.dl, [0, 0], self.pol)
-        S.src = np.zeros(eps_1d.shape, dtype=np.complex64)
+
+        S.src = np.zeros(S.eps_r.shape, dtype=np.complex64)
         S.src[Nx//2, 0] = 1j
         (Hx, Hy, Ez) = S.solve_fields()
         plt.plot(np.real(Ez))

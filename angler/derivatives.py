@@ -18,12 +18,15 @@ def createDws(w, s, dL, N, matrix_format=DEFAULT_MATRIX_FORMAT):
         Ny = 1
         dy = 1
     if w is 'x':
-        if s is 'f':
-            dxf = sp.diags([-1, 1, 1], [0, 1, -Nx+1], shape=(Nx, Nx))
-            Dws = 1/dx*sp.kron(dxf, sp.eye(Ny), format=matrix_format)
+        if Nx > 1:
+            if s is 'f':
+                dxf = sp.diags([-1, 1, 1], [0, 1, -Nx+1], shape=(Nx, Nx))
+                Dws = 1/dx*sp.kron(dxf, sp.eye(Ny), format=matrix_format)
+            else:
+                dxb = sp.diags([1, -1, -1], [0, -1, Nx-1], shape=(Nx, Nx))
+                Dws = 1/dx*sp.kron(dxb, sp.eye(Ny), format=matrix_format)
         else:
-            dxb = sp.diags([1, -1, -1], [0, -1, Nx-1], shape=(Nx, Nx))
-            Dws = 1/dx*sp.kron(dxb, sp.eye(Ny), format=matrix_format)
+            Dws = sp.eye(Ny)            
     if w is 'y':
         if Ny > 1:
             if s is 'f':

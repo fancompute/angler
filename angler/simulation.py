@@ -25,14 +25,21 @@ class Simulation:
 
         self._check_inputs()
 
-        (Nx, Ny) = eps_r.shape
+        grid_shape = eps_r.shape
+        if len(grid_shape) == 1:
+            grid_shape = (grid_shape[0], 1)
+            eps_r = np.reshape(eps_r, grid_shape)
+
+        (Nx, Ny) = grid_shape
+
         self.Nx = Nx
         self.Ny = Ny
+
         self.mu_r = np.ones((self.Nx, self.Ny))
         self.src = np.zeros((self.Nx, self.Ny), dtype=np.complex64)
 
-        self.xrange = [0, float(Nx*self.dl)]
-        self.yrange = [0, float(Ny*self.dl)]
+        self.xrange = [0, float(self.Nx*self.dl)]
+        self.yrange = [0, float(self.Ny*self.dl)]
 
         self.NPML = [int(n) for n in self.NPML]
         self.omega = float(self.omega)
@@ -83,6 +90,16 @@ class Simulation:
 
     @eps_r.setter
     def eps_r(self, new_eps):
+
+        grid_shape = new_eps.shape
+        if len(grid_shape) == 1:
+            grid_shape = (grid_shape[0], 1)
+            new_eps.reshape(grid_shape)
+
+        (Nx, Ny) = grid_shape
+        self.Nx = Nx
+        self.Ny = Ny
+
         self.__eps_r = new_eps
         (A, derivs) = construct_A(self.omega, self.xrange, self.yrange,
                                   self.eps_r, self.NPML, self.pol, self.L0,
