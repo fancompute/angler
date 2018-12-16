@@ -5,7 +5,7 @@ import scipy.sparse as sp
 from scipy.sparse.linalg import spsolve
 from autograd.extend import primitive, defvjp
 from autograd.test_util import check_grads
-from autograd import grad, jacobian
+from autograd import grad, jacobian, elementwise_grad
 from copy import deepcopy
 
 DTYPE = np.complex64
@@ -31,6 +31,9 @@ def make_A(eps_r):
     A = A0 + eps_diag
     return A
 
+def make_adjoint_system():
+    pass
+
 def adjoint_kernel(adjoint, E):
     # returns gradient based on forward field and adjoint field
     return np.real(adjoint * E)
@@ -49,28 +52,56 @@ def numerical_grad(fn, eps_r, d_eps=1e-4):
 
 # define function for solving electric fields as a function of permittivity
 @primitive
-def solve_fields_nl(eps_r, f_nl, N_max_iter=10, error=1e-8):
-    E = np.zeros(eps_r.shape)
+def solve_fields_nl(eps_r, f_nl, N_max_iter=100, error=1e-4):
+    E_prev = np.zeros(eps_r.shape)
     # picard iterations to solve nonlinear fn
     for i in range(N_max_iter):
-        eps_nl = eps_r + f_nl(E)
+        eps_nl = eps_r + f_nl(E_prev, np.conj(E_prev))
         A = make_A(eps_nl)
         E = spsolve(A, b)
-        res = np.linalg.norm(A.dot(E) - b[:,0]) / np.linalg.norm(b)
+        res = np.linalg.norm(E - E_prev) / np.linalg.norm(E)
         if res < error:
             return E.reshape(eps_r.shape)
+        E_prev = E
+
     raise ValueError("didnt converge")
 
 # this function returns the gradient as a function of the adjoint source (v = dJdE)
-def vjp_maker(E, eps_r, f_nl):
+def vjp_maker(E_nl, eps_r, f_nl):
+
     # wrap the vector-jacobian product
     def vjp(v):
-        # get the system matrix again
-        A = make_A(eps_r)
+
+        E_nl_star = np.conj(E_nl)
+
+        # get the nonlinear permittivity
+        eps_nl = eps_r + f_nl(E_nl, E_nl_star)        
+
+        # get the nonlinear system matrix        
+        A = make_A(eps_nl)
+
+        # get the derivatives of the nonlinear function
+        dfnl_de = elementwise_grad(f_nl, 0)(E_nl, E_nl_star)
+        dfnl_star_de = np.conj(elementwise_grad(f_nl, 1)(E_nl, E_nl_star))
+
+        # setup the adjoint system for nonlinear problem
+        N = E_nl.size
+        df_de = A + make_sparse_diag(dfnl_de * E_nl, N)
+        df_star_de = make_sparse_diag(dfnl_star_de * E_nl_star, N)
+
+        A_big_top = sp.hstack((df_de.T,      df_star_de.T), format='csr')
+        A_big_bot = sp.hstack((df_star_de.H, df_de.H), format='csr')
+
+        A_big = sp.vstack((A_big_top, A_big_bot), format='csr')
+        v_big = np.vstack((-v[:, None], np.conj(-v[:, None])))        
+
         # solve the adjoint problem
-        adjoint = spsolve(A.T, -v)
+        adjoint = spsolve(A_big, v_big)
+        adjoint = adjoint[:N]
+
         # adjoint kernel says how to compute gradient using both E and E_adj
-        return adjoint_kernel(adjoint, E)
+        return adjoint_kernel(adjoint, E_nl)
+
     # return this function for autograd
     return vjp
 
@@ -89,8 +120,8 @@ if __name__ == '__main__':
     # as arguments into the above functions
 
     # the nonlinear relative permittivity a fn of electric field
-    def f_nl(E, chi3=1j):
-        return chi3 * np.square(np.abs(E))
+    def f_nl(E, E_star, chi3=5):
+        return npa.abs(chi3 * E * E_star)
 
     # the partial objective function as a fn of E-fields
     def J(E):
