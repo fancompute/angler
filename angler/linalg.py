@@ -25,30 +25,32 @@ def grid_average(center_array, w):
     return avg_array
 
 
-def dL(N, xrange, yrange=None):
+def dL(N, x_list, y_list=None):
     # solves for the grid spacing
 
-    if yrange is None:
-        L = np.array([np.diff(xrange)[0]])  # Simulation domain lengths
+    if y_list is None:
+        L = np.array([np.diff(x_list)[0]])  # Simulation domain lengths
     else:
-        L = np.array([np.diff(xrange)[0],
-                      np.diff(yrange)[0]])  # Simulation domain lengths
+        L = np.array([np.diff(x_list)[0],
+                      np.diff(y_list)[0]])  # Simulation domain lengths
     return L/N
 
 
 def is_equal(matrix1, matrix2):
     # checks if two sparse matrices are equal
-
     return (matrix1 != matrix2).nnz == 0
 
 
-def construct_A(omega, xrange, yrange, eps_r, NPML, pol, L0,
+def construct_A(omega, eps_r, NPML, pol, L0,
                 averaging=True,
                 timing=False,
                 matrix_format=DEFAULT_MATRIX_FORMAT):
+
+    x_list = 
     # makes the A matrix
+    (Nx, Ny) = eps_r.shape
     N = np.asarray(eps_r.shape)  # Number of mesh cells
-    M = np.prod(N)  # Number of unknowns
+    M = np.prod(N)               # Number of unknowns
 
     EPSILON_0_ = EPSILON_0*L0
     MU_0_ = MU_0*L0
@@ -57,13 +59,13 @@ def construct_A(omega, xrange, yrange, eps_r, NPML, pol, L0,
         vector_eps_z = EPSILON_0_*eps_r.reshape((-1,))
         T_eps_z = sp.spdiags(vector_eps_z, 0, M, M, format=matrix_format)
 
-        (Sxf, Sxb, Syf, Syb) = S_create(omega, L0, N, NPML, xrange, yrange, matrix_format=matrix_format)
+        (Sxf, Sxb, Syf, Syb) = S_create(omega, L0, N, NPML, x_list, y_list, matrix_format=matrix_format)
 
         # Construct derivate matrices
-        Dyb = Syb.dot(createDws('y', 'b', dL(N, xrange, yrange), N, matrix_format=matrix_format))
-        Dxb = Sxb.dot(createDws('x', 'b', dL(N, xrange, yrange), N, matrix_format=matrix_format))
-        Dxf = Sxf.dot(createDws('x', 'f', dL(N, xrange, yrange), N, matrix_format=matrix_format))
-        Dyf = Syf.dot(createDws('y', 'f', dL(N, xrange, yrange), N, matrix_format=matrix_format))
+        Dyb = Syb.dot(createDws('y', 'b', dL(N, x_list, y_list), N, matrix_format=matrix_format))
+        Dxb = Sxb.dot(createDws('x', 'b', dL(N, x_list, y_list), N, matrix_format=matrix_format))
+        Dxf = Sxf.dot(createDws('x', 'f', dL(N, x_list, y_list), N, matrix_format=matrix_format))
+        Dyf = Syf.dot(createDws('y', 'f', dL(N, x_list, y_list), N, matrix_format=matrix_format))
 
         A = (Dxf*1/MU_0_).dot(Dxb) \
             + (Dyf*1/MU_0_).dot(Dyb) \
@@ -83,13 +85,13 @@ def construct_A(omega, xrange, yrange, eps_r, NPML, pol, L0,
         T_eps_x_inv = sp.spdiags(1/vector_eps_x, 0, M, M, format=matrix_format)
         T_eps_y_inv = sp.spdiags(1/vector_eps_y, 0, M, M, format=matrix_format)
 
-        (Sxf, Sxb, Syf, Syb) = S_create(omega, L0, N, NPML, xrange, yrange, matrix_format=matrix_format)
+        (Sxf, Sxb, Syf, Syb) = S_create(omega, L0, N, NPML, x_list, y_list, matrix_format=matrix_format)
 
         # Construct derivate matrices
-        Dyb = Syb.dot(createDws('y', 'b', dL(N, xrange, yrange), N, matrix_format=matrix_format))
-        Dxb = Sxb.dot(createDws('x', 'b', dL(N, xrange, yrange), N, matrix_format=matrix_format))
-        Dxf = Sxf.dot(createDws('x', 'f', dL(N, xrange, yrange), N, matrix_format=matrix_format))
-        Dyf = Syf.dot(createDws('y', 'f', dL(N, xrange, yrange), N, matrix_format=matrix_format))
+        Dyb = Syb.dot(createDws('y', 'b', dL(N, x_list, y_list), N, matrix_format=matrix_format))
+        Dxb = Sxb.dot(createDws('x', 'b', dL(N, x_list, y_list), N, matrix_format=matrix_format))
+        Dxf = Sxf.dot(createDws('x', 'f', dL(N, x_list, y_list), N, matrix_format=matrix_format))
+        Dyf = Syf.dot(createDws('y', 'f', dL(N, x_list, y_list), N, matrix_format=matrix_format))
 
         A =   Dxf.dot(T_eps_x_inv).dot(Dxb) \
             + Dyf.dot(T_eps_y_inv).dot(Dyb) \
