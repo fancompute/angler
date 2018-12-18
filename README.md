@@ -115,6 +115,6 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 ## Acknowledgments
 
-* our logo was made by [Nadine Gilmer](http://nadinegilmer.com/)
+* our logo was made by [Nadine Gilmer](http://nadinegilmer.com/) :)
 * RIP Ian's contributions before the code merge
 * We made use of a lot of code snippets (and advice) from [Jerry Shi](https://yujerryshi.github.io/index.html)
