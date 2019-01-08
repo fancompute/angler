@@ -6,7 +6,13 @@ C_0 = sqrt(1/EPSILON_0/MU_0)
 ETA_0 = sqrt(MU_0/EPSILON_0)
 
 DEFAULT_MATRIX_FORMAT = 'csr'
-DEFAULT_SOLVER = 'pardiso'
+
+try:
+    from pyMKL import pardisoSolver
+    DEFAULT_SOLVER = 'pardiso'
+except:
+    DEFAULT_SOLVER = 'scipy'
+
 DEFAULT_LENGTH_SCALE = 1e-6  # microns
 
 def n2_from_chi3(chi3):
