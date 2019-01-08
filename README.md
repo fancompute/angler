@@ -101,11 +101,12 @@ If you contribute a new feature, please also write a few tests and document your
 
 If you use `angler`, please cite us using
 
-	@misc{hughes2018adjoint,
-	Author = {Tyler W. Hughes and Momchil Minkov and Ian A. D. Williamson and Shanhui Fan},
-	Title = {Adjoint method and inverse design for nonlinear nanophotonic devices},
-	Year = {2018},
-	Eprint = {arXiv:1811.01255},
+	@article{hughes2018adjoint,
+	  title={Adjoint method and inverse design for nonlinear nanophotonic devices},
+	  author={Hughes, Tyler W and Minkov, Momchil and Williamson, Ian AD and Fan, Shanhui},
+	  journal={ACS Photonics},
+	  year={2018},
+	  publisher={ACS Publications}
 	}
 
 ## License
@@ -114,6 +115,6 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 ## Acknowledgments
 
-* our logo was made by [Nadine Gilmer](http://nadinegilmer.com/)
+* our logo was made by [Nadine Gilmer](http://nadinegilmer.com/) :)
 * RIP Ian's contributions before the code merge
 * We made use of a lot of code snippets (and advice) from [Jerry Shi](https://yujerryshi.github.io/index.html)

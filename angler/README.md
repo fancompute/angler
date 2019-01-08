@@ -122,13 +122,13 @@ arg1 = obj_arg('Ez', component='Ez', nl=False)
 arg2 = obj_arg('Ez_nl', component='Ez', nl=True)
 
 def J(Ez, Ez_nl):
-	E_P = Ez * P                # Ez at point P
-	abs_E_P = npa.abs(E_P)      # |Ez| at point P
-	I_P = npa.square(abs_E_P)   # intensity at point P
+    E_P = Ez * P                # Ez at point P
+    abs_E_P = npa.abs(E_P)      # |Ez| at point P
+    I_P = npa.square(abs_E_P)   # intensity at point P
     E_P_nl = Ez_nl * P                # nonlinear Ez at point P
     abs_E_P_nl = npa.abs(E_P_nl)      # nonlinear |Ez| at point P
     I_P_nl = npa.square(abs_E_P_nl)   # nonlinear intensity at point P
-	return I_P - I_P_nl
+    return I_P - I_P_nl
 
 objective = Objective(J, arg_list=[arg1, arg2])
 ```
