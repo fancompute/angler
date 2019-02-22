@@ -101,12 +101,15 @@ If you contribute a new feature, please also write a few tests and document your
 
 If you use `angler`, please cite us using
 
-	@article{hughes2018adjoint,
-	  title={Adjoint method and inverse design for nonlinear nanophotonic devices},
-	  author={Hughes, Tyler W and Minkov, Momchil and Williamson, Ian AD and Fan, Shanhui},
-	  journal={ACS Photonics},
-	  year={2018},
-	  publisher={ACS Publications}
+	@article{Hughes2018,
+	author = {Hughes, Tyler W. and Minkov, Momchil and Williamson, Ian A. D. and Fan, Shanhui},
+	title = {Adjoint Method and Inverse Design for Nonlinear Nanophotonic Devices},
+	journal = {ACS Photonics},
+	volume = {5},
+	number = {12},
+	pages = {4781-4787},
+	year = {2018},
+	doi = {10.1021/acsphotonics.8b01522}
 	}
 
 ## License
