@@ -40,7 +40,7 @@ def apply_regions(reg_list, xs, ys, eps_start, eps_background=1):
     return eps_r
 
 
-def three_port(L, H, w, d, l, spc, dl, NPML, eps_start):
+def three_port(L, H, w, d, l, spc, dl, NPML, eps_start, eps_background=1):
 
     # CONSTRUCTS A ONE IN TWO OUT PORT DEVICE
     # L         : box length in L0
@@ -72,7 +72,7 @@ def three_port(L, H, w, d, l, spc, dl, NPML, eps_start):
 
     reg_list = [box, wg_in, wg_top, wg_bot]
 
-    eps_r = apply_regions(reg_list, xs, ys, eps_start)
+    eps_r = apply_regions(reg_list, xs, ys, eps_start, eps_background=eps_background)
     design_region = apply_regions([box], xs, ys, 2) - 1
 
     return eps_r, design_region

@@ -308,8 +308,8 @@ class Simulation:
 
         if style == 'full':
             # eps_m filled in design region
-            eps_full = eps_m * np.ones(self.eps_r.shape)
-            eps_full[design_region == 0] = self.eps_r[design_region == 0]
+            eps_full = self.eps_r.copy()
+            eps_full[design_region == 1] = eps_m
             self.eps_r = eps_full
 
         elif style == 'halfway':
@@ -320,8 +320,8 @@ class Simulation:
 
         elif style == 'empty':
             # nothing in design region
-            eps_empty = np.ones(self.eps_r.shape)
-            eps_empty[design_region == 0] = self.eps_r[design_region == 0]
+            eps_empty = self.eps_r.copy()
+            eps_empty[design_region == 1] = 1
             self.eps_r = eps_empty
 
         elif style == 'random':
