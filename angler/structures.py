@@ -21,15 +21,15 @@ def get_grid(shape, dl):
     return (xs, ys)
 
 
-def apply_regions(reg_list, xs, ys, eps_start):
+def apply_regions(reg_list, xs, ys, eps_start, eps_background=1):
     # feed this function a list of regions and some coordinates and it spits out a permittivity
 
     # if it's not a list, make it one
     if not isinstance(reg_list, list):
         reg_list = [reg_list]
 
-    # initialize permittivity
-    eps_r = np.ones(xs.shape)
+    # initialize permittivity with some background value
+    eps_r = eps_background * np.ones(xs.shape)
 
     # loop through lambdas and apply masks
     for reg in reg_list:
