@@ -9,18 +9,20 @@ from autograd import grad
 from angler.constants import *
 from angler.filter import (eps2rho, rho2eps, get_W, deps_drhob, drhob_drhot,
                     drhot_drho, rho2rhot, drhot_drho, rhot2rhob)
+from angler.structures import holes2eps
 
 
 class Optimization():
 
     def __init__(self, objective, simulation, design_region, eps_m=5,
                  R=None, eta=0.5, beta=1e-9,
-                 field_start='linear', nl_solver='newton', max_ind_shift=None):
+                 field_start='linear', nl_solver='newton', max_ind_shift=None, holes=False):
 
         # store essential objects
         self.objective = objective
         self.simulation = simulation
         self.design_region = design_region
+        self.holes = holes
 
         # store and compute filter and projection objects
         self.R = R
@@ -37,6 +39,9 @@ class Optimization():
         self.field_start = field_start
         self.nl_solver = nl_solver
         self.max_ind_shift = max_ind_shift
+
+        # initialize simulation.rho
+        simulation.rho = eps2rho(self.simulation.eps_r, self.eps_m)
 
         # store things that will be used later
         self.src_amplitudes = []
@@ -197,20 +202,30 @@ class Optimization():
             self.simulation.rho = eps2rho(eps)
         
         self.fields_current = False
-        
-        allowed = ['LBFGS', 'GD', 'ADAM']
 
-        if method.lower() in ['lbfgs']:
-            self._run_LBFGS()
+        if self.holes:
+            allowed = ['ADAM']
 
-        elif method.lower() == 'gd':
-            self._run_GD(step_size=step_size)
+            if method.lower() == 'adam':
+                self._run_ADAM_holes(step_size=step_size, beta1=beta1, beta2=beta2)
 
-        elif method.lower() == 'adam':
-            self._run_ADAM(step_size=step_size, beta1=beta1, beta2=beta2)
+            else:
+                raise ValueError("'method' must be in {}".format(allowed))
 
         else:
-            raise ValueError("'method' must be in {}".format(allowed))
+            allowed = ['LBFGS', 'GD', 'ADAM']
+
+            if method.lower() in ['lbfgs']:
+                self._run_LBFGS()
+
+            elif method.lower() == 'gd':
+                self._run_GD(step_size=step_size)
+
+            elif method.lower() == 'adam':
+                self._run_ADAM(step_size=step_size, beta1=beta1, beta2=beta2)
+
+            else:
+                raise ValueError("'method' must be in {}".format(allowed))
 
     def _run_GD(self, step_size):
         """ Performs simple grad descent optimization"""
@@ -260,6 +275,7 @@ class Optimization():
                     self.plot_it(iteration)
 
             self._update_rho(grad_adam, step_size)
+
 
     def _run_LBFGS(self):
         """Performs L-BFGS Optimization of objective function w.r.t. eps_r"""
@@ -600,3 +616,86 @@ class Optimization():
                 file_path = os.path.join(folder, the_file)
                 if os.path.isfile(file_path):
                     os.unlink(file_path)
+
+
+    def compute_drho(self):
+        # Computes numerically the gradient of rho w.r.t. all the holes parameters
+
+        drhodh = np.zeros((self.simulation.holes.shape[0], self.simulation.holes.shape[1], 
+            self.simulation.Nx, self.simulation.Ny), dtype=np.complex128)
+
+        eps_start = copy.deepcopy(self.simulation.eps_r)
+        eps_noholes = copy.deepcopy(self.simulation.eps_noholes)
+        holes_new = copy.deepcopy(self.simulation.holes)
+        dl = self.simulation.dl
+
+        for ih in range(self.simulation.holes.shape[1]):
+
+            # Change the x position by one resolution step to make sure something will change
+            step = dl
+            holes_new[0, ih] += step
+            eps_new = holes2eps(eps_noholes, holes_new, dl, self.simulation.eps_h)
+            drhodh[0, ih, :, :] = (eps_new - eps_start)/step
+            holes_new[0, ih] -= step
+
+            # Change the y position by one resolution step to make sure something will change
+            step = dl
+            holes_new[1, ih] += step
+            eps_new = holes2eps(eps_noholes, holes_new, dl, self.simulation.eps_h)
+            drhodh[1, ih, :, :] = (eps_new - eps_start)/dl
+            holes_new[1, ih] -= step
+
+            # Change the diameter by one resolution step to make sure something will change
+            step = dl/2
+            holes_new[2, ih] += step
+            eps_new = holes2eps(eps_noholes, holes_new, dl, self.simulation.eps_h)
+            drhodh[2, ih, :, :] = (eps_new - eps_start)/step
+            holes_new[2, ih] -= step
+
+        return drhodh
+
+
+    def _run_ADAM_holes(self, step_size, beta1, beta2):
+        """ Performs simple grad descent optimization"""
+        pbar = self._make_progressbar(self.Nsteps)
+
+        for iteration in range(self.Nsteps):
+
+            J = self.compute_J(self.simulation)
+            self.objfn_list.append(J)
+            # pbar.update(iteration, ObjectiveFn=J)
+            self._update_progressbar(pbar, iteration, J)
+
+            self._set_source_amplitude()
+
+            # Get dJ/drho
+            grad = self.compute_dJ(self.simulation, self.design_region)
+
+            # Get drho/dholes
+            drhodh = self.compute_drho()
+            (_, Nh, Nx, Ny) = drhodh.shape
+
+            grad_holes = np.reshape(drhodh, (3, Nh, Nx*Ny)).dot(grad.ravel())
+
+            if iteration == 0:
+                mopt = np.zeros(grad_holes.shape)
+                vopt = np.zeros(grad_holes.shape)
+
+            (grad_adam, mopt, vopt) = self._step_adam(grad_holes, mopt, vopt, iteration, beta1, beta2,)
+
+            if self.temp_plt is not None:
+                if np.mod(iteration, self.temp_plt.it_plot) == 0:
+                    self.plot_it(iteration)
+
+            self._update_holes(grad_adam, step_size)
+
+
+
+    def _update_holes(self, grad, step_size):
+        """ Manually updates the permittivity with the grad info """
+
+        new_holes = self.simulation.holes + step_size*grad
+        self.simulation.apply_holes(new_holes[0, :], new_holes[1, :], new_holes[2, :], eps_h=self.simulation.eps_h)
+        self.simulation.rho = eps2rho(self.simulation.eps_r, self.eps_m)
+
+        self.fields_current = False

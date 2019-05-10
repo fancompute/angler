@@ -11,6 +11,7 @@ from angler.constants import (DEFAULT_LENGTH_SCALE, DEFAULT_MATRIX_FORMAT,
                               DEFAULT_SOLVER, EPSILON_0, MU_0)
 from angler.filter import eps2rho
 from angler.plot import plt_base_eps, plt_base
+from angler.structures import holes2eps
 
 class Simulation:
 
@@ -443,3 +444,22 @@ class Simulation:
 
         return plt_base_eps(eps_val, outline_val, cmap, vmin, vmax, cbar=cbar,
                             outline=outline, ax=ax)
+
+    def apply_holes(self, x, y, r, eps_h=1):
+        # Initizlize holes at position (x, y) of radius r
+
+        # Ravel the arrays in case they are not 1D
+        x = x.ravel()
+        y = y.ravel()
+        r = r.ravel()
+
+        if (x.shape != y.shape) or (y.shape != r.shape):
+            raise AssertionError("Arrays of hole positions x, y, and radii r must all have the same shape")
+
+        # Save the eps_r before applying any holes
+        if not hasattr(self, 'eps_noholes'):
+            self.eps_noholes = deepcopy(self.eps_r)
+
+        self.holes = np.vstack((x, y, r))
+        self.eps_h = eps_h 
+        self.eps_r = holes2eps(self.eps_noholes, self.holes, self.dl, eps_h=eps_h)

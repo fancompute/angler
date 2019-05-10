@@ -1,5 +1,6 @@
 import numpy as np
 import copy
+import matplotlib.pylab as plt
 
 """
 This is where you can custom define functions that create relative permittivities
@@ -212,3 +213,27 @@ def accelerator_multi(beta, gap, lambda0, L, spc, num_channels, dl, NPML, eps_st
     design_region = design_region - 1
 
     return eps_r, design_region    
+
+
+def holes2eps(eps_r, holes, dl, eps_h=1):
+    # Insert into eps_r holes at position (x, y) of radius r and permittivity eps_h
+    # holes is a numpy array of size [3, Nh], with x, y, and r in the three rows
+
+    x = holes[0, :]
+    y = holes[1, :]
+    r = holes[2, :]
+
+    shape = eps_r.shape                   # shape of domain (in num. grids)
+
+    # x and y coordinate arrays
+    xs, ys = get_grid(shape, dl)
+
+    eps_h = np.ones(shape)
+    for ih in range(x.shape[0]):
+        mask = (xs - x[ih])**2 + (ys - y[ih])**2 < r[ih]**2
+        eps_h[mask] = 0
+
+    # Apply the holes to sim.eps_r
+    eps_r = eps_r*eps_h + (1 - eps_h)
+
+    return eps_r
