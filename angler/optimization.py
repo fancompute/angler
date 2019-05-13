@@ -16,13 +16,15 @@ class Optimization():
 
     def __init__(self, objective, simulation, design_region, eps_m=5,
                  R=None, eta=0.5, beta=1e-9,
-                 field_start='linear', nl_solver='newton', max_ind_shift=None, holes=False):
+                 field_start='linear', nl_solver='newton', max_ind_shift=None, 
+                 holes=False, holes_constraints={}):
 
         # store essential objects
         self.objective = objective
         self.simulation = simulation
         self.design_region = design_region
         self.holes = holes
+        self.holes_constraints = holes_constraints # Dictionary with constraints for the hole optimization (see _update_holes())
 
         # store and compute filter and projection objects
         self.R = R
@@ -41,7 +43,7 @@ class Optimization():
         self.max_ind_shift = max_ind_shift
 
         # initialize simulation.rho
-        simulation.rho = eps2rho(self.simulation.eps_r, self.eps_m)
+        self.simulation.rho = eps2rho(self.simulation.eps_r, self.eps_m)
 
         # store things that will be used later
         self.src_amplitudes = []
@@ -203,29 +205,26 @@ class Optimization():
         
         self.fields_current = False
 
-        if self.holes:
-            allowed = ['ADAM']
-
-            if method.lower() == 'adam':
-                self._run_ADAM_holes(step_size=step_size, beta1=beta1, beta2=beta2)
-
-            else:
-                raise ValueError("'method' must be in {}".format(allowed))
-
+        if self.holes: 
+            allowed = ['GD', 'ADAM']
         else:
             allowed = ['LBFGS', 'GD', 'ADAM']
 
-            if method.lower() in ['lbfgs']:
-                self._run_LBFGS()
+        allowed = [a.lower() for a in allowed]
 
-            elif method.lower() == 'gd':
-                self._run_GD(step_size=step_size)
+        if method.lower() not in allowed:
+            raise ValueError("For Optimization.holes set to {} 'method' must be in {}"
+                                                        .format(self.holes, allowed))
 
-            elif method.lower() == 'adam':
-                self._run_ADAM(step_size=step_size, beta1=beta1, beta2=beta2)
+        if method.lower() in ['lbfgs']:
+            self._run_LBFGS()
 
-            else:
-                raise ValueError("'method' must be in {}".format(allowed))
+        elif method.lower() == 'gd':
+            self._run_GD(step_size=step_size)
+
+        elif method.lower() == 'adam':
+            self._run_ADAM(step_size=step_size, beta1=beta1, beta2=beta2)
+
 
     def _run_GD(self, step_size):
         """ Performs simple grad descent optimization"""
@@ -243,11 +242,20 @@ class Optimization():
 
             grad = self.compute_dJ(self.simulation, self.design_region)
 
+            if self.holes:
+                # Get drho/dholes and compute the gradient with respect to self.simulation.holes
+                drhodh = self.compute_drho()
+                (_, Nh, Nx, Ny) = drhodh.shape
+                grad = np.reshape(drhodh, (3, Nh, Nx*Ny)).dot(grad.ravel())
+
             if self.temp_plt is not None:
                 if np.mod(iteration, self.temp_plt.it_plot) == 0:
                     self.plot_it(iteration)
 
-            self._update_rho(grad, step_size)
+            if self.holes:
+                self._update_holes(grad, step_size)
+            else:
+                self._update_rho(grad, step_size)
 
     def _run_ADAM(self, step_size, beta1, beta2):
         """ Performs simple grad descent optimization"""
@@ -264,17 +272,26 @@ class Optimization():
 
             grad = self.compute_dJ(self.simulation, self.design_region)
 
+            if self.holes:
+                # Get drho/dholes and compute the gradient with respect to self.simulation.holes
+                drhodh = self.compute_drho()
+                (_, Nh, Nx, Ny) = drhodh.shape
+                grad = np.reshape(drhodh, (3, Nh, Nx*Ny)).dot(grad.ravel())
+
             if iteration == 0:
                 mopt = np.zeros(grad.shape)
                 vopt = np.zeros(grad.shape)
 
-            (grad_adam, mopt, vopt) = self._step_adam(grad, mopt, vopt, iteration, beta1, beta2,)
+            (grad_adam, mopt, vopt) = self._step_adam(grad, mopt, vopt, iteration, beta1, beta2)
 
             if self.temp_plt is not None:
                 if np.mod(iteration, self.temp_plt.it_plot) == 0:
                     self.plot_it(iteration)
 
-            self._update_rho(grad_adam, step_size)
+            if self.holes:
+                self._update_holes(grad_adam, step_size)
+            else:
+                self._update_rho(grad_adam, step_size)
 
 
     def _run_LBFGS(self):
@@ -652,50 +669,121 @@ class Optimization():
             drhodh[2, ih, :, :] = (eps_new - eps_start)/step
             holes_new[2, ih] -= step
 
-        return drhodh
-
-
-    def _run_ADAM_holes(self, step_size, beta1, beta2):
-        """ Performs simple grad descent optimization"""
-        pbar = self._make_progressbar(self.Nsteps)
-
-        for iteration in range(self.Nsteps):
-
-            J = self.compute_J(self.simulation)
-            self.objfn_list.append(J)
-            # pbar.update(iteration, ObjectiveFn=J)
-            self._update_progressbar(pbar, iteration, J)
-
-            self._set_source_amplitude()
-
-            # Get dJ/drho
-            grad = self.compute_dJ(self.simulation, self.design_region)
-
-            # Get drho/dholes
-            drhodh = self.compute_drho()
-            (_, Nh, Nx, Ny) = drhodh.shape
-
-            grad_holes = np.reshape(drhodh, (3, Nh, Nx*Ny)).dot(grad.ravel())
-
-            if iteration == 0:
-                mopt = np.zeros(grad_holes.shape)
-                vopt = np.zeros(grad_holes.shape)
-
-            (grad_adam, mopt, vopt) = self._step_adam(grad_holes, mopt, vopt, iteration, beta1, beta2,)
-
-            if self.temp_plt is not None:
-                if np.mod(iteration, self.temp_plt.it_plot) == 0:
-                    self.plot_it(iteration)
-
-            self._update_holes(grad_adam, step_size)
+        # Return only the change with respect to the real part of the permittivity
+        return np.real(drhodh)
 
 
 
     def _update_holes(self, grad, step_size):
-        """ Manually updates the permittivity with the grad info """
+        """ Manually updates the permittivity with the grad info
+        Constraints included in the self.holes_constraints dict will be applied. Currently supported:
+            fix_x : True        - Does not update the x-positions
+            fix_y : True        - Does not update the y-positions
+            fix_r : True        - Does not update the radii
+            r_min : scalar      - Truncates the minimum radius to r_min 
+            r_max : scalar      - Truncates the maximum radius to r_max
+            r_rem : scalar      - Removes the hole if radius gets below r_rem
+            min_dist : scalar   - Imposes a minimum separation between holes (update is not accepted otherwise)
+        """
 
-        new_holes = self.simulation.holes + step_size*grad
-        self.simulation.apply_holes(new_holes[0, :], new_holes[1, :], new_holes[2, :], eps_h=self.simulation.eps_h)
+        def min_separation(holes, ih):
+            """
+            Returns the min separation between the hole given by 
+            holes[:, ih] and all the other holes in the array.
+            Negative separation when they overlap. 
+            """
+
+            min_sep = 1e10
+            for ih1 in range(holes.shape[1]):
+                if ih1 != ih:
+                    cent_dist = np.sqrt((holes[0, ih1] - holes[0, ih])**2 + 
+                                        (holes[1, ih1] - holes[1, ih])**2)
+                    sep = cent_dist - holes[2, ih1] - holes[2, ih]
+                    if sep < min_sep:
+                        min_sep = sep
+
+            return min_sep
+
+        def parse_constraints(consts):
+            """
+            Do some parsing on the constraints dictionary
+            """
+            fix_x, fix_y, fix_r = False, False, False
+
+            if 'fix_r' in consts:
+                if self.holes_constraints['fix_r']==True:
+                    fix_r = True
+
+            if 'fix_x' in consts:
+                if self.holes_constraints['fix_x']==True:
+                    fix_x = True
+
+            if 'fix_y' in consts:
+                if self.holes_constraints['fix_y']==True:
+                    fix_y = True
+
+            return (fix_x, fix_y, fix_r)
+
+        ### Main update function below
+
+        new_holes = self.simulation.holes
+        (fix_x, fix_y, fix_r) = parse_constraints(self.holes_constraints)
+
+        # First change all the radii, starting from the ones with the largest gradient
+        if not fix_r:
+            grad_r = grad[2, :]
+            inds_r = np.argsort(np.abs(grad_r))
+            for ir in np.flip(inds_r):
+
+                new_r = new_holes[2, ir] + step_size*grad_r[ir]
+
+                # First impose radius truncation constraints
+                for const_key, const_val in self.holes_constraints.items():
+                    if const_key == 'r_min' and new_r < const_val:
+                        new_r = const_val
+                    elif const_key == 'r_max' and new_r > const_val:
+                        new_r = const_val
+                    elif const_key =='r_rem' and new_r < const_val:
+                        new_r = 0
+
+                old_r = new_holes[2, ir]
+                new_holes[2, ir] = new_r
+
+                # Now also check distance if need be
+                if 'min_dist' in self.holes_constraints: 
+                    min_sep = min_separation(new_holes, ir)
+                    if min_sep < self.holes_constraints['min_dist']:
+                        new_holes[2, ir] = old_r
+
+        # Now change positions starting from x and then y (maybe combine in the future)
+        if not fix_x:
+            grad_x = grad[0, :]
+            inds_x = np.argsort(np.abs(grad_x))
+            for ix in np.flip(inds_x):
+                old_x = new_holes[0, ix]
+                new_holes[0, ix] = new_holes[0, ix] + step_size*grad_x[ix]
+
+                # Check separation if needed
+                if 'min_dist' in self.holes_constraints: 
+                    min_sep = min_separation(new_holes, ix)
+                    if min_sep < self.holes_constraints['min_dist']:
+                        new_holes[0, ix] = old_x
+
+        if not fix_y:
+            grad_y = grad[1, :]
+            inds_y = np.argsort(np.abs(grad_y))
+            for iy in np.flip(inds_y):
+                old_y = new_holes[1, iy]
+                new_holes[1, iy] = new_holes[1, iy] + step_size*grad_y[iy]
+
+                # Check separation if needed
+                if 'min_dist' in self.holes_constraints:
+                    min_sep = min_separation(new_holes, iy)
+                    if min_sep < self.holes_constraints['min_dist']:
+                        new_holes[1, iy] = old_y
+
+        self.simulation.apply_holes(new_holes[0, :], new_holes[1, :], new_holes[2, :], 
+                                                        eps_h=self.simulation.eps_h)
         self.simulation.rho = eps2rho(self.simulation.eps_r, self.eps_m)
 
         self.fields_current = False
