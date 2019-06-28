@@ -108,6 +108,46 @@ def two_port(L, H, w, l, spc, dl, NPML, eps_start):
     return eps_r, design_region
 
 
+def N_port(N, L, H, w, d, l, spc, dl, NPML, eps_start, eps_background=1):
+
+    # CONSTRUCTS A ONE IN N OUT PORT DEVICE
+    # N         : number of outputs
+    # L         : box length in L0
+    # H         : box width  in L0
+    # w         : waveguide widths in L0
+    # d         : distance between adjacent waveguide (centers) in L0
+    # dl        : grid size in L0
+    # l         : distance between waveguide and design region in L0 (x)
+    # spc       : spc bewtween PML and top/bottom of design region    
+    # shape     : shape of the permittivity output
+    # eps_start : starting relative permittivity
+
+    Nx = 2*NPML[0] + int((2*l + L)/dl)       # num. grids in horizontal
+    Ny = 2*NPML[1] + int((H + 2*spc)/dl)   # num. grids in vertical
+    nx, ny = int(Nx/2), int(Ny/2)            # halfway grid points
+    shape = (Nx, Ny)                          # shape of domain (in num. grids)
+
+    y_mid = 0
+    wg_width_px = int(w/dl)
+
+    # x and y coordinate arrays
+    xs, ys = get_grid(shape, dl)
+
+    # define the regions
+    box    = lambda x, y: (np.abs(x) < L/2) * (np.abs(y-y_mid) < H/2)
+    wg_in  = lambda x, y: (x < 0)           * (np.abs(y-0.01) < dl*wg_width_px/2)  # note, this slight offset is to fix gridding issues
+
+    reg_list = [box, wg_in]
+    for i in range(N):
+        y_i = (float(i)-float(N-1)/2.0)*d
+        wg_i = lambda x, y, y_i=y_i: (x > 0)           * (np.abs(y-y_i) < dl*wg_width_px/2)
+        reg_list.append(wg_i)
+
+    eps_r = apply_regions(reg_list, xs, ys, eps_start, eps_background=eps_background)
+    design_region = apply_regions([box], xs, ys, 2) - 1
+
+    return eps_r, design_region
+
 def ortho_port(L, L2, H, H2, w, l, dl, NPML, eps_start):
 
     # CONSTRUCTS A TOP DOWN, LEFT RIGHT OUT PORT DEVICE
