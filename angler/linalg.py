@@ -44,6 +44,7 @@ def is_equal(matrix1, matrix2):
 
 def construct_A(omega, xrange, yrange, eps_r, NPML, pol, L0,
                 averaging=True,
+                use_dirichlet_bcs=False,
                 timing=False,
                 matrix_format=DEFAULT_MATRIX_FORMAT):
     # makes the A matrix
@@ -60,10 +61,10 @@ def construct_A(omega, xrange, yrange, eps_r, NPML, pol, L0,
         (Sxf, Sxb, Syf, Syb) = S_create(omega, L0, N, NPML, xrange, yrange, matrix_format=matrix_format)
 
         # Construct derivate matrices
-        Dyb = Syb.dot(createDws('y', 'b', dL(N, xrange, yrange), N, matrix_format=matrix_format))
-        Dxb = Sxb.dot(createDws('x', 'b', dL(N, xrange, yrange), N, matrix_format=matrix_format))
-        Dxf = Sxf.dot(createDws('x', 'f', dL(N, xrange, yrange), N, matrix_format=matrix_format))
-        Dyf = Syf.dot(createDws('y', 'f', dL(N, xrange, yrange), N, matrix_format=matrix_format))
+        Dyb = Syb.dot(createDws('y', 'b', dL(N, xrange, yrange), N, matrix_format=matrix_format, use_dirichlet_bcs=use_dirichlet_bcs))
+        Dxb = Sxb.dot(createDws('x', 'b', dL(N, xrange, yrange), N, matrix_format=matrix_format, use_dirichlet_bcs=use_dirichlet_bcs))
+        Dxf = Sxf.dot(createDws('x', 'f', dL(N, xrange, yrange), N, matrix_format=matrix_format, use_dirichlet_bcs=use_dirichlet_bcs))
+        Dyf = Syf.dot(createDws('y', 'f', dL(N, xrange, yrange), N, matrix_format=matrix_format, use_dirichlet_bcs=use_dirichlet_bcs))
 
         A = (Dxf*1/MU_0_).dot(Dxb) \
             + (Dyf*1/MU_0_).dot(Dyb) \
@@ -86,10 +87,10 @@ def construct_A(omega, xrange, yrange, eps_r, NPML, pol, L0,
         (Sxf, Sxb, Syf, Syb) = S_create(omega, L0, N, NPML, xrange, yrange, matrix_format=matrix_format)
 
         # Construct derivate matrices
-        Dyb = Syb.dot(createDws('y', 'b', dL(N, xrange, yrange), N, matrix_format=matrix_format))
-        Dxb = Sxb.dot(createDws('x', 'b', dL(N, xrange, yrange), N, matrix_format=matrix_format))
-        Dxf = Sxf.dot(createDws('x', 'f', dL(N, xrange, yrange), N, matrix_format=matrix_format))
-        Dyf = Syf.dot(createDws('y', 'f', dL(N, xrange, yrange), N, matrix_format=matrix_format))
+        Dyb = Syb.dot(createDws('y', 'b', dL(N, xrange, yrange), N, matrix_format=matrix_format, use_dirichlet_bcs=use_dirichlet_bcs))
+        Dxb = Sxb.dot(createDws('x', 'b', dL(N, xrange, yrange), N, matrix_format=matrix_format, use_dirichlet_bcs=use_dirichlet_bcs))
+        Dxf = Sxf.dot(createDws('x', 'f', dL(N, xrange, yrange), N, matrix_format=matrix_format, use_dirichlet_bcs=use_dirichlet_bcs))
+        Dyf = Syf.dot(createDws('y', 'f', dL(N, xrange, yrange), N, matrix_format=matrix_format, use_dirichlet_bcs=use_dirichlet_bcs))
 
         A =   Dxf.dot(T_eps_x_inv).dot(Dxb) \
             + Dyf.dot(T_eps_y_inv).dot(Dyb) \
